@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M09",
+  "status": "PASS",
+  "startingCommit": "228d298",
+  "endingCommit": "8fe6268f2d079dae66692831bed6a0a178a3371f",
+  "branch": "feat/m09-kite-payment-broker",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "8fe6268 docs(m09): ADR 0003 records the replay, session-binding and session-lifetime review fixes",
+    "edf7b22 test(m09): no-effect producer sweep across LOCAL_STAND_IN, RECORDED_CONTRACT and the M01 contract fake",
+    "e6daf56 fix(m09): a not-sent refusal is no-effect proof only on a first send that was never handed off",
+    "114b320 fix(m09): one shared execution precondition gate for linearization and same-key replay",
+    "34e24c2 test(m09): replay must pass every linearization precondition; not-sent refusals prove nothing on replay (red)",
+    "230d186 fix(m09): provider session lifetime comes from the database clock and never outlives the authority",
+    "ef580d1 fix(m09): Kite execution is bound to the authority's own confirmed session",
+    "9f7848a fix(m09): same-key replay reruns every linearization check under the authority lock",
+    "fdf0b83 test(m09): review findings - replay revalidation, bound Kite session, DB-clock session lifetime (red)",
+    "8274eb6 fix(m09): reference-use rows carry a (tenant_id, id) key; T-009/T-011 catalogues include M09",
+    "dbbdca4 test(m09): security review regressions for authority forgery, reference misuse, over-capture and refund-as-credit",
+    "a0d90b7 docs(m09): ADR 0003 exclusive Kite broker and Kite Passport findings",
+    "0970530 feat(m09): exclusive kite-broker service, adapters and isolation boundary",
+    "e56ba03 feat(m09): @uptimebuyer/commerce credential-free authority, budget and intents",
+    "aaf835b feat(m09): broker migration 0016, commerce RBAC actions and the broker worker context",
+    "d75bfa8 test(m09): T-037..T-040, T-006 SQL edges and T-010/T-011 commerce scope (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-10", "FR-11", "FR-12", "FR-21"],
+    "nonfunctional": ["NFR-02", "NFR-03", "NFR-04", "NFR-05", "NFR-06", "NFR-11"],
+    "invariants": ["INV-02", "INV-03", "INV-05", "INV-06", "INV-07", "INV-08", "INV-12", "INV-13", "INV-15"],
+    "tests": ["T-037", "T-038", "T-039", "T-040"]
+  },
+  "jointlyEnforced": [
+    "INV-16 / T-010 and FR-24 / T-011 re-run over the M09 tables, commands and broker ingress (apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts); T-011 action catalogue extended with commerce.*",
+    "T-006 re-run: SQL edge functions in migration 0016 compared pair-by-pair with the domain machines (t006-broker-sql-edges.int.test.ts)",
+    "T-009 migration list extended with 0016",
+    "T-029 real-broker path re-asserted by T-039 (M07 executeContactRequest against KiteBrokerPort over the unix socket)",
+    "T-028 race against reserve-plus-SEND_STARTED (moved to T-040) covered"
+  ],
+  "changedFiles": [
+    "packages/data/migrations/0016_m09_kite_broker.sql",
+    "packages/data/src/authz.ts (commerce.* actions)",
+    "packages/data/src/context.ts, packages/data/src/index.ts (issueBrokerWorkerContext)",
+    "packages/data/test/t011-role-authority-denial.int.test.ts, packages/data/test/t009-migration-forward-fix.int.test.ts",
+    "packages/commerce/** (new @uptimebuyer/commerce)",
+    "apps/kite-broker/** (new @uptimebuyer/kite-broker: src + tests + test/support processes)",
+    "eslint.config.mjs (no-restricted-imports for the broker)",
+    "tsconfig.json, pnpm-lock.yaml (workspace links only)",
+    "docs/adr/0003-kite-broker.md, docs/handoffs/M09.json"
+  ],
+  "diffSummary": "Migration 0016 (signed execution authorities bound to paid PLAN_ACTION approvals, append-only authority events, separate Kite-session operations, ledger-maintained budget accounts, budget_ledger_entries with per-capture returned_against_minor, commercial intents with the partial unique (tenant_id, action_digest) WHERE state <> 'FAILED', one external attempt per intent, receipts, reference-replay records, SQL edge functions, guards UB091-UB099 and a deferred reserve+SEND_STARTED consistency trigger). @uptimebuyer/commerce: approvePlanAction (M08 request -> M02 approval -> binding, plan APPROVABLE->APPROVED), issueExecutionAuthority (Ed25519, idempotent per approval), changeExecutionAuthorityStatus, expireLapsedAuthorities, adjustExecutionAuthorityBudget, createCommercialIntent, getExecutionAuthority/getCommercialIntent, resolveUnknownIntentManually, KiteBrokerPort. apps/kite-broker: socket server, KiteBroker (linearization, outcome application, reconciliation, sweeps), LOCAL_STAND_IN / RECORDED_CONTRACT / KitePassportAdapter / UnconfiguredAdapter, fd/0600 secret loader, scrubbing logger.",
+  "configChanges": [
+    "root tsconfig references packages/commerce, apps/kite-broker, apps/kite-broker/test",
+    "eslint: no-restricted-imports forbids @uptimebuyer/kite-broker and apps/kite-broker sources outside apps/kite-broker",
+    "apps/kite-broker/package.json exports only ./package.json; start script `node --disable-sigusr1 dist/main.js --socket <path> --secret-fd <n>|--secret-file <path>`",
+    "pnpm-lock.yaml: workspace links only, no new external dependency"
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run apps/kite-broker/test packages/data/test/t011-role-authority-denial.int.test.ts (throwaway worktree at 228d298 + the test files only)",
+      "cwd": "tmp/m09-red worktree",
+      "commitSha": "d75bfa8",
+      "exitCode": 1,
+      "resultSummary": "RED: 12/12 new test files failed (commerce/broker sources absent); T-011 2 failed / 6 passed on the commerce.* catalogue"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/kite-broker/test/t040-review-findings.int.test.ts; npx vitest run --project unit apps/kite-broker/test/t040-kite-passport-adapter.test.ts",
+      "cwd": "repo root",
+      "commitSha": "fdf0b83",
+      "exitCode": 1,
+      "resultSummary": "RED (coordinator MEDIUM 1-3): replay re-sent after revocation/evidence change; no bound session ref / no --session-id; TTL from broker clock rounded up"
+    },
+    {
+      "command": "DATABASE_URL=... npx vitest run --project integration apps/kite-broker/test/t040-replay-preconditions.int.test.ts; npx vitest run --project unit apps/kite-broker/test/t040-execution-paths.test.ts",
+      "cwd": "repo root",
+      "commitSha": "34e24c2",
+      "exitCode": 1,
+      "resultSummary": "RED (coordinator HIGH 1-3): 7/7 integration and 2/2 structural cases failed (replay missed decision gate/stored digest/binding; not-sent refusals released reservations)"
+    },
+    {
+      "command": "pnpm format && DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "edf7b22",
+      "exitCode": 0,
+      "testCounts": {
+        "unitFiles": 36,
+        "unit": 768,
+        "integrationFiles": 65,
+        "integration": 334
+      },
+      "resultSummary": "PASS: lint, format:check, typecheck, unit, integration, build, check:pack, secrets:scan"
+    }
+  ],
+  "redEvidence": "Test-first: d75bfa8 committed the tests alone; run in a throwaway worktree at the M08 tip with only those tests: 12/12 new test files failed (commerce and broker sources absent) and T-011 failed 2 cases on the commerce.* catalogue. Implementation runs surfaced and fixed (before the feat commits): PostgreSQL regex repetition > 255 in CHECKs; a synchronous CONFIRMED skipping RESERVED->SUBMITTED; deadlocks between FOR UPDATE row locks and foreign-key KEY SHARE locks of child inserts (now FOR NO KEY UPDATE everywhere, found by T-038's concurrent-movement test); a policy publish awaited inside the open linearization transaction self-deadlocked (test now lets it serialize after commit). dbbdca4 adds green security-review regressions for those fixes. Review rounds: fdf0b83 (MEDIUM 1-3 red) -> 9f7848a/ef580d1/230d186; 34e24c2 (HIGH 1-3 red) -> 114b320/e6daf56, producer sweep edf7b22. 8274eb6 fixed a verify finding (broker_reference_uses lacked the (tenant_id, id) key) by correcting the still-unreleased 0016 in place (never applied outside throwaway test databases).",
+  "evidence": {
+    "T-039 processes": "t039-isolation-processes: broker, LOCAL_STAND_IN and three probe processes (general-worker, api, model-serv) are separate OS processes; the credential arrives on an fd-3 pipe; probes fail TLS without/with attacker certificates, plain HTTP and raw TCP, see no secret in `ps eww` of the broker or in a dump of every database table, and get 403/404/400 for forged, authority-embedding, wrong-route and non-JSON broker input; the stand-in's authorized/execute counters do not move.",
+    "T-040 processes": "t040-crash-processes: the broker is SIGKILLed (TEST-mode fault points) inside the linearization transaction, after SEND_STARTED, after the stand-in effect and during lookup; restarts converge by the original key with exactly one stand-in effect, UNKNOWN never REQUESTED.",
+    "Kite adapter": "t040-kite-passport-adapter: recorded `kpass` stand-in script (not Kite) checks argv/env/HOME and outcome mapping."
+  },
+  "verification": "pnpm verify exit 0 at edf7b22 (768 unit / 334 integration; 36 + 65 files). The following commit only edits ADR 0003 (docs); this handoff is committed on top.",
+  "externalEvidence": {
+    "kitePayment": "NOT_RUN (no credential, no authorization; KitePassportAdapter UNSUPPORTED by default)",
+    "kiteSession": "NOT_RUN",
+    "kiteLiveCatalog": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "productionNetworkPolicy": "NOT_RUN (local same-uid process isolation only)",
+    "distinctWorkloadIdentity": "NOT_RUN",
+    "openServ": "NOT_RUN"
+  },
+  "schemaOrApiChanges": [
+    "Tables: plan_approval_bindings, execution_authorities, execution_authority_events, execution_authority_sessions, budget_accounts, budget_ledger_entries, commercial_intents, commercial_intent_transitions, external_attempts, external_receipts, broker_reference_uses; approvals.target_execution_authority_id FK (NOT VALID).",
+    "SQL helpers: ub_external_outcome_edge_ok, ub_attempt_transport_edge_ok, ub_economic_intent_edge_ok, ub_execution_authority_edge_ok, ub_approval_executable; SQLSTATEs UB091-UB099.",
+    "Events emitted: execution_authority.issued.v1, execution_authority.state_changed.v1, execution_authority.session_changed.v1, commercial_intent.created.v1, commercial_intent.state_changed.v1 (resultOrigin KITE_BROKER), external_attempt.send_started/accepted/unknown/reconciled/capability_changed.v1, budget.movement_recorded.v1.",
+    "Broker ingress (unix socket): POST /v1/execution-references/activate-session | execute | reconcile, body = one strict SignedExecutionReference; GET /health/live.",
+    "API-EVENT-SPEC endpoints realised as functions (no HTTP API server exists yet): POST /v1/plans/{id}:approve -> approvePlanAction; POST /v1/approvals/{id}/execution-authorities -> issueExecutionAuthority (+ KiteBrokerPort.activateSession); GET /v1/execution-authorities/{id} -> getExecutionAuthority; POST .../adjustments -> adjustExecutionAuthorityBudget; POST ...:revoke -> changeExecutionAuthorityStatus; POST /v1/plan-actions/{id}:execute -> createCommercialIntent + KiteBrokerPort.execute; GET /v1/intents/{id} -> getCommercialIntent.",
+    "@uptimebuyer/data: issueBrokerWorkerContext(tenantId, sourceId); RBAC actions commerce.read, commerce.authority_issue, commerce.authority_manage, commerce.intent_create, commerce.budget_adjust, commerce.manual_resolve, commerce.engine."
+  ],
+  "migrationOrRollback": "0016_m09_kite_broker.sql is additive (new tables, functions, one NOT VALID FK on approvals). Forward-only per packages/data/migrations/README.md; a release that stops using the broker can drop the new tables in a later migration. Ledger, intents, attempts and authority events are append-only by design and must not be rewritten.",
+  "specAmbiguitiesResolved": [
+    "One action digest per authority: allowedActionKinds = [subject kind], per-action limit = subject amount, base (aggregate) limit = approval maximum; intents bind exactly the per-action limit.",
+    "Plan-action approvals are recorded by M09 from the exact M08-prepared scope and bound to the request; paid contact approvals come from M02 recordApproval (M07); issuance names the subject and recomputes its digest.",
+    "Approvals are not CONSUMED at issuance, so M06/M08/M02 invalidation keeps blocking new reserves; in-flight effects reconcile regardless.",
+    "Transient linearization holds (authority SUSPENDED, session not CONFIRMED, insufficient available authority) leave the intent CREATED; permanent invalidity (revoked/expired authority or approval, digest/subject mismatch, stale asset/evidence/policy, provider revision not current, M06 gate, pre-egress UNSUPPORTED capability) makes it definite-no-effect FAILED.",
+    "A provider lookup 'not found' is authoritative no-effect only when the adapter guarantees fencing of that key (LOCAL_STAND_IN and RECORDED_CONTRACT do; Kite does not document it).",
+    "A claimed capture above the open reservation is never captured: UNKNOWN, capability UNSUPPORTED, manual review.",
+    "UNKNOWN -> REFUNDED/REVERSED is taken directly when the first authoritative observation already shows full returns (CAPTURE appended first in the same transaction); otherwise CONFIRMED -> REFUNDED/REVERSED.",
+    "Budget adjustment direction and amount are bound in the BUDGET_ADJUSTMENT approval's action_digest (budget-adjustment.v1) since approvals have no direction column.",
+    "A replayed execution reference performs nothing (nonce recorded per operation); callers mint a new reference to retry after a hold.",
+    "Broker outcome type is its own AdapterOutcome (digests) rather than ExternalOutcomeResultSchema (needs M05 blob ids)."
+  ],
+  "securityReview": [
+    "Authority forgery: Ed25519 scope signature verified by the broker (public keys only) at session activation and every linearization; DB insert guard binds the scope to its approval; scope columns immutable (UB001). Regression: copied signature over a widened purpose -> AUTHORITY_SIGNATURE_INVALID.",
+    "Digest substitution: subject facts reloaded and the action digest recomputed at issuance, intent creation and linearization; request fields must equal the signed scope; the authority must belong to the named approval (M07 contract).",
+    "Double spend: one RESERVE per intent, one attempt per intent, partial unique index across authorities, row-lock serialization; 6 concurrent executes -> 1 send; 6 concurrent reconciles -> 1 capture; no replacement attempt ever.",
+    "Refund-as-credit: availability = effective limit - open - gross captured; returns never raise it; re-credit only via a finance approver's signed BUDGET_ADJUSTMENT applied once; a PLAN_ACTION approval cannot be applied as a credit (UB097).",
+    "Race conditions: FIXED FOR UPDATE vs FK KEY SHARE deadlocks (FOR NO KEY UPDATE); linearization serializes with M08 invalidation via the planning advisory lock and with revocation via the authority row; policy/evidence races tested both sides.",
+    "Credential leakage: secret only on fd/0600 file, never env/argv; scrubbing logger; adapters hide credentials from toJSON/inspect (#private), map transport errors to reason codes; error bodies carry code/reasonCode/message only; probes found no secret in ps, logs or a full database dump.",
+    "SSRF: LOCAL_STAND_IN base URL must be loopback HTTPS, pinned certificate, agent:false, no redirects/proxies; Kite merchant endpoints must be https and allowlisted; no URL is ever taken from a request.",
+    "Replay: references expire (5 min) and are single-use per operation; FIXED a foreign-tenant reference now fails WRONG_TARGET before any write (previously an FK error / 500).",
+    "Cross-tenant budget: composite tenant FKs on every M09 table; foreign humans/services/references get RESOURCE_UNAVAILABLE / EXECUTION_REFERENCE_INVALID.",
+    "FIXED production config refuses a send lease shorter than the adapter timeout + 1 s (a sweep could otherwise relabel a running send UNKNOWN).",
+    "COORDINATOR MEDIUM 1 FIXED (red fdf0b83, fix 9f7848a): same-key replay re-sent without revalidating authority; now refused unless every precondition holds (UNKNOWN, reserved, manual; REPLAY_AUTHORITY_NOT_CURRENT).",
+    "COORDINATOR MEDIUM 2 FIXED (red fdf0b83, fix ef580d1): `kpass session execute` could pay from kpass's current session or the allowance; execution now resolves the authority's own approval request id to its session via `kpass session status --request-id`, refuses (not sent) unless active, and passes `--session-id` (flag verified in passport-skills x402-execute/references/commands.md).",
+    "COORDINATOR MEDIUM 3 FIXED (red fdf0b83, fix 230d186): Kite session TTL was rounded up past authority expiry from the broker clock; remaining lifetime now comes from the PostgreSQL clock, < 60 s is refused pre-egress (AUTHORITY_LIFETIME_TOO_SHORT) and ttl_seconds never exceeds it.",
+    "COORDINATOR HIGH 1 FIXED (red 34e24c2, fix 114b320): the replay gate was a hand-copied subset of linearize (missed the M06 decision gate, stored digest, amount/bound and intent-authority binding); all preconditions now live in assertExecutionPreconditionsInTx, called by both linearize and replaySameKey (structural test t040-execution-paths).",
+    "COORDINATOR HIGH 2/3 FIXED (red 34e24c2, fix e6daf56, sweep edf7b22): a not-sent adapter refusal was treated as no-effect proof on replay/reconcile and after an observed handoff, releasing the reservation; applyOutcome now honours it only on a first EXECUTE still SEND_STARTED/AUTHORIZED, replaySameKey maps it to manual, the session path never fabricates REQUESTED/FAILED from it, and every producer was swept (kpass exit 8 marked notSent; stand-in/fake only authoritative)."
+  ],
+  "unresolvedRisks": [
+    "No real Kite, provider or payment path has run; Kite has no documented payment lookup by client key, so autonomous Kite execution is UNSUPPORTED until same-key replay is verified with a real account (ADR 0003 lists every unverified detail).",
+    "Isolation is same-uid local process isolation (F0 limits): a same-uid process can connect to the 0600 socket (signatures still required) and could read broker memory with a debugger; production network policy and workload identity are NOT_RUN.",
+    "The execution-reference HMAC key is shared by reference issuers (API/worker) and the broker; a compromised issuer can request execution of any CREATED intent of its tenant (still bounded by authority, approval and every revalidation).",
+    "issueBrokerWorkerContext is exported from @uptimebuyer/data (same strength as outbox/job worker contexts); any importer can mint a worker-scoped context.",
+    "The ledger trigger does not re-check adjustment direction (only the service layer compares the approval's budget-adjustment digest); a raw database writer with a DEBIT approval could insert a CREDIT.",
+    "provider_contact_attempts.commercial_intent_id has no FK to commercial_intents (M07 contract-fake tests insert fake ids).",
+    "Incident state transitions (AWAITING_APPROVAL -> EXECUTING, ESCALATED after possible egress) are not driven by M09; plan EXECUTING -> COMPLETED is not driven (M10).",
+    "No HTTP API server or scheduler exists: KiteBroker.sweep runs inside the broker process every --sweep-ms; expiry, session reconciliation and refund pickup depend on it running."
+  ],
+  "nextModuleInputs": [
+    "M10 (orders/jobs): consume commercial_intent.state_changed.v1 (resultOrigin KITE_BROKER) and external_attempt.*.v1; a CONFIRMED intent is a payment observation only (external_receipts kinds PAYMENT_SETTLEMENT/PROVIDER_ACCEPTANCE/REFUND/REVERSAL/NO_EFFECT_PROOF), never fulfillment; create purchase_orders/service_jobs from intent ids; drive plan EXECUTING -> COMPLETED.",
+    "M13/M14 API: approvePlanAction(pool, approverCtx, {approvalRequestId, planHash, idempotencyKey}); issueExecutionAuthority(pool, ctx, {approvalId, subject}, authoritySigner); KiteBrokerPort({socketPath, referenceSigner, contextFor}).activateSession(authorityReference(...)); createCommercialIntent(pool, ctx, intentRequestFor(view, ctx, key), referenceSigner) then port.execute(result.executionReference); getExecutionAuthority/getCommercialIntent views keep transport/outcome/capability/economic axes separate; changeExecutionAuthorityStatus; adjustExecutionAuthorityBudget (finance_approver, BUDGET_ADJUSTMENT rule in the AUTHORITY policy); resolveUnknownIntentManually (finance_approver/admin, UNSUPPORTED UNKNOWN only).",
+    "M14 deploy: run apps/kite-broker as its own workload identity with `node --disable-sigusr1`, deliver the secret document by fd or 0600 file from the secret manager (databaseUrl, referenceKeyring, authorityPublicKeys, compatibilitySigning, adapter), place the socket in a 0700 directory reachable only by the API and outbox-dispatch identities, deny Kite/paid egress to every other workload, and keep sendLeaseMs >= adapter timeout + 1 s. Adapter kind NONE by default; KITE_PASSPORT only with an explicitly provisioned kpass state root and sameKeyReplayVerified after a real verification.",
+    "M07: executeContactRequest with deps.broker = KiteBrokerPort works unchanged; the paid approval's authority must be issued (subject PROVIDER_CONTACT_REQUEST) and its session CONFIRMED before M07 executes, because M07 calls execute once."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M09's broker, authority, budget and reconciliation code is implemented and verified locally against a LOCAL_STAND_IN HTTPS endpoint and a RECORDED_CONTRACT adapter; no real Kite session, payment, refund, provider fulfillment, production network isolation or deployment has been run or is claimed."
+}
