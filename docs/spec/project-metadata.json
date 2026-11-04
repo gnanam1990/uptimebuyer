@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "status": "SPECIFICATION_ONLY",
+  "packVersion": "1.0.0",
+  "generatedAt": "2026-11-04",
+  "project": {
+    "name": "UptimeBuyer",
+    "slug": "uptimebuyer",
+    "tagline": "From refrigeration failure to verified recovery, with bounded autonomous spend.",
+    "status": "SPECIFICATION_ONLY",
+    "repositoryOwner": "gnanam1990",
+    "recommendedRepository": "uptimebuyer",
+    "recommendedVisibilityDuringBuild": "private",
+    "requiredVisibilityAtSubmission": "public",
+    "licenseDecision": "MUST_BE_CONFIRMED_DURING_M00",
+    "primaryWedge": "Commercial refrigeration for multi-site restaurants, grocery operators, and dark stores"
+  },
+  "event": {
+    "name": "SERV Hackathon Edition 02",
+    "organizer": "OpenServ",
+    "trackPartners": [
+      "Dolphin",
+      "Kite",
+      "Reppo"
+    ],
+    "proposedTrack": "Kite",
+    "mandatoryTechnology": "SERV Reasoning (OpenServ account and API key)",
+    "officialUrl": "https://www.openserv.ai/hackathon-2",
+    "deadline": "2026-11-15T23:59:00Z",
+    "submissionRequirementsObserved": [
+      "public code repository",
+      "demo link or video",
+      "short write-up covering what it does, how it uses SERV Reasoning, and the track entered",
+      "X post shared by the deadline, linked in the submission form",
+      "SERV Reasoning used in the build"
+    ],
+    "rulesStatus": "POINT_IN_TIME_RESEARCH_REVERIFY_BEFORE_SUBMISSION"
+  },
+  "implementation": "NOT_RUN",
+  "productTests": "NOT_RUN",
+  "runtimeTests": "NOT_RUN",
+  "integrationTests": "NOT_RUN",
+  "marketplaceIntegration": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "eventSubmission": "NOT_RUN",
+  "publication": "NOT_RUN",
+  "marketValidation": "UNPROVEN",
+  "counts": {
+    "functional": 24,
+    "nonfunctional": 12,
+    "invariants": 16,
+    "modules": 15,
+    "testCases": 60
+  },
+  "canonicalFiles": {
+    "requirements": "requirements.json",
+    "coreContract": "CORE-CONTRACT.md",
+    "productRequirements": "PRD.md",
+    "technicalDesign": "TDD.md",
+    "testPlan": "TEST-PLAN.md",
+    "modulePrompts": "prompts/"
+  }
+}

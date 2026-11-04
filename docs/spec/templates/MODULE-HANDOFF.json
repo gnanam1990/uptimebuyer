@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "TEMPLATE_NOT_EXECUTION_EVIDENCE",
+  "project": "UptimeBuyer",
+  "moduleId": null,
+  "status": "NOT_RUN",
+  "startingCommit": null,
+  "endingCommit": null,
+  "branch": null,
+  "workingTree": null,
+  "localCommits": [],
+  "ownedIds": {
+    "functional": [],
+    "nonfunctional": [],
+    "invariants": [],
+    "tests": []
+  },
+  "changedFiles": [],
+  "diffSummary": null,
+  "configChanges": [],
+  "commands": [],
+  "commandRecordFields": [
+    "command",
+    "cwd",
+    "commitSha",
+    "startedAt",
+    "exitCode",
+    "testCounts",
+    "resultSummary"
+  ],
+  "evidence": [],
+  "verification": [],
+  "externalEvidence": [],
+  "unresolvedRisks": [],
+  "schemaOrApiChanges": [],
+  "migrationOrRollback": [],
+  "nextModuleInputs": [],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "No implementation or verification has been claimed by this empty handoff template."
+}

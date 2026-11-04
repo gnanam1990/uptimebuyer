@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "TEMPLATE_NOT_EXECUTION_EVIDENCE",
+  "status": "NOT_RUN",
+  "project": "UptimeBuyer",
+  "specificationStatus": "SPECIFICATION_ONLY",
+  "capturedAt": null,
+  "repository": {
+    "root": null,
+    "cwd": null,
+    "startingCommit": null,
+    "head": null,
+    "branch": null,
+    "worktrees": [],
+    "remote": null,
+    "workingTree": null,
+    "unrelatedUserChangesPreserved": null
+  },
+  "activeModule": null,
+  "completedModules": [],
+  "commands": [],
+  "evidence": [],
+  "externalActions": [],
+  "verification": {
+    "lint": "NOT_RUN",
+    "typecheck": "NOT_RUN",
+    "unit": "NOT_RUN",
+    "integration": "NOT_RUN",
+    "endToEnd": "NOT_RUN",
+    "security": "NOT_RUN",
+    "build": "NOT_RUN",
+    "cleanCheckout": "NOT_RUN",
+    "realSensor": "NOT_RUN",
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "recoveryProof": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "evidencePaths": [],
+  "knownLimitations": [],
+  "nextSafeAction": null,
+  "feasibility": {
+    "reportPath": "spikes/f0/F0-REPORT.md",
+    "status": "NOT_RUN",
+    "subGates": {
+      "F0-A": "NOT_RUN",
+      "F0-B": "NOT_RUN",
+      "F0-C": "NOT_RUN",
+      "F0-D": "NOT_RUN",
+      "F0-E": "NOT_RUN",
+      "F0-F": "NOT_RUN",
+      "F0-G": "NOT_RUN"
+    },
+    "recommendation": null,
+    "userDecisionReference": null
+  }
+}

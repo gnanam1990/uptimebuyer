@@ -1,0 +1,1039 @@
+{
+  "schemaVersion": 1,
+  "status": "SPECIFICATION_ONLY",
+  "definitions": {
+    "functional": [
+      {
+        "id": "FR-01",
+        "title": "Tenant, site, and asset registry",
+        "definition": "Authorized users can register tenants, sites, refrigeration assets, sensors, asset model and serial identifiers, warranty data, approved vendors, service history, and food-at-risk values with versioned provenance."
+      },
+      {
+        "id": "FR-02",
+        "title": "Telemetry ingestion and freshness",
+        "definition": "The system ingests authenticated temperature, power, current, door, and heartbeat readings, pins each sample to immutable effective-dated device-to-asset assignment and channel/calibration revisions, preserves device sequence and source time, and derives explicit fresh, stale, offline, or invalid status."
+      },
+      {
+        "id": "FR-03",
+        "title": "Incident creation and deduplication",
+        "definition": "Policy-qualified telemetry or an authorized manual report opens one incident per asset and fault window, links corroborating signals, and prevents duplicate active incidents."
+      },
+      {
+        "id": "FR-04",
+        "title": "Evidence-based incident triage",
+        "definition": "The incident engine classifies urgency, pins the active versioned tenant procedure and computed response or containment deadline at incident opening, records any authorized deadline amendment without rewriting the original, assigns durable ownership, identifies likely fault family, required evidence and allowed next actions, and labels any optional food-risk estimate as non-authoritative with provenance and uncertainty."
+      },
+      {
+        "id": "FR-05",
+        "title": "Manual, BOM, and history retrieval",
+        "definition": "The evidence service retrieves the exact asset revision's manuals, parts lists, warranty terms, prior work orders, and approved-vendor records, returning page- or record-level citations and conflicts."
+      },
+      {
+        "id": "FR-06",
+        "title": "Deterministic compatibility decision",
+        "definition": "A deterministic policy evaluates exact OEM or manufacturer part number, asset revision, electrical and mechanical constraints, certification, warranty, and named-engineer approvals to return ALLOW, HOLD, or REJECT."
+      },
+      {
+        "id": "FR-07",
+        "title": "Provider and catalog discovery",
+        "definition": "The system discovers eligible technicians, suppliers, diagnostic services, temporary-containment products, and catalog offers through auditable adapters without treating search rank as approval."
+      },
+      {
+        "id": "FR-08",
+        "title": "Quote and contact orchestration",
+        "definition": "The system can prepare and track quote, availability, arrival-estimate, and diagnostic-commitment contacts through phone, email, and structured provider APIs with consent, transcript provenance, and idempotency; unpaid execution stays in the provider module, while every paid contact becomes a bounded commercial intent executed and reconciled only by the exclusive broker."
+      },
+      {
+        "id": "FR-09",
+        "title": "Cost-to-recovery planning",
+        "definition": "The planner ranks only policy-eligible recovery plans using repair cost, delay multiplied by downtime cost, a versioned tenant risk estimate multiplied by inventory value, and repeat-failure risk, exposes every input and configured containment deadline, and holds rather than ranks when mandatory inputs are missing."
+      },
+      {
+        "id": "FR-10",
+        "title": "Approval and escalation policy",
+        "definition": "The policy layer determines whether a proposed action is automatically permitted, requires a named human or engineer approval, or must be rejected, based on safety class, substitution, amount, evidence, and site policy."
+      },
+      {
+        "id": "FR-11",
+        "title": "Bounded Kite spending session",
+        "definition": "An authorized operator can create a purpose-, incident-, merchant-, action-, amount-, time-, and currency-bounded Kite Passport spending session whose effective limits are displayed before approval."
+      },
+      {
+        "id": "FR-12",
+        "title": "Paid-action broker and reconciliation",
+        "definition": "A single exclusive broker executes authorized Kite-paid calls and purchases with pre-generated client operation and idempotency keys, immutable intent and attempt records, receipts, UNKNOWN outcome handling, and authoritative lookup or proven same-key replay before retry."
+      },
+      {
+        "id": "FR-13",
+        "title": "Order and service-job lifecycle",
+        "definition": "The system tracks purchase, shipment, cancellation, substitution, appointment, technician arrival, work status, and provider failure as explicit states tied to the approved recovery plan."
+      },
+      {
+        "id": "FR-14",
+        "title": "Recovery evidence ingestion",
+        "definition": "The system ingests post-intervention telemetry, installed-part barcode or serial, technician records, CMMS signatures, and authorized-operator attestations with source identity and time."
+      },
+      {
+        "id": "FR-15",
+        "title": "Authoritative recovery verification",
+        "definition": "An incident closes only when a stable telemetry window beginning after the bound authorized intervention milestone uses fresh non-backfilled samples from the pinned asset and sensor revisions, and required installed-part identity plus CMMS or authorized-operator evidence satisfy deterministic recovery policy."
+      },
+      {
+        "id": "FR-16",
+        "title": "Escalation and reopening",
+        "definition": "Provider timeout, failed intervention, incompatible substitution, repeated fault, disputed evidence, or lost recovery signal reopens or escalates the incident without discarding prior evidence."
+      },
+      {
+        "id": "FR-17",
+        "title": "CMMS and work-order integration",
+        "definition": "The system reads and writes work-order status, evidence references, approved plan, costs, receipts, installed-part identity, and closeout decision through isolated, replay-safe CMMS adapters."
+      },
+      {
+        "id": "FR-18",
+        "title": "Evidence ledger and export",
+        "definition": "Every material input, model proposal, policy decision, approval, external action, payment state, receipt, and recovery decision is recorded in an append-only, exportable evidence ledger with correlation identifiers."
+      },
+      {
+        "id": "FR-19",
+        "title": "Operations user interface",
+        "definition": "The web application provides accessible, responsive views for fleet health, incident timeline, evidence, compatibility, plan comparison, approvals, spend, fulfillment, recovery proof, audit, and administration."
+      },
+      {
+        "id": "FR-20",
+        "title": "Actionable notifications",
+        "definition": "The system sends role-appropriate notifications for critical incidents, evidence gaps, approvals, spend exceptions, provider changes, recovery, and reopen events with direct context and recovery paths."
+      },
+      {
+        "id": "FR-21",
+        "title": "Policy administration",
+        "definition": "Authorized administrators can version safety classes, thresholds, recovery windows, approved vendors, amount limits, escalation routes, retention, and integration settings with effective dates and audit history."
+      },
+      {
+        "id": "FR-22",
+        "title": "Real-input pilot and demo mode",
+        "definition": "A pilot can use an authenticated physical sensor or explicitly labeled deployed edge simulator, real manuals, real provider responses, and at least one real bounded Kite-paid action while clearly labeling any unavailable external outcome."
+      },
+      {
+        "id": "FR-23",
+        "title": "Privacy and data lifecycle",
+        "definition": "The system supports data minimization, purpose limitation, configurable retention, legal hold, export, redaction, deletion workflows, and tenant-scoped handling for operational and communication data."
+      },
+      {
+        "id": "FR-24",
+        "title": "Authentication, RBAC, and tenant isolation",
+        "definition": "Human, device, service, and integration identities authenticate separately; permissions enforce tenant, site, role, action, approval, and credential boundaries on every read and write."
+      }
+    ],
+    "nonfunctional": [
+      {
+        "id": "NFR-01",
+        "title": "Reproducible build",
+        "definition": "A clean supported environment can install, validate, test, build, migrate, seed, and start the product through documented pinned commands and a committed lockfile."
+      },
+      {
+        "id": "NFR-02",
+        "title": "Restart-safe reliability",
+        "definition": "Durable state, jobs, outbox records, and reconciliation allow safe restart without losing incidents, approvals, payment outcomes, orders, or recovery evidence."
+      },
+      {
+        "id": "NFR-03",
+        "title": "Idempotency and concurrency",
+        "definition": "All external commands and state transitions are idempotent, concurrency-controlled, and safe under duplicate delivery, timeout, retry, and multi-worker execution."
+      },
+      {
+        "id": "NFR-04",
+        "title": "Bounded resource use",
+        "definition": "Ingestion, retrieval, model, provider, notification, and reconciliation work has explicit concurrency, size, rate, retry, timeout, and cost bounds with backpressure."
+      },
+      {
+        "id": "NFR-05",
+        "title": "Least-privilege security",
+        "definition": "Services, users, devices, adapters, and agents receive only required capabilities; sensitive actions require explicit policy and credential isolation; secure defaults fail closed."
+      },
+      {
+        "id": "NFR-06",
+        "title": "Privacy by design",
+        "definition": "Sensitive operational, personal, transcript, and payment data is minimized, encrypted in transit and at rest where supported, redacted from logs, and governed by retention policy."
+      },
+      {
+        "id": "NFR-07",
+        "title": "Accessible interaction",
+        "definition": "The user interface targets WCAG 2.2 AA, full keyboard operation, visible focus, semantic labels, non-color-only status, reduced motion, and screen-reader-readable critical decisions."
+      },
+      {
+        "id": "NFR-08",
+        "title": "Operational performance",
+        "definition": "The product defines and measures latency and availability objectives for telemetry freshness, incident opening, policy evaluation, UI response, notification, and reconciliation without hiding degraded state."
+      },
+      {
+        "id": "NFR-09",
+        "title": "Observability and auditability",
+        "definition": "Structured logs, metrics, traces, audit events, health checks, and correlation identifiers expose every critical path while preventing secrets and unnecessary personal data from entering telemetry."
+      },
+      {
+        "id": "NFR-10",
+        "title": "Bounded AI with provenance",
+        "definition": "Model inputs, outputs, citations, versions, confidence, and policy disposition are recorded; structured validation, tool limits, and deterministic gates prevent model text from directly causing unsafe or paid actions."
+      },
+      {
+        "id": "NFR-11",
+        "title": "Adapter portability",
+        "definition": "Sensor, model, Kite, provider, merchant, messaging, and CMMS integrations sit behind contract-tested adapters so unavailable vendors degrade explicitly rather than corrupting the core domain."
+      },
+      {
+        "id": "NFR-12",
+        "title": "Traceable delivery",
+        "definition": "Each implementation change maps to requirement, invariant, module, and test identifiers and produces reviewable commands, results, evidence, migration notes, and rollback notes."
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "title": "Authoritative recovery proof",
+        "definition": "A provider, model, purchase receipt, or human assertion alone can never prove recovery; closure requires the incident's configured independent telemetry window plus every mandatory identity and authorization signal."
+      },
+      {
+        "id": "INV-02",
+        "title": "No model authorization",
+        "definition": "An LLM may extract, summarize, rank, and propose, but it can never independently approve compatibility, substitution, safety-critical work, spending, or incident closure."
+      },
+      {
+        "id": "INV-03",
+        "title": "Revision-bound decisions",
+        "definition": "Every compatibility, approval, purchase, installation, and recovery decision is bound to an immutable tenant and incident, asset identity revision including model and serial, evidence revision, policy revision, and proposed-action digest."
+      },
+      {
+        "id": "INV-04",
+        "title": "Compatibility fails closed",
+        "definition": "Missing, ambiguous, conflicting, stale, or non-exact compatibility evidence produces HOLD or REJECT; semantic similarity, seller text, and search rank never produce ALLOW."
+      },
+      {
+        "id": "INV-05",
+        "title": "Hard spending bounds",
+        "definition": "No paid action may exceed the effective incident, action, merchant, amount, currency, purpose, or expiry bounds approved by an authorized operator, and every reservation, capture, release, refund, reversal, or explicit authority adjustment must preserve the append-only gross-cap and net-settlement conservation equations."
+      },
+      {
+        "id": "INV-06",
+        "title": "Exclusive credential and egress broker",
+        "definition": "Only the payment broker may hold Kite credentials or reach paid Kite endpoints; reasoning agents, browsers, UI clients, and other workers receive neither raw credentials nor bypass egress."
+      },
+      {
+        "id": "INV-07",
+        "title": "Payment intent idempotency",
+        "definition": "One canonical action digest plus immutable execution-authority identity maps to at most one economic intent; duplicates return it, and a successor under fresh authority is allowed only after every prior intent for that action is terminal with definite proof of no effect."
+      },
+      {
+        "id": "INV-08",
+        "title": "Unknown is not failure",
+        "definition": "A timeout, disconnect, or ambiguous external response becomes UNKNOWN and must be reconciled through a pre-existing client operation key against authoritative provider state or proven same-key replay before retry, refund, replacement, or failure is declared; an adapter without that capability cannot retry autonomously."
+      },
+      {
+        "id": "INV-09",
+        "title": "Single active incident window",
+        "definition": "For a tenant, site, asset, and configured fault window, concurrent triggers converge on one active incident and append evidence rather than opening independent recovery spend paths."
+      },
+      {
+        "id": "INV-10",
+        "title": "Append-only evidence lineage",
+        "definition": "Material evidence and decision records are immutable; corrections create linked revisions, and historical decisions remain reproducible from the revisions that governed them."
+      },
+      {
+        "id": "INV-11",
+        "title": "Stale data never appears healthy",
+        "definition": "Stale, missing, delayed, invalid, or unauthenticated telemetry can never render a green healthy or recovered state and must expose its freshness condition."
+      },
+      {
+        "id": "INV-12",
+        "title": "External outcome honesty",
+        "definition": "The product separately distinguishes REQUESTED, ACCEPTED, CONFIRMED, UNKNOWN, FAILED, and CANCELLED external outcomes from ELIGIBLE or UNSUPPORTED adapter capability, and never presents a request, local simulation, or payment receipt as fulfilled work."
+      },
+      {
+        "id": "INV-13",
+        "title": "Secret non-disclosure",
+        "definition": "Secrets, raw Kite credentials, payment authorization material, and access tokens never enter model prompts, client bundles, logs, traces, exports, or repository history. Private communication content may enter an approved model run only as a purpose-limited, minimum redacted excerpt under tenant policy with consent where required, and may be displayed or exported only to authorized roles with retention and redaction controls."
+      },
+      {
+        "id": "INV-14",
+        "title": "No premature completion or release",
+        "definition": "An order, provider-completed flag, receipt, installed-part claim, or transient safe reading cannot close the incident or release completion-dependent value before the full recovery policy passes."
+      },
+      {
+        "id": "INV-15",
+        "title": "Human approval for high-risk change",
+        "definition": "Every substitute part, non-exact match, safety-critical intervention, policy override, or approval outside pre-authorized bounds requires a named authorized human or engineer and creates a signed audit record."
+      },
+      {
+        "id": "INV-16",
+        "title": "Tenant isolation",
+        "definition": "No identity, query, cache, job, object, event, export, adapter, or observability path may read, infer, mutate, or act on another tenant's data or authority."
+      }
+    ]
+  },
+  "tests": [
+    {
+      "id": "T-001",
+      "title": "Clean checkout bootstrap",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-002",
+      "title": "Dirty worktree intake stop",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-003",
+      "title": "Secret baseline and history scan",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-004",
+      "title": "Canonical quality-command smoke",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-005",
+      "title": "Contract schema round trip",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-006",
+      "title": "Illegal state transition rejection",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-007",
+      "title": "Revision and action digest stability",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-008",
+      "title": "Money and measurement precision",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-009",
+      "title": "Migration and rollback on seeded tenant",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-010",
+      "title": "Cross-tenant access denial",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-011",
+      "title": "Role and approval authority denial",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-012",
+      "title": "Outbox restart recovery",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-013",
+      "title": "Authenticated telemetry acceptance",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-014",
+      "title": "Duplicate and out-of-order sequence handling",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-015",
+      "title": "Stale and offline health projection",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-016",
+      "title": "Edge reconnect and bounded backfill",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-017",
+      "title": "Threshold incident creation",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-018",
+      "title": "Concurrent trigger deduplication",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-019",
+      "title": "Incident lifecycle concurrency",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-020",
+      "title": "Manual report audit linkage",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-021",
+      "title": "Manual and BOM citation provenance",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-022",
+      "title": "Conflicting evidence surfaced",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-023",
+      "title": "Malicious document instruction isolation",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-024",
+      "title": "Evidence revision invalidates stale proposal",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-025",
+      "title": "Exact manufacturer part allow",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-026",
+      "title": "Ambiguous compatibility hold",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-027",
+      "title": "Substitute requires named engineer",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-028",
+      "title": "Policy revision forces reevaluation",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-029",
+      "title": "Live-shaped provider adapter contract",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-030",
+      "title": "Idempotent provider contact",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-031",
+      "title": "Transcript identity and consent integrity",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-032",
+      "title": "Provider timeout becomes unknown",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-033",
+      "title": "Cost-to-recovery formula correctness",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-034",
+      "title": "Configured containment deadline changes priority",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-035",
+      "title": "Missing economic input produces hold",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-036",
+      "title": "Deterministic ranking tie break",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-037",
+      "title": "Bounded session approval",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-038",
+      "title": "Hard budget and purpose rejection",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-039",
+      "title": "Credential and paid-egress isolation",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-040",
+      "title": "Unknown payment reconciliation before retry",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-041",
+      "title": "Order and job state progression",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-042",
+      "title": "Duplicate order intent suppression",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-043",
+      "title": "Restart-safe external reconciliation",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-044",
+      "title": "Cancellation or substitution reopens policy",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-045",
+      "title": "Stable sensor recovery window",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-046",
+      "title": "Provider completion cannot close incident",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-047",
+      "title": "CMMS signature and installed-part verification",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-048",
+      "title": "Repeat fault reopens closed incident",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-049",
+      "title": "Keyboard and screen-reader critical path",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-050",
+      "title": "Responsive operations views",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-051",
+      "title": "Honest stale, unknown, and unsupported states",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-052",
+      "title": "Chart table fallback and reduced motion",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-053",
+      "title": "Threat and adversarial corpus",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-054",
+      "title": "Load, rate, timeout, and cost bounds",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-055",
+      "title": "End-to-end trace correlation",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-056",
+      "title": "Chaos restart and recovery",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-057",
+      "title": "Clean-environment deployment",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-058",
+      "title": "Real-input recovery journey",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-059",
+      "title": "Submission artifact and claim evidence",
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "T-060",
+      "title": "Release authority and rollback gate",
+      "status": "NOT_RUN"
+    }
+  ],
+  "modules": [
+    {
+      "id": "M00",
+      "title": "Repository intake and foundation",
+      "file": "prompts/00-intake-foundation.md",
+      "requirements": [],
+      "nonfunctional": [
+        "NFR-01",
+        "NFR-12"
+      ],
+      "invariants": [
+        "INV-13"
+      ],
+      "tests": [
+        "T-001",
+        "T-002",
+        "T-003",
+        "T-004"
+      ],
+      "dependsOn": [],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M01",
+      "title": "Shared contracts and domain model",
+      "file": "prompts/01-shared-contracts-domain.md",
+      "requirements": [
+        "FR-18"
+      ],
+      "nonfunctional": [
+        "NFR-03",
+        "NFR-09",
+        "NFR-11"
+      ],
+      "invariants": [
+        "INV-03",
+        "INV-10"
+      ],
+      "tests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008"
+      ],
+      "dependsOn": [
+        "M00"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M02",
+      "title": "Storage, authentication, RBAC, and tenancy",
+      "file": "prompts/02-storage-auth-rbac-tenancy.md",
+      "requirements": [
+        "FR-01",
+        "FR-21",
+        "FR-23",
+        "FR-24"
+      ],
+      "nonfunctional": [
+        "NFR-02",
+        "NFR-05",
+        "NFR-06"
+      ],
+      "invariants": [
+        "INV-10",
+        "INV-16"
+      ],
+      "tests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012"
+      ],
+      "dependsOn": [
+        "M01"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M03",
+      "title": "Sensor and edge gateway",
+      "file": "prompts/03-sensor-edge-gateway.md",
+      "requirements": [
+        "FR-02",
+        "FR-22"
+      ],
+      "nonfunctional": [
+        "NFR-04",
+        "NFR-08",
+        "NFR-11"
+      ],
+      "invariants": [
+        "INV-11"
+      ],
+      "tests": [
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016"
+      ],
+      "dependsOn": [
+        "M01",
+        "M02"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M04",
+      "title": "Incident engine",
+      "file": "prompts/04-incident-engine.md",
+      "requirements": [
+        "FR-03",
+        "FR-04",
+        "FR-16"
+      ],
+      "nonfunctional": [
+        "NFR-03",
+        "NFR-08"
+      ],
+      "invariants": [
+        "INV-09"
+      ],
+      "tests": [
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020"
+      ],
+      "dependsOn": [
+        "M02",
+        "M03"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M05",
+      "title": "Evidence and manual reasoning",
+      "file": "prompts/05-evidence-manual-reasoning.md",
+      "requirements": [
+        "FR-04",
+        "FR-05"
+      ],
+      "nonfunctional": [
+        "NFR-04",
+        "NFR-10",
+        "NFR-11"
+      ],
+      "invariants": [
+        "INV-02",
+        "INV-03",
+        "INV-10",
+        "INV-13"
+      ],
+      "tests": [
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024"
+      ],
+      "dependsOn": [
+        "M01",
+        "M02",
+        "M04"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M06",
+      "title": "Compatibility and safety policy",
+      "file": "prompts/06-compatibility-safety-policy.md",
+      "requirements": [
+        "FR-06",
+        "FR-10",
+        "FR-21"
+      ],
+      "nonfunctional": [
+        "NFR-05",
+        "NFR-10"
+      ],
+      "invariants": [
+        "INV-02",
+        "INV-03",
+        "INV-04",
+        "INV-15"
+      ],
+      "tests": [
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028"
+      ],
+      "dependsOn": [
+        "M01",
+        "M05"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M07",
+      "title": "Provider discovery and communications",
+      "file": "prompts/07-provider-discovery-comms.md",
+      "requirements": [
+        "FR-07",
+        "FR-08",
+        "FR-20"
+      ],
+      "nonfunctional": [
+        "NFR-03",
+        "NFR-04",
+        "NFR-06",
+        "NFR-11"
+      ],
+      "invariants": [
+        "INV-08",
+        "INV-12"
+      ],
+      "tests": [
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032"
+      ],
+      "dependsOn": [
+        "M01",
+        "M02",
+        "M06"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M08",
+      "title": "Cost-to-recovery planning",
+      "file": "prompts/08-cost-to-recovery-planning.md",
+      "requirements": [
+        "FR-09"
+      ],
+      "nonfunctional": [],
+      "invariants": [
+        "INV-03",
+        "INV-04"
+      ],
+      "tests": [
+        "T-033",
+        "T-034",
+        "T-035",
+        "T-036"
+      ],
+      "dependsOn": [
+        "M04",
+        "M06",
+        "M07"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M09",
+      "title": "Kite payment broker",
+      "file": "prompts/09-kite-payment-broker.md",
+      "requirements": [
+        "FR-10",
+        "FR-11",
+        "FR-12",
+        "FR-21"
+      ],
+      "nonfunctional": [
+        "NFR-02",
+        "NFR-03",
+        "NFR-04",
+        "NFR-05",
+        "NFR-06",
+        "NFR-11"
+      ],
+      "invariants": [
+        "INV-02",
+        "INV-03",
+        "INV-05",
+        "INV-06",
+        "INV-07",
+        "INV-08",
+        "INV-12",
+        "INV-13",
+        "INV-15"
+      ],
+      "tests": [
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040"
+      ],
+      "dependsOn": [
+        "M01",
+        "M02",
+        "M06",
+        "M08"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M10",
+      "title": "Order, service-job, and reconciliation",
+      "file": "prompts/10-order-job-reconciliation.md",
+      "requirements": [
+        "FR-13",
+        "FR-17"
+      ],
+      "nonfunctional": [
+        "NFR-02",
+        "NFR-03",
+        "NFR-11"
+      ],
+      "invariants": [
+        "INV-07",
+        "INV-08",
+        "INV-12",
+        "INV-14"
+      ],
+      "tests": [
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044"
+      ],
+      "dependsOn": [
+        "M02",
+        "M07",
+        "M09"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M11",
+      "title": "Recovery verification and CMMS closeout",
+      "file": "prompts/11-recovery-verification-cmms.md",
+      "requirements": [
+        "FR-14",
+        "FR-15",
+        "FR-16",
+        "FR-17"
+      ],
+      "nonfunctional": [],
+      "invariants": [
+        "INV-01",
+        "INV-02",
+        "INV-03",
+        "INV-14"
+      ],
+      "tests": [
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ],
+      "dependsOn": [
+        "M03",
+        "M04",
+        "M06",
+        "M10"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M12",
+      "title": "Operations web application",
+      "file": "prompts/12-operations-web-app.md",
+      "requirements": [
+        "FR-01",
+        "FR-18",
+        "FR-19",
+        "FR-20",
+        "FR-21"
+      ],
+      "nonfunctional": [
+        "NFR-07",
+        "NFR-08"
+      ],
+      "invariants": [
+        "INV-11",
+        "INV-12"
+      ],
+      "tests": [
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ],
+      "dependsOn": [
+        "M01",
+        "M02",
+        "M04",
+        "M06",
+        "M09",
+        "M10",
+        "M11"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M13",
+      "title": "Testing, security, and observability",
+      "file": "prompts/13-testing-security-observability.md",
+      "requirements": [
+        "FR-23",
+        "FR-24"
+      ],
+      "nonfunctional": [
+        "NFR-02",
+        "NFR-04",
+        "NFR-05",
+        "NFR-06",
+        "NFR-08",
+        "NFR-09",
+        "NFR-10",
+        "NFR-12"
+      ],
+      "invariants": [
+        "INV-06",
+        "INV-13",
+        "INV-16"
+      ],
+      "tests": [
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ],
+      "dependsOn": [
+        "M03",
+        "M04",
+        "M05",
+        "M06",
+        "M07",
+        "M09",
+        "M10",
+        "M11",
+        "M12"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "M14",
+      "title": "Deployment, demo, and release",
+      "file": "prompts/14-deployment-demo-release.md",
+      "requirements": [
+        "FR-22"
+      ],
+      "nonfunctional": [
+        "NFR-01",
+        "NFR-12"
+      ],
+      "invariants": [
+        "INV-12"
+      ],
+      "tests": [
+        "T-057",
+        "T-058",
+        "T-059",
+        "T-060"
+      ],
+      "dependsOn": [
+        "M13"
+      ],
+      "status": "NOT_RUN"
+    }
+  ]
+}
