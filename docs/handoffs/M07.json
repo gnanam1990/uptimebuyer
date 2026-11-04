@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M07",
+  "status": "PASS",
+  "startingCommit": "88d130c",
+  "endingCommit": "99b0733d688fb9ba45242aa8987ea96128a11d91",
+  "branch": "feat/m07-provider-discovery-comms",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "99b0733 fix(m07): no pooled connection is held while waiting for another (promotion and paid hand-off)",
+    "8987f62 test(m07): serialization locks must not deadlock a bounded connection pool (red)",
+    "735127b Merge remote-tracking branch 'origin/main' into feat/m07-provider-discovery-comms (coordinator)",
+    "790841f docs(m07): module handoff record",
+    "c20ca15 fix(m07): withdraw promoted excerpt evidence atomically with the consent withdrawal",
+    "07d3fdf test(m07): consent withdrawal must atomically withdraw every promoted document (red)",
+    "6b1f8c7 test(m07): security-review fixture corrections",
+    "d560728 fix(m07): connect-time egress guard, reviewed contact destinations, scoped denials, server-derived provenance, sanitized provider tokens, consent-withdrawal evidence",
+    "d7637ae test(m07): security-review regressions for egress rebinding, destination hijack, cross-site probes, provenance, provider strings, consent withdrawal, webhooks and pagination (red)",
+    "6a6255e test(m07): fixture corrections found on the first green run",
+    "d87bfa3 feat(m07): @uptimebuyer/providers discovery, contact, transcript, quote and notification behaviour",
+    "c293f6d feat(m07): provider discovery/communications migration 0012 and data actions",
+    "663819c test(m07): T-029..T-032, FR-20 notification and T-010/T-011 provider-scope gates (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-07", "FR-08", "FR-20"],
+    "nonfunctional": ["NFR-03", "NFR-04", "NFR-06", "NFR-11"],
+    "invariants": ["INV-08", "INV-12"],
+    "tests": ["T-029", "T-030", "T-031", "T-032"]
+  },
+  "jointlyEnforced": ["INV-06", "INV-13", "INV-16", "FR-23"],
+  "changedFiles": [
+    "packages/data/migrations/0012_m07_provider_comms.sql, 0013_m07_contact_point_review.sql",
+    "packages/data/src/authz.ts (nine provider.* actions)",
+    "packages/data/test/t009-migration-forward-fix.int.test.ts (M07 migration list), t011-role-authority-denial.int.test.ts (matrix)",
+    "packages/evidence/src/documents.ts, index.ts (new exports withdrawConsentedCommunicationsInTx and ingestDocumentInTx; ingestDocument refactored onto the shared body)",
+    "packages/providers/** (new package @uptimebuyer/providers: package.json, tsconfig.json, src/*.ts, src/adapters/*.ts, test/*.ts, test/fixtures/coldline-dispatch-api.synthetic.json)",
+    "tsconfig.json (references packages/providers and packages/providers/test)",
+    "pnpm-lock.yaml (workspace links only; no new third-party dependency)"
+  ],
+  "diffSummary": "New @uptimebuyer/providers package and two migrations. Provider-account routing by immutable revision (M07_UNPAID -> M07 adapters, KITE_BROKER_PAID -> CommercialIntentBrokerPort only); durable bounded searches; normalized service providers with discovery source separate from approved-vendor status; reviewed contact points; immutable contact requests; idempotent attempts with separate transport/outcome/capability/economic/raw-status axes and a database legal-edge guard; consent-bound minimized transcripts; quotes; signed provider webhooks; FR-20 notification routing, dedupe and local delivery.",
+  "configChanges": [
+    "Root tsconfig.json references packages/providers and packages/providers/test.",
+    "Live provider egress uses node:https with a connect-time guarded DNS lookup; no undici or other new dependency."
+  ],
+  "commands": [
+    {
+      "command": "pnpm vitest run --project unit packages/providers; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm vitest run --project integration packages/providers packages/data/test/t011-role-authority-denial.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "663819c",
+      "exitCode": 1,
+      "testCounts": {
+        "unitFailedFiles": 1,
+        "integrationFailedFiles": 6,
+        "t011": "2 failed / 6 passed"
+      },
+      "resultSummary": "RED: every M07 suite failed to load (../src/index.js absent); T-011 failed on the action catalogue and matrix (provider.* actions absent)."
+    },
+    {
+      "command": "pnpm vitest run --project unit packages/providers; pnpm vitest run --project integration packages/providers",
+      "cwd": "repo root",
+      "commitSha": "d7637ae",
+      "exitCode": 1,
+      "testCounts": {
+        "unit": "3 failed / 52 passed",
+        "integration": "14 failed or not loadable"
+      },
+      "resultSummary": "RED (security review): HttpsProviderTransport/guardedLookup absent; reviewContactPoint absent; contactPointId, scoped denials and server-derived provenance not implemented."
+    },
+    {
+      "command": "pnpm vitest run --project integration packages/providers/test/t029-security-review.int.test.ts -t atomically",
+      "cwd": "repo root",
+      "commitSha": "07d3fdf",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": "1 failed"
+      },
+      "resultSummary": "RED (coordinator finding 5): engine-recorded withdrawal rejected; post-transaction withdrawDocument used caller evidence permissions with LIMIT 100."
+    },
+    {
+      "command": "pnpm vitest run --project integration packages/providers/test/t030-t031-pool-bounds.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "8987f62",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": "2 failed (30 s timeouts)"
+      },
+      "resultSummary": "RED (coordinator finding 6): with a 2-connection pool, promotions and paid hand-offs deadlocked holding a session-locked client while waiting for another pooled connection."
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "99b0733d688fb9ba45242aa8987ea96128a11d91",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 716,
+        "integration": 250,
+        "m07": 102,
+        "byFile": {
+          "packages/providers/test/t029-adapter-schemas.test.ts": 14,
+          "packages/providers/test/t029-egress-ssrf.test.ts": 41,
+          "packages/providers/test/t029-adapter-contract.int.test.ts": 8,
+          "packages/providers/test/t029-security-review.int.test.ts": 9,
+          "packages/providers/test/t030-idempotent-contact.int.test.ts": 4,
+          "packages/providers/test/t031-transcript-consent.int.test.ts": 8,
+          "packages/providers/test/t032-timeout-unknown.int.test.ts": 6,
+          "packages/providers/test/fr20-notification-routing.int.test.ts": 6,
+          "packages/providers/test/t010-t011-provider-scope.int.test.ts": 4,
+          "packages/providers/test/t030-t031-pool-bounds.int.test.ts": 2
+        }
+      },
+      "resultSummary": "after the coordinator's origin/main merge: lint, format:check, typecheck, unit (27 files), integration (47 files, local Postgres 17 container), build, pack check and history secret scan all passed"
+    }
+  ],
+  "redEvidence": "663819c committed T-029..T-032, FR-20 and T-010/T-011 suites before any src existed: unit 1 and integration 6 files failed to load; T-011 2/8 failed. First green attempt surfaced fixture defects only (channel-specific contact points, bigint JSON sweeps, unhandled denial-probe promises, M05 tool search never returning transcripts), corrected in 6a6255e without loosening canary/authority assertions. The shared T-010 schema gate then caught three keyless tables (receipts/bodies) and T-009 the migration list; both fixed in the feat commits. Security review red at d7637ae, green at d560728. Atomic-withdrawal red at 07d3fdf, green at c20ca15. Pool-deadlock red at 8987f62 (both cases hit the 30 s bound), green at the ending commit.",
+  "evidence": [
+    "T-029: a paged synthetic live-shaped search (2 pages) persists normalized identity, service area match, availability, minor-unit price, ETA and source labels, pins the exact revision on every adapter call; rate-limit (PARTIAL, retryAfterMs), provider error (FAILED), malformed page (RESPONSE_SCHEMA_INVALID); discovery source and approved-vendor status are separate and rank is NONE; unpaid revision routes to the adapter (contact, consent and quote schemas normalized, CONFIRMED shown as PROVIDER_CONFIRMED_CONTACT), paid revision routes only to the broker port with the pinned revision, action digest, plan hash and authority; supersession invalidates unexecuted and queued work (no egress) while in-flight attempts keep and reconcile against their historical revision; candidate shells are UNSUPPORTED/NOT_RUN with fetch never called; SSRF suite (41 cases) incl. DNS rebinding refused at connect time.",
+    "T-030: duplicate/concurrent prepare and execute commands reuse one request and one attempt; three racing dispatch workers produce exactly one POST and one quote; paid retries under the same authority make one createIntent (same idempotency key) and one execute, zero reconcile, zero adapter egress, and never resolve the paid credential or verifier; missing, mismatched, under-amount, revoked or unknown approvals fail closed with no broker call.",
+    "T-031: a recorded phone transcript requires disclosure and granted recording consent; identity is server-derived (forged incident/provider fields rejected); consent, disclosure, source, retention (tenant RETENTION 30 d) and counts-only redaction manifest are linked; runtime canaries (secret, email, phone, card, name) never appear in the minimum excerpt, the M05 reasoning requests, evidence spans, audit, outbox, jobs, security audit, notifications, logs or the redacted export; raw text exists only in the erasable body table; display/export are role-scoped; transcript text creates no approval, decision, candidate, quote or incident change; withdrawn consent or erasure blocks further excerpts and withdraws promoted evidence.",
+    "T-032: unpaid timeout after handoff is transport/external UNKNOWN with a next reconciliation time and no economic state; no autonomous retry; lookup by the pre-egress client operation against the pinned revision (404 stays UNKNOWN, 'received' -> ACCEPTED); crash after SEND_STARTED reconstructs UNKNOWN from AUTHORIZED without fabricating REQUESTED; lookup 501 -> capability UNSUPPORTED, effect UNKNOWN, manual review, and the database refuses relabelling it FAILED; pre-egress UNSUPPORTED (revision capability, adapter configuration, paid channel) blocks send and broker calls; paid UNKNOWN from the CONTRACT FAKE is mirrored and never retried or reconciled by M07, only the broker's later CONFIRMED event (consumed once, stale versions ignored) resolves it; crafted broker capability loss after egress keeps the effect UNKNOWN/manual."
+  ],
+  "verification": ["pnpm verify exit 0 at 6b1f8c7 (see commands)"],
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realProviderProbe": "NOT_RUN (no credentials; the only provider responses are a SYNTHETIC_FIXTURE file and LOCAL_FAKE transports)",
+    "stablePhoneStableEmailStableEnrich": "NOT_RUN (configuration-gated shells report UNSUPPORTED)",
+    "brokerPortFake": "CONTRACT_FAKE results only (M01 InMemoryCommercialIntentBrokerFake); proves the port handoff, not Kite or M09 behaviour",
+    "realSensor": "NOT_RUN"
+  },
+  "schemaOrApiChanges": [
+    "Migration 0012: service_providers, service_provider_contact_points, provider_searches, provider_search_results, provider_contact_requests, provider_contact_attempts, provider_contact_attempt_events, provider_broker_event_receipts, provider_consents, provider_communications, provider_communication_bodies, provider_quotes, provider_command_receipts, notifications; SQL helpers ub_attempt_edge_ok and guards ub_service_provider_guard, ub_provider_search_guard, ub_contact_request_guard, ub_contact_attempt_guard (UB071-UB074), ub_communication_body_guard, ub_notification_guard.",
+    "Migration 0013: contact-point provenance columns (source_search_id, source_provider_account_revision_id, intake_state), service_provider_contact_point_reviews (append-only) and ub_contact_point_usable_guard (UB075) on contact-request insert.",
+    "@uptimebuyer/data ACTIONS: provider.read, provider.search, provider.contact, provider.quote, provider.engine, provider.communication.read, provider.communication.export, provider.communication.erase, provider.vendor_link.",
+    "Events emitted with typed payload schemas: provider.search_completed.v1, provider.contact_requested.v1, provider.contact_attempted.v1, provider.communication_recorded.v1, provider.quote_recorded.v1. Consumed: commercial_intent.state_changed.v1 (consumer provider-broker-result.v1) and incident.opened/reopened/state_changed/assignment_changed/deadline_changed.v1, provider.contact_attempted.v1, commercial_intent.state_changed.v1 (consumer provider-notifications.v1).",
+    "No HTTP server exists yet; the API-EVENT-SPEC provider endpoints are realised as repository functions (see nextModuleInputs). No contracts or kite-contracts change.",
+    "@uptimebuyer/evidence gains withdrawConsentedCommunicationsInTx(client, tenantId, consentRefs, {reasonCode, systemActorId}) (M05 package, additive; used by M07 only).",
+    "@uptimebuyer/evidence gains ingestDocumentInTx(client, ctx, store, input) (M05 package, additive; ingestDocument behaviour unchanged)."
+  ],
+  "migrationOrRollback": [
+    "Forward-only 0012 and 0013 (additive: new tables, columns with defaults, triggers). Rollback is a forward fix; reverting the M07 commits before any deployment also removes them. No earlier table is altered except service_provider_contact_points (0013, its own M07 table)."
+  ],
+  "specAmbiguitiesResolved": [
+    "Paid contact authority: M09 does not exist, so a paid execute names {approvalId, executionAuthorityId}. M07 verifies the M02 PLAN_ACTION approval is executable and exactly scoped (incident, site, asset/evidence/policy revisions, action digest, plan hash, pinned account revision, paid, currency, max >= request cap); the execution-authority id is passed opaque to the broker port, which must verify it (M09).",
+    "Paid action digest: computeActionDigest with action {kind PAID_CONTACT, subjectId = service provider id, quantity 1}, merchantId and amount = the request's paid cap, purpose = contact purpose; plan hash = canonicalDigest('provider-contact-plan', 1, {actionDigest, requestDigest}) (a single-action plan until M08). Unpaid requests carry no action digest; their identity is the request digest.",
+    "Broker hand-off: M07 calls createIntent then execute exactly once (serialized per request with a session advisory lock); it never calls reconcile. Results returned by execute and later outbox events go through the same mirror (dedupe by event id, STALE by aggregate version, quarantine on unknown intent/binding/origin).",
+    "checkDecisionExecutable (M06) is not called: quote/availability contacts precede compatibility decisions and a quote never approves compatibility; M08/M09 gate part purchases with it.",
+    "Unpaid execute only queues a PREPARED attempt plus a provider.contact_dispatch job; the worker commits SEND_STARTED before egress. Supersession between queue and dispatch makes the queued attempt definite no-effect and invalidates the request.",
+    "Webhooks are authoritative only for provider acknowledgement ('received' -> ACCEPTED); other statuses schedule lookup. A superseded revision's verifier is accepted for 24 h, and only for attempts pinned to that revision. Broker-owned bindings are refused.",
+    "Transcript processing consent: an excerpt is stored and usable only with the latest PROCESSING consent GRANTED (fail closed even when the request says NOT_REQUIRED). Promotion to M05 is the minimum excerpt as a consented TRANSCRIPT document. M05's tool search never returns transcript spans, so the excerpt reaches a model only via the packet's selection.",
+    "Retention: retain_until = min(tenant RETENTION communicationDays, class default 30/365 days).",
+    "Contact destinations: the request names a contactPointId; usable when the latest admin review is VERIFIED, or unreviewed, DISCOVERED and from the request's pinned account revision. Contact-point review uses provider.vendor_link (admin).",
+    "Site-scope denials on M07 resources look like absence (FORBIDDEN RESOURCE_UNAVAILABLE); readers lacking a specific action get the ordinary audited FORBIDDEN.",
+    "Notification routing is code-versioned (notification-routing.v1) rather than tenant-configurable; channel is LOCAL_INBOX only.",
+    "Consent withdrawal by the provider (provider-API sourced) may be recorded by the engine (provider.engine); humans record consent as operators (provider.contact)."
+  ],
+  "securityReview": [
+    "Coordinator findings fixed test-first (d7637ae red, d560728 green): (1) DNS rebinding TOCTOU -> connect-time guardedLookup on node:https; (2) contact-point destination hijack -> provenance, intake state, admin review, required contactPointId, DB guard; (3) excerpt/promotion checks before authorization -> scope authorized first, denial identical to absence; (4) client-supplied transcript provenance -> server-derived, mismatch refused.",
+    "Coordinator finding 5 fixed test-first (07d3fdf red, c20ca15 green): consent withdrawal withdrew promoted documents after the consent transaction with the caller's evidence permission and LIMIT 100 -> withdrawn in the same transaction as an unbounded system action; promotion serialized with withdrawal by a per-request advisory lock (101 promoted documents plus racing promotions leave zero active documents).",
+    "Coordinator finding 6 fixed test-first (8987f62 red, ending commit green): promotion held a session advisory lock on one pooled client while taking more pooled connections (pool deadlock; a failed unlock returned a locked client) -> one-transaction promotion with pg_advisory_xact_lock and ingestDocumentInTx; the paid hand-off does all work on its lock connection with a bounded try-lock and destroys the client on unlock failure. Six promotions racing a withdrawal and five paid hand-offs complete on a 2-connection pool with no advisory lock left.",
+    "Self-review findings fixed in the same commits: provider-controlled raw status/reference strings could violate column CHECKs and strand a SEND_STARTED marker -> sanitized tokens; withdrawn processing consent left promoted excerpt evidence in future packets -> promoted M05 documents withdrawn.",
+    "Pinned by regression tests: webhook signature/tamper/stale/replay/broker-owned/oversize/unknown binding, tenant-routed webhook targets, broker-event quarantine, pagination bounds (max pages, cursor cycle, max results), provider text normalization, SSRF URL/IP/redirect/size/policy-binding cases."
+  ],
+  "unresolvedRisks": [
+    "No real provider, StablePhone/StableEmail/StableEnrich, relay, telephony or Kite path has run; every adapter result is SYNTHETIC_FIXTURE, LOCAL_FAKE or CONTRACT_FAKE.",
+    "The execution-authority id of a paid contact is not verified by M07 (no authority table until M09); M09's broker must reload and bind it to the approval.",
+    "Approval revocation between M07's check and the broker call is a TOCTOU the broker must close (it rechecks before reserve).",
+    "Rate limits and the per-revision token bucket are in-process; multi-instance deployments need a shared budget. Invalid webhook deliveries are recorded (M02 design) and are an unauthenticated write amplification without an edge rate limit.",
+    "Sweeps (sweepContactAttempts, runContactDispatch, runWebhookApply, dispatchNotifications) must be scheduled by the deployed process (M14); nothing runs them on a timer.",
+    "A crash between search persistence phases leaves a search PENDING (no sweep marks it); searches have no effect, so this is cosmetic.",
+    "Redaction is pattern-based (emails, phones, cards, IBAN, secrets, URLs); names are not detected and are excluded only by the minimum-excerpt line filter.",
+    "Notification recipients/roles and routing table are code-defined; spend-exception routing covers paid contact intents only (plan-action intents are M09/M10's trigger)."
+  ],
+  "nextModuleInputs": [
+    "M08 quote/candidate inputs: listIncidentQuotes(pool, ctx, incidentId) -> QuoteView[] {quoteId, contactRequestId, incidentId, serviceProviderId, revision, supersedesQuoteId, state CURRENT|SUPERSEDED|EXPIRED, sourceKind ADAPTER_RESPONSE|OPERATOR_ENTRY|BROKER_RESULT, sourceAttemptId, sourceAdapterClass, sourceEvidenceDigest, scopeKind DIAGNOSTIC_VISIT|REPAIR_LABOR|PART_SUPPLY|CONTAINMENT, scopeDigest, partNumber, manufacturer, amount Money|null, taxMinor, etaMinutes, availabilityStatus, validUntil, missingFields, authority 'NONE', compatibilityApproved false}; recordQuote(pool, ctx, {contactRequestId, sourceKind 'OPERATOR_ENTRY', scopeKind, amount, taxMinor, etaMinutes, availabilityStatus, validUntil, sourceEvidence, sourceCommunicationId?}); consume provider.quote_recorded.v1. A quote never approves compatibility: register candidates with M06 registerCandidateAction and gate with checkDecisionExecutable.",
+    "M08 candidate/provider inputs: runProviderSearch(pool, ctx, {incidentId, providerAccountId, query {providerKinds, country, postalCode}, bounds {maxResults<=100, maxPages<=10, timeoutMs<=30000}, idempotencyKey}, {adapters, credentials}) and getProviderSearch(pool, ctx, searchId) -> results[{rank, rankAuthority 'NONE', provider {serviceProviderId, displayName, normalizedName, providerKind, country, postalCode, websiteDomain, serviceArea}, discovery {sourceKind, externalRef, providerAccountRevisionId, adapterClass, rawResponseDigest, observedAt}, vendorApproval {status, vendorId, checkedAt}, availability, price {amount, basis}|null, etaMinutes, serviceAreaMatch, capabilities, contactPoints[{contactPointId, channel, intakeState, reviewState}]}]; linkApprovedVendor and reviewContactPoint (admin). Use vendorApproval, never rank or discovery source, as the approved-vendor input.",
+    "M08/M13 contact surface: prepareContactRequest(pool, ctx, {incidentId, serviceProviderId, contactPointId, providerAccountId, channel, purposeCode, processingConsent?, retentionClass?, timeoutMs?, paid? {merchantId, maxCost}, idempotencyKey}) -> {contactRequestId, paid, providerAccountRevisionId, requestDigest, actionDigest, planHash, policyRevisionId, assetRevisionId, evidenceRevisionId, recordingDisclosure}; executeContactRequest(pool, ctx, id, {idempotencyKey, authority? {approvalId, executionAuthorityId}}, {broker?, adapters?, credentials?}); getContactRequest -> attempts with separate transportState/externalOutcomeState/adapterCapability/economicState/rawProviderStatus and displayStatus (never FAILED/COMPLETED for an unknown effect); recordConsent, recordCommunication, getCommunication, exportCommunications, prepareModelExcerpt, promoteExcerptToEvidence, eraseCommunicationBody.",
+    "M09 broker-port contract to satisfy (CommercialIntentBrokerPort, @uptimebuyer/kite-contracts): createIntent must be idempotent on (tenant, actionDigest, executionAuthorityId) for M07's request {subject {type PROVIDER_CONTACT_REQUEST, id pcr_}, semanticOperation PAID_CONTACT, providerAccountRevisionId = the request's pinned revision, actionDigest, planHash, approvalId, executionAuthorityId, expectedMax = request cap, idempotencyKey pcr.<request>.<authority>} and return an intent whose tenant/subject/actionDigest/authority/revision echo the request (M07 rejects a mismatch); execute is called once per new intent and must never re-send a started intent; M07 never calls reconcile. M09 must verify the execution authority belongs to the approval, recheck the approval before reserve, and publish commercial_intent.state_changed.v1 to the outbox with monotonically increasing aggregate versions, resultOrigin KITE_BROKER, attempt views on every SEND_STARTED/ACKNOWLEDGED/UNKNOWN change, nextReconcileAt on UNKNOWN (null only with adapterCapability UNSUPPORTED); M07's consumer is handleBrokerResultEvent / consumer name provider-broker-result.v1.",
+    "M09/M11 notification triggers: enqueueNotificationTrigger(client, ctx, {triggerKind SPEND_EXCEPTION|APPROVAL_REQUIRED|RECOVERY|EVIDENCE_GAP|..., sourceEventId, sourceEventType, logicalKey, incidentId, reasonCode, titleCode?, recipientUserIds?, deepLink?, context?}) inside the emitting transaction (engine/worker context), or emit outbox events consumed by handleNotificationEvent (consumer provider-notifications.v1). dispatchNotifications(pool, port) and LocalNotificationInbox are the delivery side; M12 T-051 owns the end-to-end check.",
+    "M14 wiring: schedule runContactDispatch, sweepContactAttempts, runWebhookApply, dispatchNotifications and the two consumers; configure HttpsProviderTransport (endpoint policy must hash to the revision's endpoint_policy_digest) and unpaid credentials via a CredentialResolver; expose ingestProviderWebhook at /v1/provider-webhooks/{binding}."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M07 completed and locally verified provider discovery, contact, transcript, quote, webhook and notification code against synthetic live-shaped fixtures, local fakes and the M01 broker-port contract fake; no real provider contact, paid call or email, Kite payment, deployment or recovery evidence exists, and all of it remains NOT_RUN."
+}

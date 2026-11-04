@@ -1,0 +1,24 @@
+{
+  "name": "@uptimebuyer/providers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider discovery and communications (M07): revision-routed provider accounts, bounded searches, immutable contact requests, unpaid execution adapters behind ports, paid contacts through the commercial-intent broker port, consent-bound transcripts, quotes and notification routing. No paid credential or paid egress.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/evidence": "workspace:*",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/kite-contracts": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@uptimebuyer/sensor-gateway": "workspace:*"
+  }
+}

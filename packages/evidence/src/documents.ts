@@ -348,12 +348,7 @@ async function loadDocument(c: Tx, ctx: TenantContext, meta: { action: string; r
 }
 
 /** Ingest one document for the caller's tenant (bounded, parsed, content-addressed, immutable). */
-export async function ingestDocument(
-  pool: Db,
-  ctx: TenantContext,
-  store: ObjectStorePort,
-  raw: IngestDocumentInput,
-): Promise<IngestedDocument> {
+function parseIngest(raw: IngestDocumentInput) {
   if (raw?.bytes instanceof Uint8Array && raw.bytes.length > DOCUMENT_LIMITS.maxBytes)
     throw rejected('DOCUMENT_TOO_LARGE', 'The document exceeds the size bound.');
   const p = IngestSchema.safeParse(raw);
@@ -365,8 +360,18 @@ export async function ingestDocument(
     throw rejected('COMMUNICATION_CONSENT_REQUIRED', 'Communication content needs consent, purpose and an asset.');
   // Parse before opening a transaction: hostile bytes never reach storage.
   const parsed = parseDocument(input.bytes, input.mediaType);
-  const meta = { action: 'evidence_document.ingest', resourceType: 'evidence_document', resourceId: null };
-  return tenantCommand(pool, ctx, meta, async (c) => {
+  return { input, parsed };
+}
+
+const INGEST_META = { action: 'evidence_document.ingest', resourceType: 'evidence_document', resourceId: null };
+
+async function ingestParsedTx(
+  c: Tx,
+  ctx: TenantContext,
+  store: ObjectStorePort,
+  { input, parsed }: ReturnType<typeof parseIngest>,
+): Promise<IngestedDocument> {
+  const meta = INGEST_META;
     let siteId: SiteId | null = null;
     const assetId = input.applicability.assetId ?? null;
     if (assetId) {
@@ -429,7 +434,29 @@ export async function ingestDocument(
       metadata: { existing: result.existing, flaggedSpans: result.injectionFlaggedSpanCount },
     });
     return result;
-  });
+}
+
+export async function ingestDocument(
+  pool: Db,
+  ctx: TenantContext,
+  store: ObjectStorePort,
+  raw: IngestDocumentInput,
+): Promise<IngestedDocument> {
+  const prepared = parseIngest(raw);
+  return tenantCommand(pool, ctx, INGEST_META, (c) => ingestParsedTx(c, ctx, store, prepared));
+}
+
+/**
+ * Ingest inside the caller's tenant transaction (one connection), for callers that must make the ingest atomic
+ * with their own checks and locks (M07 excerpt promotion). Denials propagate to the caller's tenantCommand.
+ */
+export async function ingestDocumentInTx(
+  c: Tx,
+  ctx: TenantContext,
+  store: ObjectStorePort,
+  raw: IngestDocumentInput,
+): Promise<IngestedDocument> {
+  return ingestParsedTx(c, ctx, store, parseIngest(raw));
 }
 
 async function withdrawTx(c: Tx, ctx: TenantContext, documentId: string, reasonCode: string): Promise<boolean> {
@@ -440,6 +467,32 @@ async function withdrawTx(c: Tx, ctx: TenantContext, documentId: string, reasonC
     [ctx.tenantId, newEvidenceId('documentEvent'), documentId, reasonCode, actor.kind, actor.id],
   );
   return r.rowCount === 1;
+}
+
+/**
+ * System withdrawal of every consented COMMUNICATION document bound to `consentRefs`, inside the caller's
+ * transaction (used by M07 when processing consent is withdrawn). It is a consequence of the consent record, not a
+ * caller evidence write, so it is attributed to a WORKER system actor and needs no evidence.submit grant. Unbounded
+ * by design (one INSERT ... SELECT), idempotent: already-withdrawn documents are skipped. Returns the count withdrawn.
+ */
+export async function withdrawConsentedCommunicationsInTx(
+  c: Tx,
+  tenantId: string,
+  consentRefs: readonly string[],
+  input: { reasonCode: string; systemActorId: string },
+): Promise<number> {
+  if (!/^[A-Z][A-Z0-9_]{0,63}$/.test(input.reasonCode)) throw rejected('INVALID_REASON_CODE');
+  if (consentRefs.length === 0) return 0;
+  const r = await c.query(
+    `INSERT INTO evidence_document_events (tenant_id, id, document_id, event_type, reason_code, actor_kind, actor_id)
+     SELECT d.tenant_id, 'dve_' || gen_random_uuid(), d.id, 'WITHDRAWN', $3, 'WORKER', $4
+       FROM evidence_documents d
+      WHERE d.tenant_id = $1 AND d.source_kind = 'COMMUNICATION' AND d.consent_ref = ANY($2::text[])
+        AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
+     ON CONFLICT (tenant_id, document_id) DO NOTHING`,
+    [tenantId, [...consentRefs], input.reasonCode, input.systemActorId.slice(0, 128)],
+  );
+  return r.rowCount ?? 0;
 }
 
 /**

@@ -169,6 +169,25 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'job.execute': ['service'],
   'outbox.dispatch': ['service'],
   'provider_callback.ingest': ['integration'],
+  'provider.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+    'service',
+  ],
+  'provider.search': ['operator', 'maintenance_approver', 'engineer', 'service'],
+  'provider.contact': ['operator', 'maintenance_approver', 'engineer'],
+  'provider.quote': ['operator', 'maintenance_approver', 'engineer', 'service'],
+  'provider.engine': ['service'],
+  'provider.communication.read': ['operator', 'maintenance_approver', 'engineer', 'admin', 'site_admin', 'auditor'],
+  'provider.communication.export': ['admin', 'auditor'],
+  'provider.communication.erase': ['admin'],
+  'provider.vendor_link': ['admin'],
 };
 
 function requestFor(action: ActionName, siteId: SiteId | null = s1): AuthorizationRequest {
@@ -186,6 +205,9 @@ function requestFor(action: ActionName, siteId: SiteId | null = s1): Authorizati
     case 'audit.read':
     case 'audit.export':
     case 'evidence.export':
+    case 'provider.communication.export':
+    case 'provider.communication.erase':
+    case 'provider.vendor_link':
     case 'evidence.library_write':
       return { action, siteId: null };
     default:

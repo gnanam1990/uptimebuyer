@@ -123,6 +123,42 @@ export const ACTIONS = Object.freeze({
   'job.execute': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT' },
   'outbox.dispatch': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT' },
   'provider_callback.ingest': { principals: ['INTEGRATION'], roles: ['integration'], site: 'TENANT' },
+  /** Provider searches, candidates, contact requests/attempts and quotes at the incident's site (M07). */
+  'provider.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Run a bounded provider discovery search for an incident (M07). */
+  'provider.search': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Prepare/execute contact requests and record consent for them (M07). Paid execution also needs an approval. */
+  'provider.contact': human(['operator'], 'REQUIRED'),
+  /** Record a normalized quote or an observed communication for a contact request (M07). */
+  'provider.quote': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Server-side provider engine: dispatch, reconciliation sweeps, broker results, model excerpts (M07). */
+  'provider.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** Redacted communication/transcript display at the incident's site (INV-13 role scope; M07). */
+  'provider.communication.read': human(
+    ['operator', 'maintenance_approver', 'engineer', 'admin', 'auditor'],
+    'REQUIRED',
+  ),
+  /** Redacted communication export with declared omissions (M07). */
+  'provider.communication.export': human(['admin', 'auditor'], 'TENANT'),
+  /** Privacy erasure of raw communication content, refused under legal hold (M07, FR-23). */
+  'provider.communication.erase': human(['admin'], 'TENANT'),
+  /** Link a discovered provider to an approved-vendor registry record (separate from discovery; M07). */
+  'provider.vendor_link': human(['admin'], 'TENANT'),
 } as const satisfies Record<string, ActionSpec>);
 export type ActionName = keyof typeof ACTIONS;
 
