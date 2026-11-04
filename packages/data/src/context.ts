@@ -48,7 +48,7 @@ export type Principal =
 export type WorkerPrincipal = {
   readonly kind: 'WORKER';
   readonly id: string;
-  readonly source: 'JOB' | 'OUTBOX';
+  readonly source: 'JOB' | 'OUTBOX' | 'BROKER';
   readonly sourceId: string;
 };
 export type ContextPrincipal = Principal | WorkerPrincipal;
@@ -126,6 +126,20 @@ export function issueWorkerContext(
   correlationId: CorrelationId = newId('correlation'),
 ): TenantContext {
   return issueContext(tenantId, worker, [], correlationId);
+}
+
+/**
+ * Worker context for the exclusive Kite broker (M09). `sourceId` names what the broker acts on: the nonce of ONE
+ * verified signed execution reference (whose signed tenant is `tenantId`), or a durable broker-owned attempt/session
+ * row being reconciled. Like an outbox/job worker context it grants only worker-permitted actions.
+ */
+export function issueBrokerWorkerContext(
+  tenantId: TenantId,
+  sourceId: string,
+  correlationId: CorrelationId = newId('correlation'),
+): TenantContext {
+  if (!TenantIdSchema.safeParse(tenantId).success || !/^[A-Za-z0-9_-]{4,80}$/.test(sourceId)) throw unauthenticated();
+  return issueWorkerContext(tenantId, { kind: 'WORKER', id: 'kite-broker', source: 'BROKER', sourceId }, correlationId);
 }
 
 const TENANT_UNAVAILABLE = 'Tenant context is not available for this principal.';

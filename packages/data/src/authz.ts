@@ -170,6 +170,33 @@ export const ACTIONS = Object.freeze({
   'planning.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
   /** Publish a versioned tenant risk estimate (tenant-wide needs a tenant-wide grant; FR-09, FR-21). */
   'planning.risk_publish': human(['admin'], 'OPTIONAL'),
+  /** Execution authorities, Kite-session outcomes, budget projections, intents and attempts at the site (M09). */
+  'commerce.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Materialize the one immutable execution authority of an already-recorded paid approval (M09). */
+  'commerce.authority_issue': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'maintenance_approver', 'finance_approver', 'worker'],
+    site: 'REQUIRED',
+  },
+  /** Suspend, reactivate or revoke an execution authority (append-only lifecycle; M09). */
+  'commerce.authority_manage': human(['maintenance_approver', 'finance_approver', 'admin'], 'REQUIRED'),
+  /** Create the commercial intent of an authorized action (plan action or paid contact; M09). */
+  'commerce.intent_create': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'worker'],
+    site: 'REQUIRED',
+  },
+  /** Apply a signed BUDGET_ADJUSTMENT approval as an AUTHORITY_CREDIT/AUTHORITY_DEBIT movement (M09). */
+  'commerce.budget_adjust': human(['finance_approver'], 'REQUIRED'),
+  /** Record a manual resolution of an UNKNOWN effect from reviewed authoritative evidence (M09, INV-08). */
+  'commerce.manual_resolve': human(['finance_approver', 'admin'], 'REQUIRED'),
+  /** The exclusive broker's own server engine: linearization, reconciliation and decision gates (M09). */
+  'commerce.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
 } as const satisfies Record<string, ActionSpec>);
 export type ActionName = keyof typeof ACTIONS;
 
