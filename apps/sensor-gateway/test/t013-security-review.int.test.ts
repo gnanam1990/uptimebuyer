@@ -65,11 +65,12 @@ describe('T-013 security review: failure budgets are race-free and cannot lock o
   let w2: World;
   let victim: TestDevice;
   let other: TestDevice;
-  const authAudits = async (reason: string) =>
+  const authAudits = async (reason?: string) =>
     (
       await w2.db.admin(
-        `SELECT count(*)::int AS n FROM security_audit_entries WHERE action = 'principal.authenticate' AND reason_code = $1`,
-        [reason],
+        `SELECT count(*)::int AS n FROM security_audit_entries
+          WHERE action = 'principal.authenticate' AND ($1::text IS NULL OR reason_code = $1)`,
+        [reason ?? null],
       )
     ).rows[0].n as number;
 
@@ -98,10 +99,26 @@ describe('T-013 security review: failure budgets are race-free and cannot lock o
       ),
     );
     const statuses = results.map((r) => r.status);
-    // (source, credential) budget of 3, then the per-source budget of 5 as fallback; nothing beyond
-    expect(statuses.filter((s) => s === 401)).toHaveLength(8);
-    expect(statuses.filter((s) => s === 429)).toHaveLength(12);
-    expect((await authAudits('TOKEN_REJECTED')) - before).toBe(8);
+    // A credential this gateway has never authenticated gets no extra allowance: only the per-source budget of 5.
+    expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(15);
+    expect((await authAudits('TOKEN_REJECTED')) - before).toBe(5);
+  });
+
+  it('rotating random credential ids from one source cannot exceed the per-source budget', async () => {
+    w2.clock.advance(120_000);
+    const now = w2.clock.now();
+    const before = await authAudits();
+    const results = await Promise.all(
+      Array.from({ length: 20 }, async (_, i) => {
+        const fakeDevice = { ...victim, deviceId: `dev_rotating${i}x${randomBytes(4).toString('hex')}` };
+        const token = await signPrincipalToken('DEVICE', fakeDevice.deviceId as never, new Uint8Array(randomBytes(32)));
+        return post(w2, victim, [message(i, now - 5, [temp(victim.channels.temp!, 1)])], { token });
+      }),
+    );
+    expect(results.filter((r) => r.status === 401)).toHaveLength(5);
+    expect(results.filter((r) => r.status === 429)).toHaveLength(15);
+    expect((await authAudits()) - before).toBe(5);
   });
 
   it('concurrent malformed tokens from one source reach authentication at most the per-source budget', async () => {
