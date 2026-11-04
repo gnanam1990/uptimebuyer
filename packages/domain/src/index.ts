@@ -4,3 +4,4 @@ export * from './transition.js';
 export * from './canonical.js';
 export * from './digest.js';
 export * from './evidence-ledger.js';
+export * from './compatibility/index.js';
