@@ -184,6 +184,7 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'provider.engine': ['service'],
   'provider.communication.read': ['operator', 'maintenance_approver', 'engineer', 'admin', 'site_admin', 'auditor'],
   'provider.communication.export': ['admin', 'auditor'],
+  'provider.communication.erase': ['admin'],
   'provider.vendor_link': ['admin'],
 };
 
@@ -203,6 +204,7 @@ function requestFor(action: ActionName, siteId: SiteId | null = s1): Authorizati
     case 'audit.export':
     case 'evidence.export':
     case 'provider.communication.export':
+    case 'provider.communication.erase':
     case 'provider.vendor_link':
       return { action, siteId: null };
     default:

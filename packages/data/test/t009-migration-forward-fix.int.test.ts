@@ -44,6 +44,7 @@ const M03_MIGRATIONS = ['0008_m03_telemetry.sql'];
 const M04_MIGRATIONS = ['0009_m04_incidents.sql'];
 const M05_MIGRATIONS = ['0010_m05_evidence_reasoning.sql'];
 const M06_MIGRATIONS = ['0011_m06_compatibility_policy.sql'];
+const M07_MIGRATIONS = ['0012_m07_provider_comms.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {
@@ -110,6 +111,7 @@ describe('T-009 migration and rollback on seeded tenant', () => {
       ...M04_MIGRATIONS,
       ...M05_MIGRATIONS,
       ...M06_MIGRATIONS,
+      ...M07_MIGRATIONS,
     ]);
     expect(await migrate(db.url)).toEqual([]);
     const { rows } = await db.admin(`SELECT extname FROM pg_extension WHERE extname = 'btree_gist'`);
