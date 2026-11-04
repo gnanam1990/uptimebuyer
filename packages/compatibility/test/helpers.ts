@@ -23,6 +23,7 @@ import {
   publishCompatibilityPolicy,
   recordAuthority,
   registerCandidateAction,
+  type AuthoritySigning,
   type CompatibilityPolicy,
   type RegisterCandidateInput,
 } from '../src/index.js';
@@ -41,6 +42,8 @@ export interface CompatWorld extends EvidenceWorld {
   vendorId: string;
   unapprovedVendorId: string;
   policyRevisionId: string;
+  /** The authority service's signing configuration; the key is generated at runtime and never persisted. */
+  signing: AuthoritySigning;
 }
 
 /** The OEM part data sheet: exact electrical spec lines plus the listing certification (cited by candidates). */
@@ -136,6 +139,7 @@ export function compatibilityPolicy(over: Partial<CompatibilityPolicy> = {}): Co
     warranty: { statusRequired: true },
     substitution: { mode: 'ENGINEER_EXCEPTION' },
     safetyClasses: [
+      { components: ['evaporator-fan-motor'], actionKinds: null, assetSafetyClasses: null, safetyClass: 'STANDARD' },
       { components: ['compressor'], actionKinds: null, assetSafetyClasses: null, safetyClass: 'SAFETY_CRITICAL' },
       { components: ['refrigerant-circuit'], actionKinds: null, assetSafetyClasses: null, safetyClass: 'PROHIBITED' },
     ],
@@ -235,6 +239,7 @@ export async function createCompatWorld(label: string): Promise<CompatWorld> {
     vendorId: vendor.entityId,
     unapprovedVendorId: unapproved.entityId,
     policyRevisionId: policy.policyRevisionId,
+    signing: { keyId: 'test-k1', keyring: Object.freeze({ 'test-k1': new Uint8Array(randomBytes(32)) }) },
   };
 }
 
@@ -325,11 +330,16 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** The named engineer's exception for a held substitute decision. */
 export async function recordAuthorityFor(w: CompatWorld, compatibilityDecisionId: string) {
-  return recordAuthority(w.db.pool, w.engineer.ctx, {
-    compatibilityDecisionId,
-    kind: 'ENGINEER_EXCEPTION',
-    reasonCode: 'OEM_PART_BACKORDERED',
-    reasonText: 'Superseded OEM motor with identical mounting and rating; checked on site.',
-    expiresAt: new Date(Date.now() + 8 * 3_600_000).toISOString(),
-  });
+  return recordAuthority(
+    w.db.pool,
+    w.engineer.ctx,
+    {
+      compatibilityDecisionId,
+      kind: 'ENGINEER_EXCEPTION',
+      reasonCode: 'OEM_PART_BACKORDERED',
+      reasonText: 'Superseded OEM motor with identical mounting and rating; checked on site.',
+      expiresAt: new Date(Date.now() + 8 * 3_600_000).toISOString(),
+    },
+    w.signing,
+  );
 }

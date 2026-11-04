@@ -55,7 +55,12 @@ describe('T-010/T-011 compatibility tenant, site and role scope', () => {
     w = await createCompatWorld('t010c');
     const inc = await incidentWithEvidence(w, { warrantyExpiresOn: '2025-01-31' });
     const cand = await exactCandidate(w, inc, { partNumber: '5A1-0398', merchantId: merchant() as never });
-    const held = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId });
+    const held = await evaluateCandidate(
+      w.db.pool,
+      w.service,
+      { candidateActionId: cand.candidateActionId },
+      w.signing,
+    );
     const a = await recordAuthorityFor(w, held.compatibilityDecisionId);
     ids = {
       candidateActionId: cand.candidateActionId,
@@ -96,19 +101,24 @@ describe('T-010/T-011 compatibility tenant, site and role scope', () => {
       ['candidate', () => getCandidateAction(w.db.pool, other, ids.candidateActionId)],
       ['decision', () => getDecision(w.db.pool, other, ids.decisionId)],
       ['list', () => listDecisions(w.db.pool, other, { incidentId: ids.incidentId })],
-      ['reproduce', () => reproduceDecision(w.db.pool, other, ids.decisionId)],
+      ['reproduce', () => reproduceDecision(w.db.pool, other, ids.decisionId, w.signing)],
       ['authority', () => getAuthorityRecord(w.db.pool, other, ids.authorityRecordId)],
       ['revoke', () => revokeAuthority(w.db.pool, other, ids.authorityRecordId, 'X')],
       [
         'record',
         () =>
-          recordAuthority(w.db.pool, other, {
-            compatibilityDecisionId: ids.decisionId,
-            kind: 'ENGINEER_EXCEPTION',
-            reasonCode: 'X',
-            reasonText: 'x',
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          }),
+          recordAuthority(
+            w.db.pool,
+            other,
+            {
+              compatibilityDecisionId: ids.decisionId,
+              kind: 'ENGINEER_EXCEPTION',
+              reasonCode: 'X',
+              reasonText: 'x',
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
+            w.signing,
+          ),
       ],
       [
         'register',
@@ -143,12 +153,17 @@ describe('T-010/T-011 compatibility tenant, site and role scope', () => {
     const { workerService } = await import('../../incidents/test/helpers.js');
     const svc = await workerService(w, foreign.admin);
     for (const probe of [
-      () => evaluateCandidate(w.db.pool, svc, { candidateActionId: ids.candidateActionId }),
+      () => evaluateCandidate(w.db.pool, svc, { candidateActionId: ids.candidateActionId }, w.signing),
       () =>
-        checkDecisionExecutable(w.db.pool, svc, {
-          compatibilityDecisionId: ids.decisionId,
-          actionDigest: ids.actionDigest,
-        }),
+        checkDecisionExecutable(
+          w.db.pool,
+          svc,
+          {
+            compatibilityDecisionId: ids.decisionId,
+            actionDigest: ids.actionDigest,
+          },
+          w.signing,
+        ),
     ]) {
       const r = await rejection(probe());
       expect([r.code, r.reasonCode]).toEqual(['FORBIDDEN', 'RESOURCE_UNAVAILABLE']);
@@ -156,7 +171,7 @@ describe('T-010/T-011 compatibility tenant, site and role scope', () => {
   });
 
   it('members of another site cannot read, register or approve here', async () => {
-    const outsider = await person(w, 'outsider', ['viewer', 'operator', 'engineer'], w.otherSiteId);
+    const outsider = await person(w, 'outsider', ['viewer', 'operator', 'engineer'], w.otherSiteId as never);
     for (const probe of [
       () => getDecision(w.db.pool, outsider.ctx, ids.decisionId),
       () => getCandidateAction(w.db.pool, outsider.ctx, ids.candidateActionId),
@@ -180,7 +195,8 @@ describe('T-010/T-011 compatibility tenant, site and role scope', () => {
     for (const ctx of [w.people.viewer!.ctx, w.people.auditor!.ctx, w.people.approver!.ctx]) {
       expect((await rejection(activateEffectivePolicy(w.db.pool, ctx))).code).toBe('FORBIDDEN');
       expect(
-        (await rejection(evaluateCandidate(w.db.pool, ctx, { candidateActionId: ids.candidateActionId }))).code,
+        (await rejection(evaluateCandidate(w.db.pool, ctx, { candidateActionId: ids.candidateActionId }, w.signing)))
+          .code,
       ).toBe('FORBIDDEN');
     }
     expect((await getDecision(w.db.pool, w.people.viewer!.ctx, ids.decisionId)).compatibilityDecisionId).toBe(

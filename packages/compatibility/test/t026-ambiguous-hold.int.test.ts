@@ -23,7 +23,8 @@ import {
 let w: CompatWorld;
 let inc: Awaited<ReturnType<typeof incidentWithEvidence>>;
 
-const evaluate = (candidateActionId: string) => evaluateCandidate(w.db.pool, w.service, { candidateActionId });
+const evaluate = (candidateActionId: string) =>
+  evaluateCandidate(w.db.pool, w.service, { candidateActionId }, w.signing);
 
 describe('T-026 ambiguous compatibility hold (persisted)', () => {
   beforeAll(async () => {

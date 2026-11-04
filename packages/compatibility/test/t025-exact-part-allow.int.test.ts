@@ -76,11 +76,12 @@ describe('T-025 exact manufacturer part allow (persisted)', () => {
   });
 
   it('the engine returns ALLOW with reasons, the exact input digest and the bound tuple', async () => {
-    const cand = await exactCandidate(w, inc);
-    const again = await exactCandidate(w, inc);
+    const offerObservedAt = new Date(Date.now() - 60_000).toISOString();
+    const cand = await exactCandidate(w, inc, { offerObservedAt });
+    const again = await exactCandidate(w, inc, { offerObservedAt });
     expect(again.candidateActionId).toBe(cand.candidateActionId);
     expect(again.created).toBe(false);
-    const d = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId });
+    const d = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId }, w.signing);
     expect(d.created).toBe(true);
     expect(d.decision).toBe('ALLOW');
     expect(d.lifecycle).toBe('CURRENT');
@@ -112,12 +113,17 @@ describe('T-025 exact manufacturer part allow (persisted)', () => {
     });
     const read = await getDecision(w.db.pool, w.people.viewer!.ctx, d.compatibilityDecisionId);
     expect(read.decision).toBe('ALLOW');
-    const replay = await reproduceDecision(w.db.pool, w.people.viewer!.ctx, d.compatibilityDecisionId);
+    const replay = await reproduceDecision(w.db.pool, w.people.viewer!.ctx, d.compatibilityDecisionId, w.signing);
     expect(replay).toMatchObject({ reproduced: true, decision: 'ALLOW', inputDigest: d.inputDigest });
-    const ok = await checkDecisionExecutable(w.db.pool, w.service, {
-      compatibilityDecisionId: d.compatibilityDecisionId,
-      actionDigest: cand.actionDigest,
-    });
+    const ok = await checkDecisionExecutable(
+      w.db.pool,
+      w.service,
+      {
+        compatibilityDecisionId: d.compatibilityDecisionId,
+        actionDigest: cand.actionDigest,
+      },
+      w.signing,
+    );
     expect(ok).toMatchObject({ executable: true, decision: 'ALLOW' });
 
     const events = await outboxEvents(w, 'compatibility.evaluated.v1', d.compatibilityDecisionId);
@@ -134,11 +140,18 @@ describe('T-025 exact manufacturer part allow (persisted)', () => {
   it('the same tuple evaluated again or concurrently converges on one immutable row', async () => {
     const cand = await exactCandidate(w, inc, { merchantId: merchant() as never });
     const results = await Promise.all(
-      [1, 2, 3, 4].map(() => evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId })),
+      [1, 2, 3, 4].map(() =>
+        evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId }, w.signing),
+      ),
     );
     expect(new Set(results.map((r) => r.compatibilityDecisionId)).size).toBe(1);
     expect(results.filter((r) => r.created)).toHaveLength(1);
-    const again = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId });
+    const again = await evaluateCandidate(
+      w.db.pool,
+      w.service,
+      { candidateActionId: cand.candidateActionId },
+      w.signing,
+    );
     expect(again.created).toBe(false);
     expect(again.compatibilityDecisionId).toBe(results[0]!.compatibilityDecisionId);
     const n = await w.db.pool.query(
@@ -150,7 +163,7 @@ describe('T-025 exact manufacturer part allow (persisted)', () => {
 
   it('decision rows and candidates are immutable; only the lifecycle projection may move to SUPERSEDED', async () => {
     const cand = await exactCandidate(w, inc, { merchantId: merchant() as never });
-    const d = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId });
+    const d = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId }, w.signing);
     for (const sql of [
       `UPDATE compatibility_decisions SET decision = 'HOLD' WHERE tenant_id = $1 AND id = $2`,
       `UPDATE compatibility_decisions SET reason_codes = '{}' WHERE tenant_id = $1 AND id = $2`,
@@ -173,7 +186,9 @@ describe('T-025 exact manufacturer part allow (persisted)', () => {
     const cand = await exactCandidate(w, inc, { merchantId: merchant() as never });
     for (const who of [w.people.operator!, w.engineer, w.people.approver!, w.admin]) {
       const ctx = 'ctx' in who ? who.ctx : who;
-      const r = await rejection(evaluateCandidate(w.db.pool, ctx, { candidateActionId: cand.candidateActionId }));
+      const r = await rejection(
+        evaluateCandidate(w.db.pool, ctx, { candidateActionId: cand.candidateActionId }, w.signing),
+      );
       expect(r.code).toBe('FORBIDDEN');
     }
   });

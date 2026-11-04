@@ -5,6 +5,8 @@
 // becomes SUPERSEDED in its lifecycle column only. Policy overrides route to the approver role the policy revision
 // names; wrong role, other site, other tenant, expired, over-long, unneeded, stale-tuple, forged and digest-substituted
 // authority is refused, and the database itself refuses an exception ALLOW without a matching authority link.
+import { randomBytes } from 'node:crypto';
+import { revokeRole } from '@uptimebuyer/data';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { seedTenant } from '../../data/test/helpers.js';
 import {
@@ -21,6 +23,7 @@ import {
   exactCandidate,
   incidentWithEvidence,
   merchant,
+  person,
   rejection,
   sleep,
   type CompatWorld,
@@ -30,7 +33,8 @@ import {
 let w: CompatWorld;
 let outOfWarranty: Awaited<ReturnType<typeof incidentWithEvidence>>;
 
-const evaluate = (candidateActionId: string) => evaluateCandidate(w.db.pool, w.service, { candidateActionId });
+const evaluate = (candidateActionId: string) =>
+  evaluateCandidate(w.db.pool, w.service, { candidateActionId }, w.signing);
 const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 
 async function substituteHold(over: Record<string, unknown> = {}): Promise<DecisionView> {
@@ -44,14 +48,19 @@ async function substituteHold(over: Record<string, unknown> = {}): Promise<Decis
   return d;
 }
 const engineerAuthority = (who: Person, decisionId: string, over: Record<string, unknown> = {}) =>
-  recordAuthority(w.db.pool, who.ctx, {
-    compatibilityDecisionId: decisionId,
-    kind: 'ENGINEER_EXCEPTION',
-    reasonCode: 'OEM_PART_BACKORDERED',
-    reasonText: '5A1-0398 is the superseded OEM motor with identical mounting and 115 V rating; checked on site.',
-    expiresAt: inHours(8),
-    ...over,
-  } as never);
+  recordAuthority(
+    w.db.pool,
+    who.ctx,
+    {
+      compatibilityDecisionId: decisionId,
+      kind: 'ENGINEER_EXCEPTION',
+      reasonCode: 'OEM_PART_BACKORDERED',
+      reasonText: '5A1-0398 is the superseded OEM motor with identical mounting and 115 V rating; checked on site.',
+      expiresAt: inHours(8),
+      ...over,
+    } as never,
+    w.signing,
+  );
 
 describe('T-027 substitute requires named engineer (persisted)', () => {
   beforeAll(async () => {
@@ -73,7 +82,8 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
     ]);
 
     const a = await engineerAuthority(w.engineer, held.compatibilityDecisionId);
-    expect(a.signatureDigest).toMatch(/^compatibility-authority\.v1:sha256:[0-9a-f]{64}$/);
+    expect(a.signature).toMatchObject({ algorithm: 'HMAC-SHA256', keyId: 'test-k1' });
+    expect(a.signature.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const rec = await getAuthorityRecord(w.db.pool, w.engineer.ctx, a.authorityRecordId);
     expect(rec).toMatchObject({
       kind: 'ENGINEER_EXCEPTION',
@@ -165,13 +175,18 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
 
     // A policy approval is not what this HOLD needs, and an exact ALLOW needs no authority at all.
     const wrongKind = await rejection(
-      recordAuthority(w.db.pool, w.people.approver!.ctx, {
-        compatibilityDecisionId: held.compatibilityDecisionId,
-        kind: 'POLICY_APPROVAL',
-        reasonCode: 'VENDOR_OVERRIDE',
-        reasonText: 'override',
-        expiresAt: inHours(2),
-      }),
+      recordAuthority(
+        w.db.pool,
+        w.people.approver!.ctx,
+        {
+          compatibilityDecisionId: held.compatibilityDecisionId,
+          kind: 'POLICY_APPROVAL',
+          reasonCode: 'VENDOR_OVERRIDE',
+          reasonText: 'override',
+          expiresAt: inHours(2),
+        },
+        w.signing,
+      ),
     );
     expect([wrongKind.code, wrongKind.reasonCode]).toEqual(['POLICY_HOLD', 'AUTHORITY_NOT_REQUIRED']);
     const exact = await exactCandidate(w, outOfWarranty, { merchantId: merchant() as never });
@@ -219,12 +234,12 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
       expiresAt,
     });
     for (const who of [w.engineer, w.finance, w.people.operator!]) {
-      const r = await rejection(recordAuthority(w.db.pool, who.ctx, input()));
+      const r = await rejection(recordAuthority(w.db.pool, who.ctx, input(), w.signing));
       expect(r.code).toBe('FORBIDDEN');
     }
     const eng = await rejection(engineerAuthority(w.engineer, held.compatibilityDecisionId));
     expect([eng.code, eng.reasonCode]).toEqual(['POLICY_HOLD', 'AUTHORITY_NOT_REQUIRED']);
-    const a = await recordAuthority(w.db.pool, w.people.approver!.ctx, input());
+    const a = await recordAuthority(w.db.pool, w.people.approver!.ctx, input(), w.signing);
     const rec = await getAuthorityRecord(w.db.pool, w.people.approver!.ctx, a.authorityRecordId);
     expect(rec).toMatchObject({
       kind: 'POLICY_APPROVAL',
@@ -245,13 +260,18 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
     const half = await evaluate(cand.candidateActionId);
     expect(half.decision).toBe('HOLD');
     expect(half.requiredAuthorities.map((r) => r.kind)).toEqual(['POLICY_APPROVAL']);
-    await recordAuthority(w.db.pool, w.people.approver!.ctx, {
-      compatibilityDecisionId: half.compatibilityDecisionId,
-      kind: 'POLICY_APPROVAL',
-      reasonCode: 'WARRANTY_WAIVED',
-      reasonText: 'Warranty claim declined by OEM; substitute accepted outside warranty terms.',
-      expiresAt: inHours(4),
-    });
+    await recordAuthority(
+      w.db.pool,
+      w.people.approver!.ctx,
+      {
+        compatibilityDecisionId: half.compatibilityDecisionId,
+        kind: 'POLICY_APPROVAL',
+        reasonCode: 'WARRANTY_WAIVED',
+        reasonText: 'Warranty claim declined by OEM; substitute accepted outside warranty terms.',
+        expiresAt: inHours(4),
+      },
+      w.signing,
+    );
     expect((await evaluate(cand.candidateActionId)).decision).toBe('ALLOW');
   });
 
@@ -262,24 +282,39 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
     });
     const allowed = await evaluate(held.candidateActionId);
     expect(allowed.decision).toBe('ALLOW');
-    const ok = await checkDecisionExecutable(w.db.pool, w.service, {
-      compatibilityDecisionId: allowed.compatibilityDecisionId,
-      actionDigest: allowed.actionDigest,
-    });
+    const ok = await checkDecisionExecutable(
+      w.db.pool,
+      w.service,
+      {
+        compatibilityDecisionId: allowed.compatibilityDecisionId,
+        actionDigest: allowed.actionDigest,
+      },
+      w.signing,
+    );
     expect(ok.executable).toBe(true);
     const swapped = await rejection(
-      checkDecisionExecutable(w.db.pool, w.service, {
-        compatibilityDecisionId: allowed.compatibilityDecisionId,
-        actionDigest: `action.v1:sha256:${'9'.repeat(64)}`,
-      }),
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: allowed.compatibilityDecisionId,
+          actionDigest: `action.v1:sha256:${'9'.repeat(64)}`,
+        },
+        w.signing,
+      ),
     );
     expect(swapped.code).toBe('DIGEST_MISMATCH');
     await sleep(3_000);
     const expired = await rejection(
-      checkDecisionExecutable(w.db.pool, w.service, {
-        compatibilityDecisionId: allowed.compatibilityDecisionId,
-        actionDigest: allowed.actionDigest,
-      }),
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: allowed.compatibilityDecisionId,
+          actionDigest: allowed.actionDigest,
+        },
+        w.signing,
+      ),
     );
     expect([expired.code, expired.reasonCode]).toEqual(['POLICY_HOLD', 'AUTHORITY_EXPIRED']);
     const reheld = await evaluate(held.candidateActionId);
@@ -293,12 +328,18 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
     const allowed2 = await evaluate(held2.candidateActionId);
     await revokeAuthority(w.db.pool, w.engineer.ctx, b.authorityRecordId, 'SITE_CHECK_FAILED');
     const revoked = await rejection(
-      checkDecisionExecutable(w.db.pool, w.service, {
-        compatibilityDecisionId: allowed2.compatibilityDecisionId,
-        actionDigest: allowed2.actionDigest,
-      }),
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: allowed2.compatibilityDecisionId,
+          actionDigest: allowed2.actionDigest,
+        },
+        w.signing,
+      ),
     );
-    expect([revoked.code, revoked.reasonCode]).toEqual(['POLICY_HOLD', 'AUTHORITY_INACTIVE']);
+    // Revocation supersedes the decision that applied it in the same transaction, so the gate stops at lifecycle.
+    expect([revoked.code, revoked.reasonCode]).toEqual(['POLICY_HOLD', 'DECISION_NOT_CURRENT']);
     expect((await getDecision(w.db.pool, w.service, allowed2.compatibilityDecisionId)).lifecycle).toBe('SUPERSEDED');
   });
 
@@ -313,5 +354,78 @@ describe('T-027 substitute requires named engineer (persisted)', () => {
       ),
     );
     expect(forged.code).toBe('UB061');
+  });
+
+  it('security review: a role revoked after signing stops authorizing at evaluation and at execution', async () => {
+    const engineer2 = await person(w, 'engineer2', ['engineer', 'operator'], w.siteId);
+    const held = await substituteHold();
+    await engineerAuthority(engineer2, held.compatibilityDecisionId);
+    const allowed = await evaluate(held.candidateActionId);
+    expect(allowed.decision).toBe('ALLOW');
+    const grant = await w.db.pool.query(
+      `SELECT id FROM role_assignments WHERE tenant_id = $1 AND user_id = $2 AND role = 'engineer' AND revoked_at IS NULL`,
+      [w.tenant.tenantId, engineer2.userId],
+    );
+    await revokeRole(w.db.pool, w.admin, grant.rows[0].id);
+    const r = await rejection(
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: allowed.compatibilityDecisionId,
+          actionDigest: allowed.actionDigest,
+        },
+        w.signing,
+      ),
+    );
+    expect([r.code, r.reasonCode]).toEqual(['POLICY_HOLD', 'AUTHORITY_ROLE_NOT_HELD']);
+    const reheld = await evaluate(held.candidateActionId);
+    expect(reheld.decision).toBe('HOLD');
+    expect(reheld.authorityFindings.map((f) => f.reasonCode)).toEqual(['AUTHORITY_ROLE_NOT_HELD']);
+  });
+
+  it('security review: authority rows written around the service are never applied', async () => {
+    const insert = async (decision: DecisionView, actorUserId: string, signature: { keyId: string; value: string }) => {
+      const id = `cau_${randomBytes(8).toString('hex')}`;
+      await w.db.pool.query(
+        `INSERT INTO compatibility_authority_records (tenant_id, id, kind, held_decision_id, candidate_action_id, incident_id,
+           site_id, asset_revision_id, evidence_revision_id, policy_revision_id, action_digest, candidate_key, exception_classes,
+           overridden_reasons, actor_user_id, actor_role, reason_code, reason_text, issued_at, expires_at, signature_algorithm,
+           signature_key_id, signature_value)
+         VALUES ($1, $2, 'ENGINEER_EXCEPTION', $3, $4, $5, $6, $7, $8, $9, $10, $11, '{SUBSTITUTE}', '{}', $12, 'engineer',
+           'FORGED', 'forged', clock_timestamp(), clock_timestamp() + interval '2 hours', 'HMAC-SHA256', $13, $14)`,
+        [
+          w.tenant.tenantId,
+          id,
+          decision.compatibilityDecisionId,
+          decision.candidateActionId,
+          decision.incidentId,
+          decision.siteId,
+          decision.assetRevisionId,
+          decision.evidenceRevisionId,
+          decision.policyRevisionId,
+          decision.actionDigest,
+          decision.candidateKey,
+          actorUserId,
+          signature.keyId,
+          signature.value,
+        ],
+      );
+      return id;
+    };
+    // A forged signature (no access to the service key) claiming the real engineer.
+    const a = await substituteHold();
+    const forged = await insert(a, w.engineer.userId, { keyId: 'test-k1', value: 'A'.repeat(43) });
+    const ra = await evaluate(a.candidateActionId);
+    expect(ra.decision).toBe('HOLD');
+    expect(ra.authorityFindings).toEqual([{ authorityRecordId: forged, reasonCode: 'AUTHORITY_SIGNATURE_INVALID' }]);
+    // A row claiming the engineer role for an operator who never held it: even a valid-looking record would be refused
+    // because the role registry, not the record, decides (the service itself refuses to sign it, so the row's
+    // signature cannot verify either).
+    const b = await substituteHold();
+    const claimed = await insert(b, w.people.operator!.userId, { keyId: 'rogue-k9', value: 'B'.repeat(43) });
+    const rb = await evaluate(b.candidateActionId);
+    expect(rb.decision).toBe('HOLD');
+    expect(rb.authorityFindings.map((f) => f.authorityRecordId)).toEqual([claimed]);
   });
 });

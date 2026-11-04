@@ -41,7 +41,8 @@ import {
 
 let w: CompatWorld;
 
-const evaluate = (candidateActionId: string) => evaluateCandidate(w.db.pool, w.service, { candidateActionId });
+const evaluate = (candidateActionId: string) =>
+  evaluateCandidate(w.db.pool, w.service, { candidateActionId }, w.signing);
 
 describe('T-028 policy revision forces reevaluation (persisted)', () => {
   beforeAll(async () => {
@@ -140,10 +141,15 @@ describe('T-028 policy revision forces reevaluation (persisted)', () => {
     const stale = await rejection(evaluate(exact.candidateActionId));
     expect([stale.code, stale.reasonCode]).toEqual(['POLICY_HOLD', 'CANDIDATE_TUPLE_STALE']);
     const notExec = await rejection(
-      checkDecisionExecutable(w.db.pool, w.service, {
-        compatibilityDecisionId: allowed.compatibilityDecisionId,
-        actionDigest: exact.actionDigest,
-      }),
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: allowed.compatibilityDecisionId,
+          actionDigest: exact.actionDigest,
+        },
+        w.signing,
+      ),
     );
     expect([notExec.code, notExec.reasonCode]).toEqual(['POLICY_HOLD', 'DECISION_NOT_CURRENT']);
 
@@ -155,7 +161,7 @@ describe('T-028 policy revision forces reevaluation (persisted)', () => {
     expect(next.decision).toBe('HOLD');
     expect(next.missingFields).toContain('certification:NSF 7');
 
-    const replay = await reproduceDecision(w.db.pool, w.service, allowed.compatibilityDecisionId);
+    const replay = await reproduceDecision(w.db.pool, w.service, allowed.compatibilityDecisionId, w.signing);
     expect(replay).toMatchObject({
       reproduced: true,
       decision: 'ALLOW',
@@ -179,10 +185,15 @@ describe('T-028 policy revision forces reevaluation (persisted)', () => {
     expect((await getDecision(w.db.pool, w.service, d.compatibilityDecisionId)).lifecycle).toBe('CURRENT');
     await sleep(3_000);
     const r = await rejection(
-      checkDecisionExecutable(w.db.pool, w.service, {
-        compatibilityDecisionId: d.compatibilityDecisionId,
-        actionDigest: d.actionDigest,
-      }),
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: d.compatibilityDecisionId,
+          actionDigest: d.actionDigest,
+        },
+        w.signing,
+      ),
     );
     expect([r.code, r.reasonCode]).toEqual(['POLICY_HOLD', 'POLICY_REVISION_NOT_EFFECTIVE']);
     const act = await activateEffectivePolicy(w.db.pool, w.service);
@@ -265,10 +276,15 @@ describe('T-028 policy revision forces reevaluation (persisted)', () => {
     expect(rev.changed).toBe(true);
     // Before the event is consumed the decision is already non-executable: its evidence revision is not current.
     const early = await rejection(
-      checkDecisionExecutable(w.db.pool, w.service, {
-        compatibilityDecisionId: allowed.compatibilityDecisionId,
-        actionDigest: exact.actionDigest,
-      }),
+      checkDecisionExecutable(
+        w.db.pool,
+        w.service,
+        {
+          compatibilityDecisionId: allowed.compatibilityDecisionId,
+          actionDigest: exact.actionDigest,
+        },
+        w.signing,
+      ),
     );
     expect([early.code, early.reasonCode]).toEqual(['POLICY_HOLD', 'EVIDENCE_REVISION_NOT_CURRENT']);
 
@@ -294,9 +310,9 @@ describe('T-028 policy revision forces reevaluation (persisted)', () => {
     expect(receipts.rows[0].n).toBeGreaterThanOrEqual(2);
 
     // Historical decisions still resolve to their original revisions and reproduce.
-    expect((await reproduceDecision(w.db.pool, w.service, allowed.compatibilityDecisionId)).evidenceRevisionId).toBe(
-      inc.evidenceRevisionId,
-    );
+    expect(
+      (await reproduceDecision(w.db.pool, w.service, allowed.compatibilityDecisionId, w.signing)).evidenceRevisionId,
+    ).toBe(inc.evidenceRevisionId);
     await withdrawDocument(w.db.pool, w.people.operator!.ctx, wo.documentId as never, { reasonCode: 'WRONG_ASSET' });
   });
 });
