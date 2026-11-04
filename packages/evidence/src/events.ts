@@ -1,11 +1,13 @@
 // Typed M05 event payloads (API-EVENT-SPEC §6) built with the shared envelope factory. `plan.invalidated.v1` is
 // emitted on the incident's plan scope (aggregate type `plan`, aggregate id = incident id, contiguous versions) each
 // time a new evidence revision supersedes the previous one; M06/M08/M09 consume it to invalidate decisions, plans
-// and unexecuted approvals bound to the superseded revision.
+// and unexecuted approvals bound to the superseded revision. M06 emits the same event on the same scope with reason
+// POLICY_REVISION_CHANGED when a new policy revision becomes effective.
 import {
   AssetRevisionIdSchema,
   EvidenceRevisionIdSchema,
   IncidentIdSchema,
+  PolicyRevisionIdSchema,
   ReasonCodeSchema,
   Sha256DigestSchema,
   defineDomainEvent,
@@ -27,11 +29,16 @@ export const EvidenceRevisionCommittedEventSchema = defineDomainEvent(
   'evidenceRevisionId',
 );
 
-export const PLAN_INVALIDATION_REASONS = Object.freeze(['EVIDENCE_REVISION_CHANGED', 'ASSET_REVISION_CHANGED'] as const);
+export const PLAN_INVALIDATION_REASONS = Object.freeze([
+  'EVIDENCE_REVISION_CHANGED',
+  'ASSET_REVISION_CHANGED',
+  'POLICY_REVISION_CHANGED',
+] as const);
 
-export const PlanInvalidatedPayloadSchema = z.strictObject({
+/** Emitted by M05 when a new evidence revision supersedes the previous one. */
+export const PlanInvalidatedByEvidencePayloadSchema = z.strictObject({
   incidentId: IncidentIdSchema,
-  reasonCode: z.enum(PLAN_INVALIDATION_REASONS),
+  reasonCode: z.enum(['EVIDENCE_REVISION_CHANGED', 'ASSET_REVISION_CHANGED']),
   commitReasonCode: ReasonCodeSchema,
   supersededEvidenceRevisionId: EvidenceRevisionIdSchema,
   evidenceRevisionId: EvidenceRevisionIdSchema,
@@ -39,6 +46,25 @@ export const PlanInvalidatedPayloadSchema = z.strictObject({
   assetRevisionId: AssetRevisionIdSchema,
   supersededProposalIds: z.array(ProposalIdSchema).max(10_000),
 });
+
+/**
+ * Emitted by M06 when a new AUTHORITY policy revision becomes effective: every unexecuted compatibility decision,
+ * authority record and approval of the incident bound to the superseded revision was invalidated.
+ */
+export const PlanInvalidatedByPolicyPayloadSchema = z.strictObject({
+  incidentId: IncidentIdSchema,
+  reasonCode: z.literal('POLICY_REVISION_CHANGED'),
+  supersededPolicyRevisionId: PolicyRevisionIdSchema,
+  policyRevisionId: PolicyRevisionIdSchema,
+  supersededDecisionIds: z.array(z.string().regex(/^cmp_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000),
+  invalidatedAuthorityIds: z.array(z.string().regex(/^cau_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000),
+  invalidatedApprovalIds: z.array(z.string().regex(/^apr_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000),
+});
+
+export const PlanInvalidatedPayloadSchema = z.discriminatedUnion('reasonCode', [
+  PlanInvalidatedByEvidencePayloadSchema,
+  PlanInvalidatedByPolicyPayloadSchema,
+]);
 export const PlanInvalidatedEventSchema = defineDomainEvent('plan.invalidated.v1', PlanInvalidatedPayloadSchema, 'incidentId');
 
 export const ReasoningCompletedPayloadSchema = z.strictObject({

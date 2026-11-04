@@ -128,6 +128,22 @@ const ALLOWED: Record<ActionName, Identity[]> = {
     'service',
   ],
   'evidence.engine': ['service'],
+  'compatibility.register': ['operator', 'maintenance_approver', 'engineer', 'service'],
+  'compatibility.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+    'service',
+  ],
+  'compatibility.engine': ['service'],
+  'compatibility.engineer_exception': ['engineer'],
+  'compatibility.policy_approval': ['maintenance_approver', 'finance_approver', 'admin', 'site_admin'],
+  'policy.history': ['admin', 'auditor'],
   'approval.plan_action': ['maintenance_approver'],
   'approval.budget_adjustment': ['finance_approver'],
   'approval.engineering_exception': ['engineer'],
@@ -162,6 +178,7 @@ function requestFor(action: ActionName, siteId: SiteId | null = s1): Authorizati
     case 'approval.engineering_exception':
       return { action, siteId, approvalKind: 'PLAN_ACTION', actionClass: 'SUBSTITUTE', amount: usd(50_000n) };
     case 'policy.publish':
+    case 'policy.history':
     case 'role.assign':
     case 'provider_account.manage':
     case 'audit.read':

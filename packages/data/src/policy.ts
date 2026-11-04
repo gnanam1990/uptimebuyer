@@ -62,6 +62,8 @@ export async function publishPolicyRevision(
   let wire: Record<string, unknown>;
   try {
     wire = encodeWire(schema as z.ZodType, input.body) as Record<string, unknown>;
+    // Round-trip so semantic refinements (e.g. the compatibility section's hard floors) run before storing.
+    decodeWire(schema as z.ZodType, wire);
   } catch {
     throw validation('INVALID_POLICY_BODY');
   }
