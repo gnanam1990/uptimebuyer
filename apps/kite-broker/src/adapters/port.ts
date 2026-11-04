@@ -66,7 +66,8 @@ interface Observed {
 export type AdapterOutcome =
   | ({ kind: 'ACCEPTED'; providerRef: string | null } & Observed)
   | ({ kind: 'CONFIRMED'; providerRef: string | null; capturedMinor: bigint; returns: ProviderReturn[] } & Observed)
-  | ({ kind: 'FAILED'; reasonCode: string; effect: 'NO_EFFECT_PROVED' } & Observed)
+  /** `notSent`: the adapter refused before handing anything to the provider (the outcome never becomes REQUESTED). */
+  | ({ kind: 'FAILED'; reasonCode: string; effect: 'NO_EFFECT_PROVED'; notSent?: true } & Observed)
   | ({ kind: 'CANCELLED'; providerRef: string | null } & Observed)
   | ({ kind: 'UNKNOWN'; providerRef: string | null; reasonCode: string } & Observed)
   /** Reconciliation capability turned out to be absent (after possible egress): the effect stays UNKNOWN. */

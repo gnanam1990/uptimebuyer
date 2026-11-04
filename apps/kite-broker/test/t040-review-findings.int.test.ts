@@ -78,6 +78,13 @@ describe('T-040 review findings: replay revalidation, session binding, session l
     await broker.execute(intentRef(w, a.intentId));
     const used = adapter.assessed.find((x) => x.commercialIntentId === a.intentId)!;
     expect(used.providerSessionRef).toBe(sessionA);
+    // An adapter refusal before anything was handed off is definite no effect and never fabricates REQUESTED.
+    const c = await readyIntent(w, broker);
+    adapter.nextModes.push('REFUSE_NOT_SENT');
+    expect((await broker.execute(intentRef(w, c.intentId))).intent.state).toBe('FAILED');
+    const att = await attemptOf(w, c.intentId);
+    expect([att.transport_state, att.external_outcome_state]).toEqual(['DEFINITE_NO_EFFECT', 'AUTHORIZED']);
+    expect(BigInt((await rowOf(w, 'commercial_intents', c.intentId)).open_reserved_minor)).toBe(0n);
   });
 
   it('finding 3: the session lifetime handed to the provider comes from the database clock and never exceeds the authority', async () => {

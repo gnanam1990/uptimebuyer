@@ -88,6 +88,8 @@ export class RecordedContractAdapter implements PaidAdapter {
   async execute(request: PreparedRequest, op: ClientOperation, hooks: SendHooks): Promise<AdapterOutcome> {
     const mode = this.nextModes.shift() ?? 'SETTLE';
     if (mode === 'TIMEOUT_BEFORE_HANDOFF') return this.unknown('TIMEOUT');
+    if (mode === 'REFUSE_NOT_SENT')
+      return { ...this.failed('BOUND_SESSION_NOT_ACTIVE'), notSent: true } as AdapterOutcome;
     hooks.onHandoff();
     this.executeCalls++;
     if (this.fenced.has(op.idempotencyKey)) return this.failed('KEY_FENCED_NO_EFFECT');

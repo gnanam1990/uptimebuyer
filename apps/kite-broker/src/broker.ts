@@ -715,7 +715,8 @@ export class KiteBroker {
         }
         case 'FAILED':
         case 'CANCELLED': {
-          await moveAttempt(externalPath(a.external_outcome_state, o.kind), {
+          const neverSent = o.kind === 'FAILED' && o.notSent === true && a.external_outcome_state === 'AUTHORIZED';
+          await moveAttempt(neverSent ? [] : externalPath(a.external_outcome_state, o.kind), {
             ...(sent ? { transport_state: 'DEFINITE_NO_EFFECT' } : {}),
             ...obs,
             send_lease_expires_at: null,

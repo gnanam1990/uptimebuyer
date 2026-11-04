@@ -39,6 +39,7 @@ export interface KitePassportConfig {
 const sha = (s: string) => `sha256:${createHash('sha256').update(s).digest('hex')}`;
 const nowIso = () => new Date().toISOString();
 const MAX_OUTPUT = 256 * 1024;
+const REQUEST_ID = /^req_[A-Za-z0-9_-]{1,120}$/;
 
 type Run = { exitCode: number; json: Record<string, unknown> | null; digest: string | null; timedOut: boolean };
 
@@ -66,6 +67,9 @@ export class KitePassportAdapter implements PaidAdapter {
 
   assess(intent: AuthorizedIntent): CapabilityAssessment {
     if (!this.capability.sameKeyReplay) return { kind: 'UNSUPPORTED', reasonCode: 'KITE_NO_VERIFIED_RECONCILIATION' };
+    // Execution is bound to THIS authority's confirmed session (never kpass's "current" session or the allowance).
+    if (!intent.providerSessionRef || !REQUEST_ID.test(intent.providerSessionRef))
+      return { kind: 'UNSUPPORTED', reasonCode: 'KITE_SESSION_NOT_BOUND' };
     if (!Object.hasOwn(this.#cfg.merchantEndpoints, intent.merchantId))
       return { kind: 'UNSUPPORTED', reasonCode: 'MERCHANT_ENDPOINT_NOT_ALLOWLISTED' };
     if (intent.currency !== 'USD') return { kind: 'UNSUPPORTED', reasonCode: 'KITE_CURRENCY_UNSUPPORTED' };
@@ -87,15 +91,32 @@ export class KitePassportAdapter implements PaidAdapter {
       purpose: intent.purpose,
       amountMinor: intent.amountMinor.toString(),
       currency: intent.currency,
+      boundSessionRequest: intent.providerSessionRef ?? '',
     };
     return { requestDigest: sha(canonicalize(body)), body };
   }
 
   /** `kpass session execute`; the idempotency key is forwarded by the CLI as an Idempotency-Key header. */
   async execute(request: PreparedRequest, op: ClientOperation, hooks: SendHooks): Promise<AdapterOutcome> {
+    // Resolve the bound session id from its approval request (a non-paying status read) and require it active.
+    const bound = request.body.boundSessionRequest ?? '';
+    if (!REQUEST_ID.test(bound)) return this.notSent('KITE_SESSION_NOT_BOUND');
+    const st = await this.run(['session', 'status', '--request-id', bound, '--output', 'json'], null);
+    const session = st.json?.session as Record<string, unknown> | undefined;
+    const sessionId =
+      typeof session?.id === 'string'
+        ? session.id
+        : typeof st.json?.session_id === 'string'
+          ? st.json.session_id
+          : null;
+    if (st.timedOut || st.exitCode !== 0 || !sessionId || !/^[A-Za-z0-9_-]{1,128}$/.test(sessionId))
+      return this.notSent('KITE_BOUND_SESSION_UNRESOLVED');
+    if (session?.status !== 'active') return this.notSent('KITE_BOUND_SESSION_NOT_ACTIVE');
     const args = [
       'session',
       'execute',
+      '--session-id',
+      sessionId,
       '--url',
       request.body.url!,
       '--method',
@@ -163,7 +184,7 @@ export class KitePassportAdapter implements PaidAdapter {
   }
 
   async lookupSession(locator: ReconciliationLocator): Promise<AdapterOutcome> {
-    if (!locator.providerRef || !/^req_[A-Za-z0-9_-]{1,120}$/.test(locator.providerRef))
+    if (!locator.providerRef || !REQUEST_ID.test(locator.providerRef))
       return unsupported('KITE_NO_SESSION_LOOKUP_WITHOUT_REQUEST_ID');
     return this.sessionOutcome(
       await this.run(['session', 'status', '--request-id', locator.providerRef, '--output', 'json'], null),
@@ -181,6 +202,19 @@ export class KitePassportAdapter implements PaidAdapter {
     if (status === 'human_action_required' && requestId)
       return { kind: 'ACCEPTED', providerRef: requestId, ...this.obs(r, status) };
     return this.unknown('KPASS_SESSION_UNRESOLVED', r);
+  }
+
+  /** Definitely nothing was handed to Kite (no payment command ran): a no-effect refusal, never REQUESTED. */
+  private notSent(reasonCode: string): AdapterOutcome {
+    return {
+      kind: 'FAILED',
+      reasonCode,
+      effect: 'NO_EFFECT_PROVED',
+      notSent: true,
+      rawProviderStatus: null,
+      rawResponseDigest: null,
+      observedAt: nowIso(),
+    };
   }
 
   private obs(r: Run, status: string) {

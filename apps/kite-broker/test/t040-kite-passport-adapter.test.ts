@@ -155,6 +155,7 @@ else if (args[0] === 'session' && args[1] === 'status') process.stdout.write(JSO
 
   it('with verified same-key replay, executes with the pre-egress idempotency key; a pending outcome stays UNKNOWN', async () => {
     const k = fakeKpass(`
+if (args[1] === 'status') { process.stdout.write(JSON.stringify({ status: 'success', session: { id: 'ses_A', status: 'active' } })); process.exit(0); }
 const key = args[args.indexOf('--idempotency-key') + 1];
 if (key.endsWith('pending')) { process.stdout.write(JSON.stringify({ status: 'pending', error: { code: 'payment_outcome_pending', retriable: true } })); process.exit(7); }
 process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 200 }, payment_requirement: { asset: 'USDC', amount: '120' } }));
@@ -180,7 +181,7 @@ process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 20
       { onHandoff: () => {} },
     );
     expect(pending).toMatchObject({ kind: 'UNKNOWN', reasonCode: 'KITE_PAYMENT_OUTCOME_PENDING' });
-    const call = k.calls()[0]!;
+    const call = k.calls().find((c) => c.args[1] === 'execute')!;
     expect(call.args.slice(0, 2)).toEqual(['session', 'execute']);
     expect(call.args[call.args.indexOf('--idempotency-key') + 1]).toBe(op.idempotencyKey);
     expect(call.args[call.args.indexOf('--url') + 1]).toBe('https://x402.dev.gokite.ai/api/weather');
