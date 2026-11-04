@@ -1,0 +1,27 @@
+{
+  "name": "@uptimebuyer/planning",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cost-to-recovery planning (M08): versioned tenant risk estimates, immutable revision-bound recovery plans that rank only policy-eligible ALLOW candidates by transparent expected cost, the plan lifecycle with invalidation on evidence/asset/policy/price/deadline change, and approval-request preparation. Advisory only: no approval, spend or execution authority.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/compatibility": "workspace:*",
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/evidence": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/kite-contracts": "workspace:*",
+    "@uptimebuyer/providers": "workspace:*",
+    "@uptimebuyer/sensor-gateway": "workspace:*",
+    "@uptimebuyer/telemetry": "workspace:*"
+  }
+}

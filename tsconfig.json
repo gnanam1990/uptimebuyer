@@ -59,6 +59,12 @@
       "path": "./packages/providers/test"
     },
     {
+      "path": "./packages/planning"
+    },
+    {
+      "path": "./packages/planning/test"
+    },
+    {
       "path": "./apps/sensor-gateway"
     },
     {

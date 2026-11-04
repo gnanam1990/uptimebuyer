@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M08",
+  "status": "PASS",
+  "startingCommit": "411c1f8",
+  "endingCommit": "see branch tip (this handoff commit follows 0a9c969)",
+  "branch": "feat/m08-cost-to-recovery-planning",
+  "workingTree": "clean at handoff",
+  "localCommits": [
+    "0a9c969 fix(m08): schedule plan revalidation when a future-dated risk estimate takes effect",
+    "fe21089 test(m08): a future-dated risk estimate must stale open plans when it takes effect (red)",
+    "e8ec909 fix(m08): an invalidated plan revision no longer blocks re-planning the same inputs",
+    "de3863e test(m08): self security review regressions for plan liveness, forged request scope, executing-plan invalidation, forged events, oversized ids and int64 bounds (red)",
+    "04caaea feat(m08): @uptimebuyer/planning plans, lifecycle, invalidation and approval-request preparation",
+    "74b1b35 feat(m08): planning migration 0014 and planning RBAC actions",
+    "29b9b85 feat(m08): pure cost-to-recovery computation and deterministic plan evaluation",
+    "3b028d2 test(m08): T-033..T-036 cost-to-recovery, deadline priority, missing-input hold, tie break and T-010/T-011 planning scope (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-09"],
+    "nonfunctional": [],
+    "invariants": ["INV-03", "INV-04"],
+    "tests": ["T-033", "T-034", "T-035", "T-036"]
+  },
+  "jointlyEnforced": [
+    "INV-02 (plan is advisory; approved:false, authority NONE)",
+    "INV-16 / T-010 and FR-24 / T-011 re-run over the M08 tables and commands",
+    "T-009 migration list extended with 0014/0015"
+  ],
+  "changedFiles": [
+    "packages/compatibility/src/invalidation.ts",
+    "packages/data/migrations/0014_m08_planning.sql",
+    "packages/data/migrations/0015_m08_plan_hash_open_scope.sql",
+    "packages/data/src/authz.ts",
+    "packages/data/test/t009-migration-forward-fix.int.test.ts",
+    "packages/data/test/t011-role-authority-denial.int.test.ts",
+    "packages/domain/src/index.ts",
+    "packages/domain/src/planning/cost.ts",
+    "packages/domain/src/planning/index.ts",
+    "packages/domain/src/planning/plan.ts",
+    "packages/domain/test/planning-fixtures.ts",
+    "packages/domain/test/support/ts-register.mjs",
+    "packages/domain/test/support/ts-resolve-hooks.mjs",
+    "packages/domain/test/t033-cost-formula.test.ts",
+    "packages/domain/test/t034-deadline-priority.test.ts",
+    "packages/domain/test/t035-missing-input-hold.test.ts",
+    "packages/domain/test/t036-fixture.ts",
+    "packages/domain/test/t036-rank-child.ts",
+    "packages/domain/test/t036-tie-break.test.ts",
+    "packages/evidence/src/events.ts",
+    "packages/planning/package.json",
+    "packages/planning/src/approval-requests.ts",
+    "packages/planning/src/assemble.ts",
+    "packages/planning/src/consumer.ts",
+    "packages/planning/src/events.ts",
+    "packages/planning/src/index.ts",
+    "packages/planning/src/internal.ts",
+    "packages/planning/src/lifecycle.ts",
+    "packages/planning/src/plans.ts",
+    "packages/planning/src/risk.ts",
+    "packages/planning/test/helpers.ts",
+    "packages/planning/test/t010-t011-planning-scope.int.test.ts",
+    "packages/planning/test/t033-plan-exposure.int.test.ts",
+    "packages/planning/test/t034-deadline-priority.int.test.ts",
+    "packages/planning/test/t035-approval-request-lifecycle.int.test.ts",
+    "packages/planning/test/t035-missing-input-hold.int.test.ts",
+    "packages/planning/test/t035-security-review.int.test.ts",
+    "packages/planning/test/t036-deterministic-rerun.int.test.ts",
+    "packages/planning/test/tsconfig.json",
+    "packages/planning/tsconfig.json",
+    "pnpm-lock.yaml",
+    "tsconfig.json",
+    "docs/handoffs/M08.json"
+  ],
+  "diffSummary": "Pure cost-to-recovery computation and deterministic plan evaluation in @uptimebuyer/domain (packages/domain/src/planning); new @uptimebuyer/planning package (versioned tenant risk estimates, engine-only plan builder over M06 decisions and M07 quotes, STATE-MACHINES section 4 lifecycle with invalidation consumer and the plan.revalidate_for_asset_revision / plan.revalidate_for_risk_estimate job handlers, approval-request preparation); migrations 0014/0015; planning RBAC actions; an M08 variant of plan.invalidated.v1 (M06 consumer ignores it).",
+  "configChanges": [
+    "root tsconfig references packages/planning and packages/planning/test",
+    "pnpm-lock.yaml: workspace links for @uptimebuyer/planning (no new external dependency)"
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run --project unit packages/domain/test/t03{3,4,5,6}*.test.ts; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/planning packages/data/test/t011-role-authority-denial.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "3b028d2",
+      "exitCode": 1,
+      "testCounts": {
+        "unitFailedFiles": 4,
+        "unitFailed": 35,
+        "integrationFailedFiles": 7,
+        "t011": "2 failed / 6 passed"
+      },
+      "resultSummary": "RED: planning domain exports absent (35 unit tests failed); 6 planning integration files failed to load (src absent); T-011 failed on the action catalogue"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/planning/test/t035-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "de3863e",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": "1 failed / 4 passed"
+      },
+      "resultSummary": "RED (self security review): re-planning a candidate set after another set superseded it returned the INVALIDATED revision (plan hash unique across invalidated rows)"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/planning/test/t035-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "fe21089",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": "1 failed / 5 passed"
+      },
+      "resultSummary": "RED (coordinator security finding): a future-dated risk estimate scheduled no revalidation at effective_at"
+    },
+    {
+      "command": "pnpm format && DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "0a9c969",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 751,
+        "integration": 285,
+        "unitFiles": 31,
+        "integrationFiles": 54,
+        "byFile": {
+          "packages/domain/test/t033-cost-formula.test.ts": 10,
+          "packages/domain/test/t034-deadline-priority.test.ts": 4,
+          "packages/domain/test/t035-missing-input-hold.test.ts": 15,
+          "packages/domain/test/t036-tie-break.test.ts": 5,
+          "packages/planning/test/t033-plan-exposure.int.test.ts": 5,
+          "packages/planning/test/t034-deadline-priority.int.test.ts": 4,
+          "packages/planning/test/t035-missing-input-hold.int.test.ts": 7,
+          "packages/planning/test/t035-approval-request-lifecycle.int.test.ts": 7,
+          "packages/planning/test/t035-security-review.int.test.ts": 6,
+          "packages/planning/test/t036-deterministic-rerun.int.test.ts": 1,
+          "packages/planning/test/t010-t011-planning-scope.int.test.ts": 5
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17 container, throwaway databases), build, pack check and history secret scan all passed; M00-M07 suites green"
+    }
+  ],
+  "redEvidence": "Test-first: 3b028d2 (T-033..T-036 + T-010/T-011 red), de3863e (liveness red), fe21089 (future-dated estimate red); each fixed by the following feat/fix commit without weakening an assertion. One test-only correction: T-036 antisymmetry compared -0 with +0 under Object.is; it now sums signs (same property).",
+  "evidence": {
+    "T-036 cross-process": "packages/domain/test/t036-tie-break.test.ts spawns a second Node process (--experimental-transform-types with a .js->.ts resolve hook, TZ=Pacific/Chatham, LANG=tr_TR.UTF-8) and compares rankings and plan hashes for three input permutations."
+  },
+  "verification": "pnpm verify exit 0 at 0a9c969 (751 unit / 285 integration).",
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN",
+    "realQuotes": "NOT_RUN (operator-entered synthetic quotes only)"
+  },
+  "schemaOrApiChanges": [
+    "Tables: tenant_risk_estimates, recovery_plans (state projection guarded by the section 4 edge table), plan_actions, recovery_plan_transitions, plan_approval_requests (insert guard: scope must equal its APPROVABLE plan's RANKED action).",
+    "Events: plan.created.v1 (PlanCreatedEventSchema, aggregate plan/<planId>, approved:false); plan.invalidated.v1 gains PlanInvalidatedByPlanningPayloadSchema {reasonCode PLAN_INPUT_STALE|PLAN_SUPERSEDED_BY_REVISION, staleInputs, invalidatedPlanIds, inFlightPlanIds, invalidatedApprovalRequestIds, invalidatedApprovalIds} on the incident's plan scope.",
+    "Jobs: handler for plan.revalidate_for_asset_revision (M02) and new plan.revalidate_for_risk_estimate (run_after = effective_at).",
+    "RBAC: planning.read, planning.engine, planning.risk_publish."
+  ],
+  "migrationOrRollback": "0014_m08_planning.sql (additive); 0015_m08_plan_hash_open_scope.sql forward fix replacing UNIQUE (tenant_id, incident_id, plan_hash) with a partial unique index WHERE state <> 'INVALIDATED'. Rollback is forward-only per packages/data/migrations/README.md; the tables are new, so a release that stops reading them can drop them in a later migration.",
+  "specAmbiguitiesResolved": [
+    "Deadline enters the formula through the versioned tenant risk estimate: inventory-loss ppm is selected by deadline fit (ETA = evaluated_at + quoted ETA vs current_response_deadline_at; EXPIRED or passed = DEADLINE_PASSED). A deadline change re-ranks exactly when the missed-deadline penalty exceeds the price gap (T-034 property).",
+    "Purchase/service cost is the candidate's amount (bound into its action digest and the approval maximum); the quote must corroborate it exactly (amount + tax, currency) and supplies ETA and availability. Provider score = availability (AVAILABLE 1e6, LIMITED 5e5, UNKNOWN missing, UNAVAILABLE holds the candidate).",
+    "Any eligible candidate with a missing/invalid input makes the whole plan INCOMPLETE/HELD with no ordinals (UI-SPEC: no deterministic winner while inputs are unknown).",
+    "Plan hash excludes the wall-clock evaluation time so identical inputs reproduce the same revision; approval preparation recomputes the plan and refuses (PLAN_STALE, plan invalidated) if the hash no longer reproduces.",
+    "HELD is terminal per the domain machine table (no HELD -> INVALIDATED edge); a new revision replaces it.",
+    "Plan building and approval preparation are engine-only (planning.engine, like M06 evaluation) because they run M06's engine-scoped execution gate; humans read plans.",
+    "M08 reads quotes and decisions inside its own transaction (same state rules as listIncidentQuotes / assertDecisionExecutableInTx) instead of calling pool-level APIs, to avoid holding a pooled connection while waiting for another (M07 lesson).",
+    "M08 does not move the incident state machine; PLANNING -> AWAITING_APPROVAL is left to M09 with the approval request as guard reference."
+  ],
+  "securityReview": [
+    "Client-supplied amounts/currency/expiry: request schemas are strict reference-only (smuggled amount -> VALIDATION_FAILED); scope is server-derived; DB guard refuses a forged request row (UB083); client expiry can only shorten (cap 4 h and quote valid_until).",
+    "Plan-hash forgery: DIGEST_MISMATCH PLAN_HASH_MISMATCH; request FK binds (plan_id, plan_hash).",
+    "Stale-plan approval: consumer + jobs invalidate on evidence/asset/policy/quote/decision/deadline/risk/inventory change; preparation recomputes regardless (quote expiry and silently superseded decisions caught). FIXED: future-dated risk estimate now schedules revalidation at effective_at (coordinator finding).",
+    "Liveness: FIXED (0015) an invalidated revision blocked re-planning identical inputs.",
+    "Tenant isolation: foreign humans/workers get RESOURCE_UNAVAILABLE on every path; composite FKs refuse cross-tenant rows; forged event envelopes refused by consumeOnce; oversized ids refused before lookup.",
+    "Integer overflow: exact bigint arithmetic, inputs bounded to int64 / ppm / 90-day delay, result above int64 holds (OUT_OF_BOUNDS) rather than wrapping."
+  ],
+  "unresolvedRisks": [
+    "Inventory-value (FOOD_AT_RISK) edits emit no event: open plans are re-checked only by the next planning event, job or approval-preparation recompute.",
+    "An APPROVABLE plan's deadline fit can drift with wall-clock time without an event; preparation recompute catches it, but the read model may show an APPROVABLE plan whose fit has since changed.",
+    "runPlanRevalidationJobs and the planning consumer (planning-revalidation.v1) must be scheduled/wired by the deployed process (M14).",
+    "recordApproval (M02) does not reference the approval request; M09 must bind approvals to a PENDING request and recheck plan state.",
+    "APPROVED/REJECTED/EXECUTING/COMPLETED transitions and POST /v1/plans/{id}:approve|:reject are M09's; the EXECUTING -> INVALIDATED + in-flight path is tested only by driving legal edges in SQL."
+  ],
+  "nextModuleInputs": [
+    "Plans (M09/M13): createRecoveryPlan(pool, engineCtx, {incidentId, candidates:[{candidateActionId, quoteId|null}] (1..50)}, signing) -> RecoveryPlanView & {created}; getRecoveryPlan(pool, ctx, planId); listIncidentPlans(pool, ctx, incidentId). View: planId, revision, planHash, state, version, outcome RANKED|INCOMPLETE|NO_ELIGIBLE_CANDIDATE, incomplete, holdReasons, binding {assetRevisionId, evidenceRevisionId, policyRevisionId, riskEstimateId, inventoryRegistryRevisionId}, deadline {currentResponseDeadlineAt, status, eventSequence, procedureRevisionId}, tieBreakRule, actions[{planActionId, candidateActionId, compatibilityDecisionId, quoteId, actionDigest, actionKind, disposition RANKED|ELIGIBLE_UNRANKED|INCOMPLETE|HELD|REJECTED, ordinal, reasonCodes, providerScore, amount, providerAccountRevisionId, merchantId, expectedCostMinor, expectedCostRange, deadlinePenaltyMinor, expectedDelayMs, deadlineFit, recoveryEtaAt, components[], inputs[] (unit, provenance, uncertainty), issues[]}], advisory.optionalRiskEstimates (NON_AUTHORITATIVE), transitions[], inFlightReconciliation, approved:false.",
+    "Approval requests (M09 consumes): prepareApprovalRequest(pool, engineCtx, {planId, planHash, planActionId, expiresAt?}, signing) -> ApprovalRequestView {approvalRequestId, planId, planActionId, planHash, state PENDING|INVALIDATED, scope {actionKind, actionClass, incidentId, siteId, assetRevisionId, evidenceRevisionId, policyRevisionId, actionDigest, compatibilityDecisionId, providerAccountRevisionId, merchantId, paid, maxAmount, expiresAt}, approvalRoute (from the M06 decision), requestDigest (plan-approval-request.v1), authority 'NONE', executable false}; getApprovalRequest(pool, ctx, id). Holds: PLAN_NOT_APPROVABLE, ACTION_NOT_RANKED, PLAN_STALE (plan invalidated), APPROVAL_REQUEST_INVALIDATED; DIGEST_MISMATCH PLAN_HASH_MISMATCH. M09 must record the approval from exactly request.scope, reload the request (PENDING, unexpired) and plan (APPROVABLE) inside its approval transaction, move the plan APPROVABLE -> APPROVED -> EXECUTING via the guarded edges, and re-run assertDecisionExecutableInTx at linearization.",
+    "Invalidation: consume plan.invalidated.v1 PLAN_INPUT_STALE / PLAN_SUPERSEDED_BY_REVISION (invalidatedApprovalIds/RequestIds are already invalid; inFlightPlanIds keep reconciling). Wire handlePlanningEvent (consumer planning-revalidation.v1) for plan.invalidated.v1, evidence.revision_committed.v1, compatibility.evaluated.v1, provider.quote_recorded.v1, incident.deadline_changed.v1; schedule runPlanRevalidationJobs(pool, {workerId}).",
+    "Economics (admin UI/M13): publishTenantRiskEstimate(pool, adminCtx, {siteId|null, currency, downtimeCostPerHourMinor, inventoryLossPpm {withinDeadline, pastDeadline}{estimatePpm, lowPpm, highPpm}, repeatFailure {costMinor, byActionKind[]}, basis, informingModel|null, effectiveAt?}); inventory value is the asset's FOOD_AT_RISK registry record.",
+    "Pure domain (@uptimebuyer/domain): computeCostToRecovery, evaluateRecoveryPlan, compareRankedCandidates, PLAN_TIE_BREAK_RULE, PLANNING_RULE_VERSION, COST_DENOMINATOR."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M08 code, migrations and tests are complete and pass locally against synthetic fixtures; no real provider quote, payment, deployment, approval or physical recovery has been run or is claimed."
+}

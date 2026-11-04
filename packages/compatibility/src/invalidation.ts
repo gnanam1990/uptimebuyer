@@ -248,7 +248,8 @@ export async function invalidateForEvidence(c: Tx, ctx: TenantContext, incidentI
 
 /**
  * Consumer of M05's plan.invalidated.v1 and evidence.revision_committed.v1 (once per event id). Policy-reason
- * plan.invalidated.v1 events are M06's own and need no work. Other event types are ignored.
+ * plan.invalidated.v1 events are M06's own and planning-reason ones are M08's; neither needs work here. Other event
+ * types are ignored.
  */
 export async function handleInvalidationEvent(
   pool: Db,
@@ -259,7 +260,13 @@ export async function handleInvalidationEvent(
   return consumeOnce(pool, COMPATIBILITY_INVALIDATION_CONSUMER, e, async (c, ctx) => {
     if (e.eventType === 'plan.invalidated.v1') {
       const p = decodeWire(PlanInvalidatedPayloadSchema, e.payload);
-      if (p.reasonCode === 'POLICY_REVISION_CHANGED') return;
+      // Policy-reason events are M06's own; planning-reason events (M08) report plans it already invalidated.
+      if (
+        p.reasonCode === 'POLICY_REVISION_CHANGED' ||
+        p.reasonCode === 'PLAN_INPUT_STALE' ||
+        p.reasonCode === 'PLAN_SUPERSEDED_BY_REVISION'
+      )
+        return;
       await invalidateForEvidence(c, ctx, p.incidentId, p.reasonCode);
       return;
     }

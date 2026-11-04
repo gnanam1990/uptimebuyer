@@ -188,6 +188,19 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'provider.communication.export': ['admin', 'auditor'],
   'provider.communication.erase': ['admin'],
   'provider.vendor_link': ['admin'],
+  'planning.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+    'service',
+  ],
+  'planning.engine': ['service'],
+  'planning.risk_publish': ['admin', 'site_admin'],
 };
 
 function requestFor(action: ActionName, siteId: SiteId | null = s1): AuthorizationRequest {
