@@ -9,6 +9,7 @@ import {
   type Money,
   type SiteId,
 } from '@uptimebuyer/contracts';
+import { CompatibilityPolicySchema, type CompatibilityPolicy } from '@uptimebuyer/domain';
 import { z } from 'zod';
 import { Denial, notPermitted } from './command.js';
 import {
@@ -76,6 +77,28 @@ export const ACTIONS = Object.freeze({
   },
   /** Server-side evidence engine: automated evidence revisions and bounded reasoning runs (M05). */
   'evidence.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** Register a revision-bound candidate action for compatibility evaluation at the incident's site (M06). */
+  'compatibility.register': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Read candidates, decisions and authority records at the incident's site (M06); workers may read. */
+  'compatibility.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Deterministic server engine: evaluation, executability checks, policy activation and invalidation (M06). */
+  'compatibility.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** INV-15 named-engineer authority for substitutes, non-exact matches and safety-critical work (M06). */
+  'compatibility.engineer_exception': human(['engineer'], 'REQUIRED'),
+  /** Approver-capable humans; the governing policy revision must also name the actor's role (M06). */
+  'compatibility.policy_approval': human(['maintenance_approver', 'finance_approver', 'admin'], 'REQUIRED'),
+  /** Policy revision history, effective windows and activations (FR-21). */
+  'policy.history': human(['admin', 'auditor'], 'TENANT'),
   'approval.plan_action': human(['maintenance_approver'], 'REQUIRED', {
     approvalKind: 'PLAN_ACTION',
     actionClasses: ['STANDARD', 'POLICY_OVERRIDE'],
@@ -111,7 +134,15 @@ export const ApprovalLimitRuleSchema = z.strictObject({
   maxAmountMinor: MinorUnitsSchema,
   siteIds: z.array(SiteIdSchema).max(1000).nullable(),
 });
-export const AuthorityPolicySchema = z.strictObject({ approvalLimits: z.array(ApprovalLimitRuleSchema).max(500) });
+/**
+ * The AUTHORITY policy body. `compatibility` (M06, FR-21) is the optional compatibility/safety section: safety
+ * classes, authoritative sources, thresholds and auto-permit bounds. Approver roles for overrides and out-of-bounds
+ * amounts are named by `approvalLimits`. A revision without the section makes every compatibility evaluation HOLD.
+ */
+export const AuthorityPolicySchema = z.strictObject({
+  approvalLimits: z.array(ApprovalLimitRuleSchema).max(500),
+  compatibility: CompatibilityPolicySchema.optional(),
+});
 export type AuthorityPolicy = {
   readonly approvalLimits: readonly {
     readonly approvalKind: ApprovalKind;
@@ -121,6 +152,7 @@ export type AuthorityPolicy = {
     readonly maxAmountMinor: bigint;
     readonly siteIds: readonly SiteId[] | null;
   }[];
+  readonly compatibility?: CompatibilityPolicy;
 };
 
 export interface AuthorizationRequest {
