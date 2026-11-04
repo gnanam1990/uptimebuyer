@@ -89,7 +89,16 @@ export function scanRepository(repo, { history = false } = {}) {
       commits = [];
     }
     for (const sha of commits) {
-      const patch = git(repo, ['show', '--format=', '--unified=0', '--no-color', sha]);
+      // Commit message, then the diff against EVERY parent (-m) so content introduced while resolving a merge is not
+      // hidden by git's combined-diff format.
+      findings.push(
+        ...scanText(
+          git(repo, ['show', '-s', '--format=%B', sha]),
+          { surface: 'history', path: '<commit-message>', commit: sha.slice(0, 12) },
+          allow,
+        ),
+      );
+      const patch = git(repo, ['show', '-m', '--format=', '--unified=0', '--no-color', sha]);
       let current = null;
       for (const line of patch.split('\n')) {
         if (line.startsWith('+++ b/')) current = line.slice(6);

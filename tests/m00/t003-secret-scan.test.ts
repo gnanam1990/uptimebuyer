@@ -31,6 +31,30 @@ describe('T-003 secret scan', () => {
     expect(r.stdout).not.toContain(fakeAws);
   });
 
+  it('finds secrets introduced inside a merge commit and in commit messages', () => {
+    const dir = tempGitRepo();
+    const g = (...a: string[]) => execFileSync('git', ['-C', dir, ...a], { stdio: 'ignore' });
+    g('switch', '-q', '-c', 'side');
+    write(dir, 'side.txt', 'side\n');
+    g('add', '.');
+    g('commit', '-q', '-m', 'side');
+    g('switch', '-q', 'main');
+    write(dir, 'main.txt', 'main\n');
+    g('add', '.');
+    g('commit', '-q', '-m', 'main');
+    g('merge', '--no-ff', '--no-commit', 'side');
+    write(dir, 'merge-only.txt', `${fakeAws}\n`);
+    g('add', '.');
+    g('commit', '-q', '-m', 'merge');
+    g('rm', '-q', 'merge-only.txt');
+    g('commit', '-q', '-m', `cleanup ${fakeGithub}`);
+    const r = scan(dir);
+    expect(r.code).toBe(1);
+    const { findings } = JSON.parse(r.stdout);
+    expect(findings.some((f: { path: string }) => f.path === 'merge-only.txt')).toBe(true);
+    expect(findings.some((f: { path: string }) => f.path === '<commit-message>')).toBe(true);
+  });
+
   it('allowlists only an exact path plus fingerprint', () => {
     const dir = tempGitRepo();
     write(dir, 'docs/example.md', `${fakeGeneric}\n`);

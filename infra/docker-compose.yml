@@ -3,9 +3,10 @@ services:
     image: postgres:17.6-alpine
     environment:
       POSTGRES_USER: uptimebuyer
-      POSTGRES_PASSWORD: uptimebuyer
+      POSTGRES_PASSWORD: ${UB_DEV_POSTGRES_PASSWORD:-uptimebuyer}
       POSTGRES_DB: uptimebuyer_dev
-    ports: ['55432:5432']
+    # Local-only throwaway dev database: bound to loopback, never exposed on the LAN.
+    ports: ['127.0.0.1:55432:5432']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U uptimebuyer']
       interval: 2s
