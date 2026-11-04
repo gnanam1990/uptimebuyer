@@ -201,14 +201,16 @@ describe('T-030 idempotent provider contact', () => {
       ),
     ).toHaveLength(0);
     // The paid credential reference never leaves the data layer through an M07 view.
-    expect(JSON.stringify(view)).not.toContain(w.paid.credentialRef);
+    expect(JSON.stringify(view, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))).not.toContain(
+      w.paid.credentialRef,
+    );
   });
 
   it('paid execution fails closed without exact executable authority (no broker call)', async () => {
     const broker = new CountingBroker();
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
-      serviceProviderId: sp['fr-207']!,
+      serviceProviderId: sp['cl-001']!,
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'AVAILABILITY',
@@ -230,10 +232,10 @@ describe('T-030 idempotent provider contact', () => {
     // Approval for another action digest.
     const other = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
-      serviceProviderId: sp['fr-207']!,
+      serviceProviderId: sp['cl-001']!,
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
-      purposeCode: 'QUOTE',
+      purposeCode: 'DIAGNOSTIC_COMMITMENT',
       paid: { merchantId: 'mer_stablephone-0001', maxCost: money(900n, 'USD') },
       idempotencyKey: w.key('prep-paid3'),
     });

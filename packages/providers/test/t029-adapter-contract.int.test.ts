@@ -80,7 +80,9 @@ describe('T-029 live-shaped provider adapter contract', () => {
     );
     expect(pages[1]!.query.cursor).toBe('page-2');
     // Contact values are never part of the search view.
-    expect(JSON.stringify(search)).not.toContain('dispatch@coldline.example');
+    expect(JSON.stringify(search, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))).not.toContain(
+      'dispatch@coldline.example',
+    );
     expect(await count(w, 'outbox_events', `event_type = 'provider.search_completed.v1'`)).toBeGreaterThanOrEqual(1);
   });
 
@@ -338,18 +340,18 @@ describe('T-029 live-shaped provider adapter contract', () => {
       new StructuredProviderApiAdapter({ providerKey: 'coldline-revise', transport: api2 }),
     ]);
     const { byRef } = await discover(w);
-    const prep = (n: string, sp: string) =>
+    const prep = (n: string, sp: string, channel: 'API' | 'EMAIL' = 'API') =>
       prepareContactRequest(w.db.pool, w.operator.ctx, {
         incidentId: w.incident.incidentId,
         serviceProviderId: sp,
         providerAccountId: acct.providerAccountId,
-        channel: 'API',
+        channel,
         purposeCode: 'QUOTE',
         idempotencyKey: w.key(n),
       });
     const inflight = await prep('inflight', byRef['cl-001']!);
     const queued = await prep('queued', byRef['nw-330']!);
-    const unexecuted = await prep('unexecuted', byRef['fr-207']!);
+    const unexecuted = await prep('unexecuted', byRef['fr-207']!, 'EMAIL');
     // In-flight: dispatched (ACCEPTED). Queued: PREPARED, not yet dispatched. Unexecuted: never executed.
     await executeContactRequest(
       w.db.pool,
@@ -429,7 +431,7 @@ describe('T-029 live-shaped provider adapter contract', () => {
     expect(swept.invalidatedRequestIds).not.toContain(inflight.contactRequestId);
 
     // A new request pins the new revision.
-    const fresh = await prep('fresh', byRef['fr-207']!);
+    const fresh = await prep('fresh', byRef['fr-207']!, 'EMAIL');
     expect(fresh.providerAccountRevisionId).toBe(rev2.providerAccountRevisionId);
     expect(fresh.contactRequestId).not.toBe(unexecuted.contactRequestId);
 

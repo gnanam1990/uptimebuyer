@@ -107,52 +107,56 @@ describe('T-010 / T-011 provider, contact, communication, quote and webhook scop
 
   it('T-010: tenant B cannot read or act on tenant A provider data, and denial does not leak existence', async () => {
     const B = b.operator.ctx;
-    const probes = [
-      getProviderSearch(b.db.pool, B, ids.searchId),
-      getContactRequest(b.db.pool, B, ids.requestId),
-      getCommunication(b.db.pool, B, ids.communicationId),
-      executeContactRequest(b.db.pool, B, ids.requestId, { idempotencyKey: b.key('x') }, {}),
-      recordQuote(b.db.pool, B, {
-        contactRequestId: ids.requestId,
-        sourceKind: 'OPERATOR_ENTRY',
-        scopeKind: 'DIAGNOSTIC_VISIT',
-        amount: money(1n, 'GBP'),
-        taxMinor: null,
-        etaMinutes: null,
-        availabilityStatus: 'UNKNOWN',
-        validUntil: null,
-        sourceEvidence: { note: 'x' },
-      }),
-      recordConsent(b.db.pool, B, {
-        contactRequestId: ids.requestId,
-        consentKind: 'PROCESSING',
-        purpose: 'EVIDENCE_REASONING',
-        status: 'GRANTED',
-        capturedVia: 'OPERATOR_ATTESTED',
-      }),
-      prepareContactRequest(b.db.pool, B, {
-        incidentId: a.incident.incidentId,
-        serviceProviderId: ids.serviceProviderId,
-        providerAccountId: a.unpaid.providerAccountId,
-        channel: 'API',
-        purposeCode: 'QUOTE',
-        idempotencyKey: b.key('p'),
-      }),
-      runProviderSearch(
-        b.db.pool,
-        B,
-        {
+    const probes: (() => Promise<unknown>)[] = [
+      () => getProviderSearch(b.db.pool, B, ids.searchId),
+      () => getContactRequest(b.db.pool, B, ids.requestId),
+      () => getCommunication(b.db.pool, B, ids.communicationId),
+      () => executeContactRequest(b.db.pool, B, ids.requestId, { idempotencyKey: b.key('x') }, {}),
+      () =>
+        recordQuote(b.db.pool, B, {
+          contactRequestId: ids.requestId,
+          sourceKind: 'OPERATOR_ENTRY',
+          scopeKind: 'DIAGNOSTIC_VISIT',
+          amount: money(1n, 'GBP'),
+          taxMinor: null,
+          etaMinutes: null,
+          availabilityStatus: 'UNKNOWN',
+          validUntil: null,
+          sourceEvidence: { note: 'x' },
+        }),
+      () =>
+        recordConsent(b.db.pool, B, {
+          contactRequestId: ids.requestId,
+          consentKind: 'PROCESSING',
+          purpose: 'EVIDENCE_REASONING',
+          status: 'GRANTED',
+          capturedVia: 'OPERATOR_ATTESTED',
+        }),
+      () =>
+        prepareContactRequest(b.db.pool, B, {
           incidentId: a.incident.incidentId,
+          serviceProviderId: ids.serviceProviderId,
           providerAccountId: a.unpaid.providerAccountId,
-          query: { providerKinds: ['TECHNICIAN'], country: 'GB', postalCode: 'SW1A 1AA' },
-          idempotencyKey: b.key('s'),
-        },
-        { adapters: b.adapters, credentials: b.creds },
-      ),
+          channel: 'API',
+          purposeCode: 'QUOTE',
+          idempotencyKey: b.key('p'),
+        }),
+      () =>
+        runProviderSearch(
+          b.db.pool,
+          B,
+          {
+            incidentId: a.incident.incidentId,
+            providerAccountId: a.unpaid.providerAccountId,
+            query: { providerKinds: ['TECHNICIAN'], country: 'GB', postalCode: 'SW1A 1AA' },
+            idempotencyKey: b.key('s'),
+          },
+          { adapters: b.adapters, credentials: b.creds },
+        ),
     ];
     const nonexistent = await rejection(getContactRequest(b.db.pool, B, newId('providerContactRequest')));
     for (const p of probes) {
-      const r = await rejection(p);
+      const r = await rejection(p());
       expect(r).toEqual(nonexistent);
       expect(r).toMatchObject({ code: 'FORBIDDEN', reasonCode: 'RESOURCE_UNAVAILABLE' });
     }
@@ -248,48 +252,52 @@ describe('T-010 / T-011 provider, contact, communication, quote and webhook scop
     const viewer = a.viewer.ctx;
     // Viewers read searches but cannot search, contact, consent or quote.
     await expect(getProviderSearch(pool, viewer, ids.searchId)).resolves.toBeDefined();
-    const deniedForViewer = [
-      runProviderSearch(
-        pool,
-        viewer,
-        {
+    const deniedForViewer: (() => Promise<unknown>)[] = [
+      () =>
+        runProviderSearch(
+          pool,
+          viewer,
+          {
+            incidentId: a.incident.incidentId,
+            providerAccountId: a.unpaid.providerAccountId,
+            query: { providerKinds: ['TECHNICIAN'], country: 'GB', postalCode: 'SW1A 1AA' },
+            idempotencyKey: a.key('s'),
+          },
+          { adapters: a.adapters, credentials: a.creds },
+        ),
+      () =>
+        prepareContactRequest(pool, viewer, {
           incidentId: a.incident.incidentId,
+          serviceProviderId: ids.serviceProviderId,
           providerAccountId: a.unpaid.providerAccountId,
-          query: { providerKinds: ['TECHNICIAN'], country: 'GB', postalCode: 'SW1A 1AA' },
-          idempotencyKey: a.key('s'),
-        },
-        { adapters: a.adapters, credentials: a.creds },
-      ),
-      prepareContactRequest(pool, viewer, {
-        incidentId: a.incident.incidentId,
-        serviceProviderId: ids.serviceProviderId,
-        providerAccountId: a.unpaid.providerAccountId,
-        channel: 'EMAIL',
-        purposeCode: 'QUOTE',
-        idempotencyKey: a.key('p'),
-      }),
-      executeContactRequest(pool, viewer, ids.requestId, { idempotencyKey: a.key('e') }, {}),
-      recordConsent(pool, viewer, {
-        contactRequestId: ids.requestId,
-        consentKind: 'PROCESSING',
-        purpose: 'EVIDENCE_REASONING',
-        status: 'GRANTED',
-        capturedVia: 'OPERATOR_ATTESTED',
-      }),
-      recordQuote(pool, viewer, {
-        contactRequestId: ids.requestId,
-        sourceKind: 'OPERATOR_ENTRY',
-        scopeKind: 'DIAGNOSTIC_VISIT',
-        amount: null,
-        taxMinor: null,
-        etaMinutes: null,
-        availabilityStatus: 'UNKNOWN',
-        validUntil: null,
-        sourceEvidence: { note: 'x' },
-      }),
-      getCommunication(pool, viewer, ids.communicationId),
+          channel: 'EMAIL',
+          purposeCode: 'QUOTE',
+          idempotencyKey: a.key('p'),
+        }),
+      () => executeContactRequest(pool, viewer, ids.requestId, { idempotencyKey: a.key('e') }, {}),
+      () =>
+        recordConsent(pool, viewer, {
+          contactRequestId: ids.requestId,
+          consentKind: 'PROCESSING',
+          purpose: 'EVIDENCE_REASONING',
+          status: 'GRANTED',
+          capturedVia: 'OPERATOR_ATTESTED',
+        }),
+      () =>
+        recordQuote(pool, viewer, {
+          contactRequestId: ids.requestId,
+          sourceKind: 'OPERATOR_ENTRY',
+          scopeKind: 'DIAGNOSTIC_VISIT',
+          amount: null,
+          taxMinor: null,
+          etaMinutes: null,
+          availabilityStatus: 'UNKNOWN',
+          validUntil: null,
+          sourceEvidence: { note: 'x' },
+        }),
+      () => getCommunication(pool, viewer, ids.communicationId),
     ];
-    for (const p of deniedForViewer) expect((await rejection(p)).code).toBe('FORBIDDEN');
+    for (const p of deniedForViewer) expect((await rejection(p())).code).toBe('FORBIDDEN');
     // An operator at another site of the same tenant is out of scope.
     expect((await rejection(getContactRequest(pool, farOperator.ctx, ids.requestId))).code).toBe('FORBIDDEN');
     expect(

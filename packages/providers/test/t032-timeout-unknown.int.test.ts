@@ -414,10 +414,10 @@ describe('T-032 provider timeout becomes unknown', () => {
     };
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
-      serviceProviderId: sp['nw-330']!,
+      serviceProviderId: sp['cl-001']!,
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
-      purposeCode: 'QUOTE',
+      purposeCode: 'DIAGNOSTIC_COMMITMENT',
       paid: { merchantId: 'mer_stablephone-0001', maxCost: money(650n, 'USD') },
       idempotencyKey: w.key('pq'),
     });

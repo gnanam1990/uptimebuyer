@@ -202,11 +202,30 @@ describe('T-031 transcript identity and consent integrity', () => {
       incidentId: w.incident.incidentId,
       reasonCode: 'PROVIDER_QUOTE_EVIDENCE',
     });
-    const reasoner = new ContractFakeReasoner(() => ({ kind: 'FINAL', content: '{"not":"a proposal"}' }));
+    // The fake model searches the evidence (the only way excerpts beyond the packet reach it), then stops.
+    let turn = 0;
+    const reasoner = new ContractFakeReasoner(() =>
+      ++turn === 1
+        ? {
+            kind: 'TOOL_CALLS',
+            calls: [
+              { id: 'c1', name: 'search_evidence', arguments: JSON.stringify({ query: 'call-out fee GBP ETA' }) },
+            ],
+          }
+        : { kind: 'FINAL', content: '{"not":"a proposal"}' },
+    );
     await runReasoning(w.db.pool, w.service, { reasoner, store: w.store }, { incidentId: w.incident.incidentId });
     const packet = JSON.stringify(reasoner.requests);
     expect(reasoner.requests.length).toBeGreaterThan(0);
-    expect(packet).toContain('185.00 GBP');
+    // The consented excerpt document is offered to the model; its only text is the minimum excerpt.
+    expect(packet).toContain(promoted.documentId);
+    const spans = await w.db.pool.query(
+      `SELECT text FROM evidence_document_spans WHERE tenant_id = $1 AND document_id = $2`,
+      [w.tenant.tenantId, promoted.documentId],
+    );
+    const promotedText = spans.rows.map((r) => r.text).join('\n');
+    expect(promotedText).toContain('185.00 GBP');
+    expect(promotedText.length).toBeLessThanOrEqual(excerpt.excerpt.length + 8);
     for (const c of [SECRET, EMAIL, PHONE, CARD, NAME_CANARY]) expect(packet).not.toContain(c);
     // The full transcript never became evidence text.
     const evidence = await dumpTables(w, ['evidence_document_spans', 'evidence_documents', 'reasoning_runs']);
