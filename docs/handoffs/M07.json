@@ -5,10 +5,14 @@
   "moduleId": "M07",
   "status": "PASS",
   "startingCommit": "88d130c",
-  "endingCommit": "c20ca151b21e6ed20d04d9f384f2ff854e0fe157",
+  "endingCommit": "99b0733d688fb9ba45242aa8987ea96128a11d91",
   "branch": "feat/m07-provider-discovery-comms",
   "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
   "localCommits": [
+    "99b0733 fix(m07): no pooled connection is held while waiting for another (promotion and paid hand-off)",
+    "8987f62 test(m07): serialization locks must not deadlock a bounded connection pool (red)",
+    "735127b Merge remote-tracking branch 'origin/main' into feat/m07-provider-discovery-comms (coordinator)",
+    "790841f docs(m07): module handoff record",
     "c20ca15 fix(m07): withdraw promoted excerpt evidence atomically with the consent withdrawal",
     "07d3fdf test(m07): consent withdrawal must atomically withdraw every promoted document (red)",
     "6b1f8c7 test(m07): security-review fixture corrections",
@@ -30,7 +34,7 @@
     "packages/data/migrations/0012_m07_provider_comms.sql, 0013_m07_contact_point_review.sql",
     "packages/data/src/authz.ts (nine provider.* actions)",
     "packages/data/test/t009-migration-forward-fix.int.test.ts (M07 migration list), t011-role-authority-denial.int.test.ts (matrix)",
-    "packages/evidence/src/documents.ts, index.ts (new export withdrawConsentedCommunicationsInTx: transaction-level system withdrawal of consented COMMUNICATION documents)",
+    "packages/evidence/src/documents.ts, index.ts (new exports withdrawConsentedCommunicationsInTx and ingestDocumentInTx; ingestDocument refactored onto the shared body)",
     "packages/providers/** (new package @uptimebuyer/providers: package.json, tsconfig.json, src/*.ts, src/adapters/*.ts, test/*.ts, test/fixtures/coldline-dispatch-api.synthetic.json)",
     "tsconfig.json (references packages/providers and packages/providers/test)",
     "pnpm-lock.yaml (workspace links only; no new third-party dependency)"
@@ -75,14 +79,24 @@
       "resultSummary": "RED (coordinator finding 5): engine-recorded withdrawal rejected; post-transaction withdrawDocument used caller evidence permissions with LIMIT 100."
     },
     {
+      "command": "pnpm vitest run --project integration packages/providers/test/t030-t031-pool-bounds.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "8987f62",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": "2 failed (30 s timeouts)"
+      },
+      "resultSummary": "RED (coordinator finding 6): with a 2-connection pool, promotions and paid hand-offs deadlocked holding a session-locked client while waiting for another pooled connection."
+    },
+    {
       "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
       "cwd": "repo root",
-      "commitSha": "c20ca151b21e6ed20d04d9f384f2ff854e0fe157",
+      "commitSha": "99b0733d688fb9ba45242aa8987ea96128a11d91",
       "exitCode": 0,
       "testCounts": {
         "unit": 716,
-        "integration": 245,
-        "m07": 100,
+        "integration": 250,
+        "m07": 102,
         "byFile": {
           "packages/providers/test/t029-adapter-schemas.test.ts": 14,
           "packages/providers/test/t029-egress-ssrf.test.ts": 41,
@@ -92,13 +106,14 @@
           "packages/providers/test/t031-transcript-consent.int.test.ts": 8,
           "packages/providers/test/t032-timeout-unknown.int.test.ts": 6,
           "packages/providers/test/fr20-notification-routing.int.test.ts": 6,
-          "packages/providers/test/t010-t011-provider-scope.int.test.ts": 4
+          "packages/providers/test/t010-t011-provider-scope.int.test.ts": 4,
+          "packages/providers/test/t030-t031-pool-bounds.int.test.ts": 2
         }
       },
-      "resultSummary": "lint, format:check, typecheck, unit (27 files), integration (45 files, local Postgres 17 container), build, pack check and history secret scan all passed"
+      "resultSummary": "after the coordinator's origin/main merge: lint, format:check, typecheck, unit (27 files), integration (47 files, local Postgres 17 container), build, pack check and history secret scan all passed"
     }
   ],
-  "redEvidence": "663819c committed T-029..T-032, FR-20 and T-010/T-011 suites before any src existed: unit 1 and integration 6 files failed to load; T-011 2/8 failed. First green attempt surfaced fixture defects only (channel-specific contact points, bigint JSON sweeps, unhandled denial-probe promises, M05 tool search never returning transcripts), corrected in 6a6255e without loosening canary/authority assertions. The shared T-010 schema gate then caught three keyless tables (receipts/bodies) and T-009 the migration list; both fixed in the feat commits. Security review red at d7637ae, green at d560728. Atomic-withdrawal red at 07d3fdf, green at c20ca15.",
+  "redEvidence": "663819c committed T-029..T-032, FR-20 and T-010/T-011 suites before any src existed: unit 1 and integration 6 files failed to load; T-011 2/8 failed. First green attempt surfaced fixture defects only (channel-specific contact points, bigint JSON sweeps, unhandled denial-probe promises, M05 tool search never returning transcripts), corrected in 6a6255e without loosening canary/authority assertions. The shared T-010 schema gate then caught three keyless tables (receipts/bodies) and T-009 the migration list; both fixed in the feat commits. Security review red at d7637ae, green at d560728. Atomic-withdrawal red at 07d3fdf, green at c20ca15. Pool-deadlock red at 8987f62 (both cases hit the 30 s bound), green at the ending commit.",
   "evidence": [
     "T-029: a paged synthetic live-shaped search (2 pages) persists normalized identity, service area match, availability, minor-unit price, ETA and source labels, pins the exact revision on every adapter call; rate-limit (PARTIAL, retryAfterMs), provider error (FAILED), malformed page (RESPONSE_SCHEMA_INVALID); discovery source and approved-vendor status are separate and rank is NONE; unpaid revision routes to the adapter (contact, consent and quote schemas normalized, CONFIRMED shown as PROVIDER_CONFIRMED_CONTACT), paid revision routes only to the broker port with the pinned revision, action digest, plan hash and authority; supersession invalidates unexecuted and queued work (no egress) while in-flight attempts keep and reconcile against their historical revision; candidate shells are UNSUPPORTED/NOT_RUN with fetch never called; SSRF suite (41 cases) incl. DNS rebinding refused at connect time.",
     "T-030: duplicate/concurrent prepare and execute commands reuse one request and one attempt; three racing dispatch workers produce exactly one POST and one quote; paid retries under the same authority make one createIntent (same idempotency key) and one execute, zero reconcile, zero adapter egress, and never resolve the paid credential or verifier; missing, mismatched, under-amount, revoked or unknown approvals fail closed with no broker call.",
@@ -121,7 +136,8 @@
     "@uptimebuyer/data ACTIONS: provider.read, provider.search, provider.contact, provider.quote, provider.engine, provider.communication.read, provider.communication.export, provider.communication.erase, provider.vendor_link.",
     "Events emitted with typed payload schemas: provider.search_completed.v1, provider.contact_requested.v1, provider.contact_attempted.v1, provider.communication_recorded.v1, provider.quote_recorded.v1. Consumed: commercial_intent.state_changed.v1 (consumer provider-broker-result.v1) and incident.opened/reopened/state_changed/assignment_changed/deadline_changed.v1, provider.contact_attempted.v1, commercial_intent.state_changed.v1 (consumer provider-notifications.v1).",
     "No HTTP server exists yet; the API-EVENT-SPEC provider endpoints are realised as repository functions (see nextModuleInputs). No contracts or kite-contracts change.",
-    "@uptimebuyer/evidence gains withdrawConsentedCommunicationsInTx(client, tenantId, consentRefs, {reasonCode, systemActorId}) (M05 package, additive; used by M07 only)."
+    "@uptimebuyer/evidence gains withdrawConsentedCommunicationsInTx(client, tenantId, consentRefs, {reasonCode, systemActorId}) (M05 package, additive; used by M07 only).",
+    "@uptimebuyer/evidence gains ingestDocumentInTx(client, ctx, store, input) (M05 package, additive; ingestDocument behaviour unchanged)."
   ],
   "migrationOrRollback": [
     "Forward-only 0012 and 0013 (additive: new tables, columns with defaults, triggers). Rollback is a forward fix; reverting the M07 commits before any deployment also removes them. No earlier table is altered except service_provider_contact_points (0013, its own M07 table)."
@@ -143,6 +159,7 @@
   "securityReview": [
     "Coordinator findings fixed test-first (d7637ae red, d560728 green): (1) DNS rebinding TOCTOU -> connect-time guardedLookup on node:https; (2) contact-point destination hijack -> provenance, intake state, admin review, required contactPointId, DB guard; (3) excerpt/promotion checks before authorization -> scope authorized first, denial identical to absence; (4) client-supplied transcript provenance -> server-derived, mismatch refused.",
     "Coordinator finding 5 fixed test-first (07d3fdf red, c20ca15 green): consent withdrawal withdrew promoted documents after the consent transaction with the caller's evidence permission and LIMIT 100 -> withdrawn in the same transaction as an unbounded system action; promotion serialized with withdrawal by a per-request advisory lock (101 promoted documents plus racing promotions leave zero active documents).",
+    "Coordinator finding 6 fixed test-first (8987f62 red, ending commit green): promotion held a session advisory lock on one pooled client while taking more pooled connections (pool deadlock; a failed unlock returned a locked client) -> one-transaction promotion with pg_advisory_xact_lock and ingestDocumentInTx; the paid hand-off does all work on its lock connection with a bounded try-lock and destroys the client on unlock failure. Six promotions racing a withdrawal and five paid hand-offs complete on a 2-connection pool with no advisory lock left.",
     "Self-review findings fixed in the same commits: provider-controlled raw status/reference strings could violate column CHECKs and strand a SEND_STARTED marker -> sanitized tokens; withdrawn processing consent left promoted excerpt evidence in future packets -> promoted M05 documents withdrawn.",
     "Pinned by regression tests: webhook signature/tamper/stale/replay/broker-owned/oversize/unknown binding, tenant-routed webhook targets, broker-event quarantine, pagination bounds (max pages, cursor cycle, max results), provider text normalization, SSRF URL/IP/redirect/size/policy-binding cases."
   ],
