@@ -15,6 +15,7 @@ import {
   verifyDeviceBodySignature,
   type CredentialResolver,
   type Db,
+  type MachineAuthFailureReason,
   type TelemetryIngestResult,
 } from '@uptimebuyer/data';
 import {
@@ -46,7 +47,10 @@ export interface GatewayLimits {
   backfillRate: RateBucketConfig;
   /** Coarse budget of unauthenticated attempts per source address (only failures are kept; successes refund). */
   preAuthRate: RateBucketConfig;
-  /** Budget of failed authentications per claimed device credential (kid). */
+  /**
+   * Per claimed credential (kid): verified failures against the stored key; also sizes the per-(source, kid)
+   * pre-verification budget.
+   */
   credentialFailureRate: RateBucketConfig;
   /** How long a credential learned from a successful authentication is recognised in memory. */
   credentialCacheTtlMs: number;
@@ -88,6 +92,10 @@ export interface GatewayMetrics {
   deniedRequests: Record<string, number>;
   rateLimited: number;
   backpressure: number;
+  /** Failed authentications by server-side reason (in-process only). */
+  authFailures: Record<string, number>;
+  /** Failed authentications that consumed a failure budget. */
+  chargedAuthFailures: number;
   disclosuresRecorded: number;
   /** Receipt-minus-source lag of the newest accepted LIVE sample (ms). */
   lastLiveLagMs: number | null;
@@ -101,6 +109,13 @@ export interface SensorGateway {
 }
 
 const ROUTE = '/v1/device/telemetry::batch';
+/** Failures proving the token was checked against the stored credential (charged to that credential's budget). */
+const VERIFIED_FAILURES: ReadonlySet<MachineAuthFailureReason> = new Set([
+  'TOKEN_REJECTED',
+  'SUBJECT_MISMATCH',
+  'TOKEN_ID_INVALID',
+  'TOKEN_REPLAYED',
+]);
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -128,6 +143,7 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
   };
   const preAuth = new RateBuckets(limits.preAuthRate, clock);
   const credentialFailures = new RateBuckets(limits.credentialFailureRate, clock);
+  const credentialAttempts = new RateBuckets(limits.credentialFailureRate, clock);
   const credentials = new KnownCredentials(clock, {
     ttlMs: limits.credentialCacheTtlMs,
     maxKeys: 100_000,
@@ -141,6 +157,8 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
     deniedRequests: {},
     rateLimited: 0,
     backpressure: 0,
+    authFailures: {},
+    chargedAuthFailures: 0,
     disclosuresRecorded: 0,
     lastLiveLagMs: null,
   };
@@ -215,52 +233,70 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
       throw new DomainError('VALIDATION_FAILED', 'Expected a JSON request body.', { reasonCode: 'BODY_MISSING' });
 
     // 1. device identity (single-use short-lived token) and tenant from the device's own row.
-    //    Failure budgets bound the database work unauthenticated traffic can cause, and are reserved synchronously
-    //    BEFORE any await (no check-then-act window), refunded when authentication succeeds:
-    //    - a token not even shaped like a device token spends the coarse per-source budget only;
-    //    - a well-formed token that the gateway cannot already recognise as valid spends the budget of the
-    //      credential it claims (kid) and the per-source budget;
-    //    - a token verified in memory against a credential this gateway has already authenticated, with an unseen
-    //      token id, spends nothing: other clients' failures can never block a valid, known device.
+    //    Budgets bound the database work unauthenticated traffic can cause. Reservations are taken synchronously
+    //    BEFORE any await (no check-then-act window) and refunded when authentication succeeds.
+    //    - A token not shaped like a device token spends the coarse per-source budget.
+    //    - A well-formed token not recognised in memory spends the (source, claimed kid) budget; when that is empty,
+    //      or the claimed credential has recent verified failures, it falls back to the per-source budget (never a
+    //      hard refusal keyed on the kid alone, so an attacker elsewhere cannot lock a device out).
+    //    - The per-credential failure budget is charged only after a real token verification failure against the
+    //      stored key (bad signature/claims or a replayed token id), never merely for presenting a kid.
+    //    - A token verified in memory against a credential this gateway already authenticated, with an unseen token
+    //      id, spends nothing; failing it later is charged after the fact. Every verified token id is remembered on
+    //      both paths, so a replay is never "recognised"; only revocation/unknown principal evicts a cached key.
     const source = req.ip || 'unknown';
     const header = req.headers.authorization;
     const match = typeof header === 'string' ? /^Bearer ([A-Za-z0-9._-]{1,4096})$/.exec(header) : null;
     const token = match ? match[1]! : null;
     const kid = token ? peekMachineTokenSubject('DEVICE', token) : null;
+    const pairKey = `${source}\u0000${kid ?? ''}`;
+    const known = kid ? credentials.get(kid) : null;
     let recognised = false;
-    if (token && kid) {
-      const known = credentials.get(kid);
-      const offline = known ? await verifyMachineTokenOffline('DEVICE', token, known) : null;
+    if (token && kid && known) {
+      const offline = await verifyMachineTokenOffline('DEVICE', token, known);
       recognised = offline !== null && credentials.firstUse(offline.jti);
     }
     const reserved: [RateBuckets, string][] = [];
     if (!recognised) {
-      const refuse = () => {
-        for (const [b, k] of reserved) b.refund(k, 1);
-        m.rateLimited++;
-        return new DomainError('RATE_LIMITED', 'Too many failed authentications; retry later.', {
-          reasonCode: 'AUTHENTICATION_RATE_EXCEEDED',
-          retryAfterMs: Math.ceil(1000 / limits.preAuthRate.refillMessagesPerSecond),
-        });
-      };
-      if (kid) {
-        if (!credentialFailures.take(kid, 1).ok) throw refuse();
-        reserved.push([credentialFailures, kid]);
+      let needSource = true;
+      if (kid && credentialAttempts.take(pairKey, 1).ok) {
+        reserved.push([credentialAttempts, pairKey]);
+        needSource = !credentialFailures.has(kid, 1);
       }
-      if (!preAuth.take(source, 1).ok) throw refuse();
-      reserved.push([preAuth, source]);
+      if (needSource) {
+        if (!preAuth.take(source, 1).ok) {
+          for (const [b, k] of reserved) b.refund(k, 1);
+          m.rateLimited++;
+          throw new DomainError('RATE_LIMITED', 'Too many failed authentications; retry later.', {
+            reasonCode: 'AUTHENTICATION_RATE_EXCEEDED',
+            retryAfterMs: Math.ceil(1000 / limits.preAuthRate.refillMessagesPerSecond),
+          });
+        }
+        reserved.push([preAuth, source]);
+      }
     }
     if (!token) throw unauthenticated();
     let auth;
+    let failure: MachineAuthFailureReason | null = null;
     try {
-      auth = await authenticateDevice(opts.pool, opts.credentials, token);
+      auth = await authenticateDevice(opts.pool, opts.credentials, token, {
+        onFailure: (r) => {
+          failure = r;
+        },
+      });
     } catch (e) {
-      if (e instanceof DomainError) {
-        if (kid && recognised) credentials.forget(kid); // e.g. revoked since it was learned
-        throw unauthenticated();
+      if (!(e instanceof DomainError)) {
+        for (const [b, k] of reserved) b.refund(k, 1);
+        throw e;
       }
-      for (const [b, k] of reserved) b.refund(k, 1);
-      throw e;
+      const reason = failure as MachineAuthFailureReason | null;
+      bump(m.authFailures, reason ?? 'UNKNOWN');
+      if (recognised && !credentialAttempts.take(pairKey, 1).ok) preAuth.take(source, 1); // charge after the fact
+      if (reserved.length > 0 || recognised) m.chargedAuthFailures++;
+      if (kid && reason !== null && VERIFIED_FAILURES.has(reason)) credentialFailures.take(kid, 1);
+      if (kid && (reason === 'UNKNOWN_OR_REVOKED_PRINCIPAL' || reason === 'CREDENTIAL_UNAVAILABLE'))
+        credentials.forget(kid);
+      throw unauthenticated();
     }
     for (const [b, k] of reserved) b.refund(k, 1);
     const tenantHeader = req.headers['x-tenant-id'];
@@ -274,9 +310,16 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
           : undefined,
       { correlationId: req.ubCorrelationId },
     );
-    if (!recognised && kid) {
-      const key = await resolveDeviceCredentialKey(opts.pool, ctx, opts.credentials);
-      if (key) credentials.remember(kid, key);
+    if (kid) {
+      // learn or refresh the credential; record the token id on the database path too (no later "recognised" replay)
+      const key = recognised ? known : await resolveDeviceCredentialKey(opts.pool, ctx, opts.credentials);
+      if (key) {
+        credentials.remember(kid, key);
+        if (!recognised) {
+          const verified = await verifyMachineTokenOffline('DEVICE', token, key);
+          if (verified) credentials.firstUse(verified.jti);
+        }
+      }
     }
 
     // 2. body signature over the exact bytes, bounded signing-time skew

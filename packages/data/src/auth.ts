@@ -163,14 +163,27 @@ const LOOKUP: Record<MachinePrincipalKind, string> = {
                  JOIN tenants t ON t.id = i.tenant_id WHERE i.id = $1 AND i.status = 'ACTIVE' AND t.status = 'ACTIVE'`,
 };
 
+/** Why a machine authentication failed (server-side only; callers must still answer a uniform 401). */
+export type MachineAuthFailureReason =
+  | 'MALFORMED_CREDENTIAL'
+  | 'WRONG_TOKEN_KIND'
+  | 'UNKNOWN_OR_REVOKED_PRINCIPAL'
+  | 'CREDENTIAL_UNAVAILABLE'
+  | 'TOKEN_REJECTED'
+  | 'SUBJECT_MISMATCH'
+  | 'TOKEN_ID_INVALID'
+  | 'TOKEN_REPLAYED';
+
 async function authenticateMachine(
   pool: Db,
   resolver: CredentialResolver,
   kind: MachinePrincipalKind,
   token: string,
+  onFailure?: (reasonCode: MachineAuthFailureReason) => void,
 ): Promise<{ row: MachineRow }> {
   const m = MACHINE[kind];
-  const fail = async (reasonCode: string, id: string | null = null): Promise<never> => {
+  const fail = async (reasonCode: MachineAuthFailureReason, id: string | null = null): Promise<never> => {
+    onFailure?.(reasonCode);
     await recordSecurityAudit(pool, {
       principal: { kind, id },
       action: 'principal.authenticate',
@@ -273,8 +286,9 @@ export async function authenticateDevice(
   pool: Db,
   resolver: CredentialResolver,
   token: string,
+  opts: { onFailure?: (reasonCode: MachineAuthFailureReason) => void } = {},
 ): Promise<AuthenticatedPrincipal> {
-  const { row } = await authenticateMachine(pool, resolver, 'DEVICE', token);
+  const { row } = await authenticateMachine(pool, resolver, 'DEVICE', token, opts.onFailure);
   return issuePrincipal(
     { kind: 'DEVICE', id: row.id as DeviceId, tenantId: row.tenant_id, siteId: row.site_id as SiteId },
     'DEVICE_TOKEN',

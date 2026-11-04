@@ -31,6 +31,7 @@ export {
   verifyMachineTokenOffline,
   type CredentialResolver,
   type HumanSessionVerifier,
+  type MachineAuthFailureReason,
   type MachinePrincipalKind,
 } from './auth.js';
 export * from './authz.js';
