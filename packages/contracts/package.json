@@ -1,0 +1,13 @@
+{
+  "name": "@uptimebuyer/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical runtime-validated contracts: IDs, money, measurements, time, evidence, commands, events, errors and state vocabularies.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

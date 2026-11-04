@@ -1,0 +1,14 @@
+{
+  "name": "@uptimebuyer/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure domain rules: state-machine transition tables, canonical versioned digests and append-only evidence helpers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

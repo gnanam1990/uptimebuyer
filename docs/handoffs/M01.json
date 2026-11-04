@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M01",
+  "status": "PASS",
+  "startingCommit": "066dbee",
+  "endingCommit": "1045e30888637ce52908892aae17d295847db28e",
+  "branch": "feat/m01-shared-contracts-domain",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "1045e30 feat(m01): @uptimebuyer/kite-contracts broker port and in-memory contract fake",
+    "a049a6c feat(m01): @uptimebuyer/domain transition tables, canonical digests, evidence ledger",
+    "7b8a6da feat(m01): @uptimebuyer/contracts runtime-validated shared contracts",
+    "2821ec6 test(m01): correct enum case fixture and cover CausationIdSchema",
+    "507a9ca test(m01): T-005..T-008 contract, transition, digest and precision gates (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-18"],
+    "nonfunctional": ["NFR-03", "NFR-09", "NFR-11"],
+    "invariants": ["INV-03", "INV-10"],
+    "tests": ["T-005", "T-006", "T-007", "T-008"]
+  },
+  "changedFiles": [
+    "packages/contracts/** (package.json, tsconfig.json, src/*.ts, test/t005-schema-round-trip.test.ts, test/t008-money-measurement-precision.test.ts, test/tsconfig.json)",
+    "packages/domain/** (package.json, tsconfig.json, src/*.ts, test/t006-illegal-transition-rejection.test.ts, test/t007-digest-stability.test.ts, test/tsconfig.json)",
+    "packages/kite-contracts/** (package.json, tsconfig.json, src/*.ts, test/t005-broker-port-contract.test.ts, test/tsconfig.json)",
+    "tsconfig.json (project references for the three packages and their test projects)",
+    "pnpm-lock.yaml (zod 4.6.7 exact pin; workspace links)"
+  ],
+  "diffSummary": "Three new workspace packages. contracts: strict zod codecs/types for IDs, money, measurements, time, ppm, digests, separate state axes, adapter outcomes, evidence, commands, events, errors and revision-bound records. domain: transition tables as data, pure transition, canonical versioned digests, action digest, append-only evidence ledger. kite-contracts: credential-free broker port, signed execution reference and an in-memory contract fake.",
+  "configChanges": [
+    "Root tsconfig.json references packages/{contracts,domain,kite-contracts} and their test/ projects (test projects are noEmit and reference their package).",
+    "Dependency zod 4.6.7 pinned exactly in each package; no other runtime dependency."
+  ],
+  "commands": [
+    {
+      "command": "pnpm vitest run --project unit packages/ (before any src existed)",
+      "cwd": "repo root",
+      "commitSha": "507a9ca",
+      "exitCode": 1,
+      "testCounts": { "unit": 0, "failedFiles": 5 },
+      "resultSummary": "RED: 5 test files failed to load (package entry points absent); 0 tests executed"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "1045e30888637ce52908892aae17d295847db28e",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 498,
+        "integration": 1,
+        "m01Unit": 483,
+        "byFile": {
+          "packages/contracts/test/t005-schema-round-trip.test.ts": 369,
+          "packages/contracts/test/t008-money-measurement-precision.test.ts": 17,
+          "packages/domain/test/t006-illegal-transition-rejection.test.ts": 71,
+          "packages/domain/test/t007-digest-stability.test.ts": 15,
+          "packages/kite-contracts/test/t005-broker-port-contract.test.ts": 11
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17 container), build, pack check and history secret scan all passed"
+    }
+  ],
+  "redEvidence": "T-005..T-008 were committed first (507a9ca) and failed: 5 files, 0 tests ran, because @uptimebuyer/contracts and ../src/index.js did not exist. First green attempt then failed 2/386 contract tests because the enum 'lowercase' malformed variant equalled the valid value for already-lowercase vocabularies (a fixture defect, corrected in 2821ec6 without loosening any assertion).",
+  "evidence": [
+    "T-005: every exported *Schema of @uptimebuyer/contracts must have a fixture (completeness gate) and round-trips decode->encode->JSON->decode; objects reject an extra top-level key; listed critical fields reject malformed values; each branded ID rejects every other prefix; EVENT_TYPES equals the API-EVENT-SPEC section 6 table parsed from the spec file.",
+    "T-006: expected edges transcribed by hand from STATE-MACHINES.md (not imported); every specified edge accepted with a guard; every unspecified pair in states x states rejected with STATE_TRANSITION_INVALID/409 and a deep-frozen aggregate plus evidence ledger unchanged; foreign/cross-kind words rejected as STATE_NOT_IN_MACHINE.",
+    "T-007: golden digest equals an independently computed sha256 of the documented preimage; key order and wire number form do not change the digest; each of the 10 bound fields (and every action sub-field) changes it to a distinct value; assertActionDigestCurrent rejects every mutation with DIGEST_MISMATCH while the original input reproduces the original digest; evidence chain tamper/reorder detection.",
+    "T-008: no float drift (1000 x 0.01 = 10.00), per-currency exponents, int64 overflow rejected, unit confusion rejected by the temperature consistency refinement, exact F/K conversion with labelled half-even rounding, canonical UTC instants, integer durations and ppm."
+  ],
+  "verification": ["pnpm verify exit 0 at 1045e30 (see commands)"],
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN",
+    "brokerPortFake": "CONTRACT_FAKE results only; proves the port contract, not Kite behaviour"
+  },
+  "schemaOrApiChanges": [
+    "New contract vocabulary and schemas in @uptimebuyer/contracts (no HTTP endpoints, no migrations).",
+    "commercial_intent.state_changed.v1 payload defined in @uptimebuyer/kite-contracts, including resultOrigin (KITE_BROKER | CONTRACT_FAKE)."
+  ],
+  "migrationOrRollback": [
+    "No migrations. Rollback is reverting the five M01 commits; no downstream module depends on them yet."
+  ],
+  "specAmbiguitiesResolved": [
+    "Incident: PAUSED->ESCALATED and REOPENED->ESCALATED are not listed, so they are rejected (resume or triage first). 'Any active' for ESCALATED = DETECTED..VERIFYING.",
+    "Service job: the table literally lists SCHEDULED->SCHEDULED and RESCHEDULED->RESCHEDULED; both self-edges kept as specified.",
+    "Attempt transport: no edge leaves UNKNOWN/ACKNOWLEDGED/DEFINITE_NO_EFFECT; resolution after UNKNOWN is recorded on the external-outcome and economic axes only.",
+    "Recovery plan: EXECUTING -> INVALIDATED is an edge whose guard carries the IN_FLIGHT_RECONCILIATION obligation; it is not a separate state. HELD and REJECTED have no outgoing edges.",
+    "Device health: ONLINE->OFFLINE direct is not drawn, so it must pass through STALE.",
+    "Temperature: CORE-CONTRACT asks for a 'tested decimal library'; implemented with exact bigint rational arithmetic (no new dependency) and a single half-even rounding to milli-degrees, labelled ROUNDED_HALF_EVEN, with the exact source decimal and unit retained.",
+    "Money wire format: amountMinor decodes from a canonical decimal string or a safe-integer number (API example uses a number) and always encodes as a string; bounded to signed int64; ISO 4217 whitelist with exponents (unknown codes rejected).",
+    "Identifiers: prefixed opaque '<prefix>_<4..64 of [A-Za-z0-9-]>' (e.g. ten_, inc_, cin_); newId() uses a UUID body.",
+    "Digests: '<domain>.v<N>:sha256:<hex>' with '<domain>.v<N>\\n' inside the preimage; canonical text sorts keys and encodes bigint as digits+'n'. The action descriptor bound into the digest is {kind, subjectId, quantity, partNumber, manufacturer}.",
+    "Execution reference signature algorithm is not named by the spec; HMAC-SHA256 over a versioned canonical preimage was chosen, key supplied by the caller.",
+    "The fake requires a CONFIRMED Kite session for the authority before reserve (TDD section 10)."
+  ],
+  "unresolvedRisks": [
+    "Kite may settle in a non-ISO asset (e.g. a stablecoin with 6 decimals); CurrencyCodeSchema is ISO 4217 only, so M09 must extend the currency table deliberately (a contract change) if that is needed.",
+    "The ActionDescriptor field set is M01's choice; M06/M08 may need more bound fields, which requires bumping ACTION_DIGEST_VERSION rather than editing v1.",
+    "Only seven event payloads are typed here (plus commercial_intent.state_changed.v1 in kite-contracts); owning modules must define the rest with defineDomainEvent.",
+    "The domain and kite-contracts packages import node:crypto, so they are server-side only; @uptimebuyer/contracts is runtime-neutral."
+  ],
+  "nextModuleInputs": [
+    "@uptimebuyer/contracts: decodeWire/encodeWire at every JSON boundary; DomainError, ERROR_CODE_CLASS, ERROR_CLASS_HTTP_STATUS, toApiErrorBody, ApiErrorBodySchema.",
+    "@uptimebuyer/contracts IDs: ID_PREFIXES, newId(kind), <Kind>IdSchema for every kind, OpaqueIdSchema, CausationIdSchema, IdempotencyKeySchema. M02 must persist IDs in this prefixed form.",
+    "@uptimebuyer/contracts money/measurement/time: MoneySchema, SignedMoneySchema, MinorUnitsSchema, money, parseMoneyDecimal, formatMoneyDecimal, addMoney, subtractMoney, sumMoney, compareMoney, mulDivRoundHalfUp, applyPpm, INT64_MAX/INT64_MIN, ISO_4217_MINOR_UNITS; TemperatureReadingSchema, temperatureFromSource, milliCelsiusToUnit, MeasurementSchema; UtcInstantSchema, instantFromEpochMs, epochMsOf, durationMs, durationBetween, addDuration, DurationMsSchema, IanaTimezoneSchema; PpmSchema, ppm, ppmFromDecimal.",
+    "@uptimebuyer/contracts state vocabularies: *_STATES constants and *StateSchema enums for incident, evidence revision, compatibility decision/lifecycle, recovery plan, execution authority, Kite session, external outcome, adapter capability, attempt transport, economic intent, purchase order, service job, recovery evaluation, device health; INCIDENT_PAUSABLE_STATES. M02 CHECK constraints must use exactly these words.",
+    "@uptimebuyer/contracts records: ActionDigestInputSchema, ActionDescriptorSchema, IncidentSchema, CompatibilityDecisionSchema, ExecutionAuthoritySchema, KiteSessionSchema, CommercialIntentSchema, CommercialIntentSubjectSchema, ExternalAttemptSchema, PurchaseOrderSchema, ServiceJobSchema, RecoveryEvaluationSchema; adapter results AdapterCapabilityAssessmentSchema, ExternalOutcomeResultSchema, EvidenceRefSchema.",
+    "@uptimebuyer/contracts evidence/commands/events: CitationSchema, CitationLocatorSchema, EvidenceItemSchema, EvidenceRevisionManifestSchema, EvidenceEnvelopeSchema, CorrelationSchema; CommandEnvelopeSchema, CommandAcceptedSchema, ActorSchema; EVENT_CATALOG, EVENT_TYPES, DomainEventEnvelopeSchema, defineDomainEvent and the typed *EventSchema/*PayloadSchema pairs.",
+    "@uptimebuyer/domain: MACHINES, MACHINE_NAMES, transition, isTransitionAllowed, allowedTargets, applyTransition, resumeFromPause (every state change must go through these); canonicalize, canonicalDigest, computeSchemaDigest, computeActionDigest, assertActionDigestCurrent, ACTION_DIGEST_DOMAIN/VERSION/BOUND_FIELDS; appendEvidence, verifyEvidenceChain, computeEnvelopeDigest, currentEvidenceRecord, rootCorrelation, causedBy.",
+    "@uptimebuyer/kite-contracts: CommercialIntentBrokerPort (M07 codes against it, M09 implements it), CommercialIntentRequestSchema, CommercialIntentStateChangedPayloadSchema/EventSchema, CreateIntentResultSchema, ResultOriginSchema, SignedExecutionReferenceSchema, signExecutionReference, verifyExecutionReference, executionReferenceSigningInput; InMemoryCommercialIntentBrokerFake for tests only."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M01 completed and locally verified shared contract, state-machine, digest and broker-port code with an in-memory contract fake; no real provider, Kite payment, deployment, sensor or recovery evidence exists, and all of it remains NOT_RUN."
+}
