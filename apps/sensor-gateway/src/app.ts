@@ -41,6 +41,8 @@ export interface GatewayLimits {
   maxQueuedBackfill: number;
   liveRate: RateBucketConfig;
   backfillRate: RateBucketConfig;
+  /** Budget of failed authentications per source address; exhausted sources get 429 before any database work. */
+  preAuthRate: RateBucketConfig;
 }
 
 export const DEFAULT_GATEWAY_LIMITS: GatewayLimits = Object.freeze({
@@ -51,6 +53,7 @@ export const DEFAULT_GATEWAY_LIMITS: GatewayLimits = Object.freeze({
   maxQueuedBackfill: 64,
   liveRate: { capacityMessages: 600, refillMessagesPerSecond: 20 },
   backfillRate: { capacityMessages: 400, refillMessagesPerSecond: 20 },
+  preAuthRate: { capacityMessages: 60, refillMessagesPerSecond: 1, maxTrackedKeys: 50_000 },
 });
 
 export interface GatewayOptions {
@@ -109,6 +112,7 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
     LIVE: new RateBuckets(limits.liveRate, clock),
     BACKFILL: new RateBuckets(limits.backfillRate, clock),
   };
+  const preAuth = new RateBuckets(limits.preAuthRate, clock);
   const m: Omit<GatewayMetrics, 'queue'> = {
     requests: 0,
     accepted: { LIVE: 0, LATE: 0, BACKFILL: 0 },
@@ -178,8 +182,8 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
       return reply.status(503).send({ status: 'unavailable' });
     }
   });
-  /** Aggregate counters only: no tenant, device or payload identifiers. */
-  app.get('/metrics', async () => metrics());
+  // Metrics are process-wide (all tenants), so they are not served on this device-facing listener; the operator
+  // reads `gateway.metrics()` in-process or exports it from a separate, authenticated operations listener.
 
   app.post(ROUTE, async (req, reply) => {
     m.requests++;
@@ -189,15 +193,30 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
     if (!Buffer.isBuffer(body))
       throw new DomainError('VALIDATION_FAILED', 'Expected a JSON request body.', { reasonCode: 'BODY_MISSING' });
 
-    // 1. device identity (single-use short-lived token) and tenant from the device's own row
+    // 1. device identity (single-use short-lived token) and tenant from the device's own row. A source that keeps
+    //    failing authentication is refused before any credential lookup or audit write (bounded pre-auth work).
+    const source = req.ip || 'unknown';
+    if (!preAuth.has(source, 1)) {
+      m.rateLimited++;
+      throw new DomainError('RATE_LIMITED', 'Too many failed authentications; retry later.', {
+        reasonCode: 'AUTHENTICATION_RATE_EXCEEDED',
+        retryAfterMs: Math.ceil(1000 / limits.preAuthRate.refillMessagesPerSecond),
+      });
+    }
     const header = req.headers.authorization;
     const match = typeof header === 'string' ? /^Bearer ([A-Za-z0-9._-]{1,4096})$/.exec(header) : null;
-    if (!match) throw unauthenticated();
+    if (!match) {
+      preAuth.take(source, 1);
+      throw unauthenticated();
+    }
     let auth;
     try {
       auth = await authenticateDevice(opts.pool, opts.credentials, match[1]!);
     } catch (e) {
-      if (e instanceof DomainError) throw unauthenticated();
+      if (e instanceof DomainError) {
+        preAuth.take(source, 1);
+        throw unauthenticated();
+      }
       throw e;
     }
     const tenantHeader = req.headers['x-tenant-id'];

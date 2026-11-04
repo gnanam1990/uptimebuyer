@@ -839,6 +839,15 @@ export async function verifyDeviceBodySignature(
 // ---------------------------------------------------------------------------------------------------------------
 // Reads (telemetry.read at the device's site; foreign and missing ids are indistinguishable)
 
+/**
+ * Freshness is evaluated at the later of the requested time and the server clock: a caller may look ahead (tests,
+ * simulations) but can never rewind the clock to make stale telemetry read or persist as FRESH (INV-11).
+ */
+function evaluationTime(requested: string | undefined): number {
+  const server = Date.now();
+  return requested === undefined ? server : Math.max(Date.parse(requested), server);
+}
+
 async function requireTelemetryReadable(c: Tx, ctx: TenantContext, deviceId: string, meta: CommandMeta) {
   if (!DeviceIdSchema.safeParse(deviceId).success) throw unavailable(meta);
   const { rows } = await c.query<{ site_id: SiteId; status: string }>(
@@ -884,7 +893,7 @@ export async function getDeviceHealth(
   opts: { now?: string } = {},
 ): Promise<DeviceHealthView> {
   if (opts.now !== undefined && !UtcInstantSchema.safeParse(opts.now).success) throw validation('NOW_INVALID');
-  const nowMs = opts.now === undefined ? Date.now() : Date.parse(opts.now);
+  const nowMs = evaluationTime(opts.now);
   const meta = { action: 'telemetry.health.read', resourceType: 'device', resourceId: deviceId };
   return tenantCommand(pool, ctx, meta, async (c) => {
     const dev = await requireTelemetryReadable(c, ctx, deviceId, meta);
@@ -1218,7 +1227,7 @@ export async function sweepTelemetryFreshness(
   opts: { now: string; limit?: number; workerId?: string },
 ): Promise<{ evaluated: number; transitions: FreshnessTransition[] }> {
   if (!UtcInstantSchema.safeParse(opts.now).success) throw validation('NOW_INVALID');
-  const nowMs = Date.parse(opts.now);
+  const nowMs = evaluationTime(opts.now);
   const limit = Math.min(Math.max(opts.limit ?? 500, 1), 5_000);
   const candidates = await pool.query<{ tenant_id: TenantId; device_id: DeviceId; channel_id: SensorChannelId }>(
     `SELECT h.tenant_id, h.device_id, h.channel_id

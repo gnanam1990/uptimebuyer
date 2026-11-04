@@ -82,6 +82,18 @@ export class RateBuckets {
     return this.buckets.size;
   }
 
+  /** Whether `n` tokens are available for `key` now (does not consume, does not create a bucket). */
+  has(key: string, n: number): boolean {
+    const b = this.buckets.get(key);
+    if (!b) return n <= this.cfg.capacityMessages;
+    return this.refilled(b, this.clock.now()) >= n;
+  }
+
+  private refilled(b: { tokens: number; at: number }, now: number): number {
+    const elapsed = Math.max(0, now - b.at);
+    return Math.min(this.cfg.capacityMessages, b.tokens + (elapsed * this.cfg.refillMessagesPerSecond) / 1000);
+  }
+
   /** Take `n` tokens for `key`; on refusal, `retryAfterMs` is when enough tokens will exist (∞ if never). */
   take(key: string, n: number): { ok: true } | { ok: false; retryAfterMs: number } {
     const now = this.clock.now();
@@ -91,8 +103,7 @@ export class RateBuckets {
       b = { tokens: this.cfg.capacityMessages, at: now };
       while (this.buckets.size >= this.maxKeys) this.buckets.delete(this.buckets.keys().next().value!);
     }
-    const elapsed = Math.max(0, now - b.at);
-    b.tokens = Math.min(this.cfg.capacityMessages, b.tokens + (elapsed * this.cfg.refillMessagesPerSecond) / 1000);
+    b.tokens = this.refilled(b, now);
     b.at = now;
     this.buckets.set(key, b); // most recently used last
     if (n > this.cfg.capacityMessages) return { ok: false, retryAfterMs: Number.POSITIVE_INFINITY };
