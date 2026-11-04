@@ -28,7 +28,7 @@ import {
   createTestDatabase,
   dbScripts,
   humanContext,
-  incidentId,
+  fixtureIncident,
   seedTenant,
   sha,
   TestIdentityProvider,
@@ -141,14 +141,20 @@ describe('T-011 approval vs concurrent revision supersession', () => {
 
   async function freshInput(n: string, providerAccountRevisionId: string | null): Promise<ApprovalInput> {
     const { rows } = await db.admin(`SELECT current_revision_id, version FROM assets WHERE id = $1`, [assetId]);
+    const inc = await fixtureIncident(db.pool, {
+      tenantId: t.tenantId,
+      assetId,
+      userId: t.adminUserId,
+      label: `race-${n}`,
+    });
     const ev = await commitEvidenceRevision(db.pool, approver, {
-      incidentId: incidentId(`race-${n}`),
+      incidentId: inc,
       assetRevisionId: rows[0].current_revision_id,
       items: [],
     });
     return {
       approvalKind: 'PLAN_ACTION',
-      incidentId: incidentId(`race-${n}`),
+      incidentId: inc,
       siteId,
       assetRevisionId: rows[0].current_revision_id,
       evidenceRevisionId: ev.evidenceRevisionId,

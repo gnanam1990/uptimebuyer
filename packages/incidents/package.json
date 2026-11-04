@@ -1,0 +1,22 @@
+{
+  "name": "@uptimebuyer/incidents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Incident engine (M04): event-time rule evaluation over LIVE telemetry, database-enforced convergence on one active incident per asset/fault window, versioned lifecycle, assignment and deadline commands, manual reports and notification triggers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/telemetry": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@uptimebuyer/sensor-gateway": "workspace:*"
+  }
+}

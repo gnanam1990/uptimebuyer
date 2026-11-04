@@ -1,6 +1,7 @@
 // T-009 (INV-10 deletion workflows, FR-23) — legal holds cover the whole scope hierarchy tenant > site > asset >
 // incident. A deletion/redaction request is blocked when any active hold is an ancestor OR a descendant of the
-// requested scope; unrelated sibling scopes are not blocked, and exports are never blocked.
+// requested scope; unrelated sibling scopes are not blocked, and exports are never blocked. Since M04 an incident
+// scope's site and asset are resolved from the incidents table (a named parent asset must agree with it).
 import { newId, type AssetId, type SiteId } from '@uptimebuyer/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -16,6 +17,7 @@ import {
 import {
   createTestDatabase,
   dbScripts,
+  fixtureIncident,
   humanContext,
   incidentId,
   seedTenant,
@@ -71,6 +73,16 @@ describe('T-009 legal holds block erasure across the scope hierarchy', () => {
     });
     a1 = (await registerAsset(db.pool, admin, { siteId: s1, identity: identity('H-1'), source: 'API' })).assetId;
     a2 = (await registerAsset(db.pool, admin, { siteId: s2, identity: identity('H-2'), source: 'API' })).assetId;
+    for (const [label, assetId] of [
+      ['hold-1', a1],
+      ['held', a1],
+      ['sibling', a1],
+      ['under-a2', a2],
+      ['anything', a1],
+      ['pinned', a1],
+      ['evidenced', a1],
+    ] as const)
+      await fixtureIncident(db.pool, { tenantId: t.tenantId, assetId, userId: t.adminUserId, label });
   });
   afterAll(async () => {
     await db?.drop();
@@ -148,10 +160,28 @@ describe('T-009 legal holds block erasure across the scope hierarchy', () => {
     await releaseLegalHold(db.pool, admin, legalHoldId);
   });
 
-  it('an incident scope must name an in-tenant asset consistent with recorded evidence', async () => {
+  it('an incident scope resolves from the incidents table; an unknown incident or a mismatched parent is refused', async () => {
+    // An incident that does not exist in this tenant is unavailable, whether or not a parent asset is named.
     await expect(
       placeLegalHold(db.pool, admin, { scopeType: 'INCIDENT', scopeId: incidentId('x'), reasonCode: 'LITIGATION' }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    ).rejects.toMatchObject({ code: 'FORBIDDEN', details: { reasonCode: 'RESOURCE_UNAVAILABLE' } });
+    await expect(
+      placeLegalHold(db.pool, admin, {
+        scopeType: 'INCIDENT',
+        scopeId: incidentId('x'),
+        parentAssetId: a1,
+        reasonCode: 'LITIGATION',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    // Without a parent asset the chain comes from the incident row itself, so the hold covers its real asset.
+    const derived = await placeLegalHold(db.pool, admin, {
+      scopeType: 'INCIDENT',
+      scopeId: incidentId('evidenced'),
+      reasonCode: 'LITIGATION',
+    });
+    expect(await request('ASSET', a1, undefined, 'REDACTION')).toBe('BLOCKED_LEGAL_HOLD');
+    expect(await request('INCIDENT', incidentId('evidenced'), undefined, 'REDACTION')).toBe('BLOCKED_LEGAL_HOLD');
+    await releaseLegalHold(db.pool, admin, derived.legalHoldId);
     await expect(
       placeLegalHold(db.pool, admin, {
         scopeType: 'INCIDENT',

@@ -133,3 +133,66 @@ export const resolver = () => new InMemoryCredentialResolver();
 export const sha = (seed: string) => `sha256:${createHash('sha256').update(seed).digest('hex')}`;
 export const vdigest = (domain: string, seed: string) => `${domain}.v1:${sha(seed)}`;
 export const incidentId = (n: string) => `inc_fixture-${n}`;
+
+/**
+ * A minimal real incident (with a fixture rule and procedure) for the M02-era tests: since M04 the incident_id columns
+ * of evidence revisions, ledger entries, approvals, legal holds and privacy requests carry composite tenant foreign
+ * keys to `incidents`. Inserted directly because these tests exercise M02 surfaces, not the incident engine
+ * (packages/incidents covers that). Idempotent per (tenant, label); returns `inc_fixture-<label>`.
+ */
+export async function fixtureIncident(
+  pool: pg.Pool,
+  input: { tenantId: string; assetId: string; userId: string; label: string },
+): Promise<string> {
+  const id = incidentId(input.label);
+  const tag = sha(input.tenantId).slice(7, 23);
+  await pool.query(
+    `INSERT INTO operating_procedure_revisions (tenant_id, id, procedure_key, revision, deadline_kind, deadline_basis,
+       response_deadline_ms, pause_allowed, max_extension_ms, adjust_role, initial_assignee_user_id, timezone_basis,
+       body_digest, effective_at, published_by_user_id)
+     VALUES ($1, $2, 'fixture', 1, 'RESPONSE', 'OPENED_AT', 1800000, true, 0, 'operator', $3, 'UTC', $4,
+       clock_timestamp(), $3)
+     ON CONFLICT DO NOTHING`,
+    [input.tenantId, `opr_fixture-${tag}`, input.userId, `incident-procedure.v1:${sha('fixture-procedure')}`],
+  );
+  await pool.query(
+    `INSERT INTO incident_rule_revisions (tenant_id, id, rule_key, revision, status, channel_kind, comparator,
+       threshold_int, hysteresis_int, duration_ms, min_samples, quorum_channels, max_gap_ms, max_evaluation_lag_ms,
+       stale_behavior, fault_window_key, fault_family, urgency, watch_window_ms, recovery_window_ms, procedure_key,
+       body_digest, effective_at, published_by_user_id)
+     VALUES ($1, $2, 'fixture', 1, 'ACTIVE', 'TEMPERATURE', 'ABOVE', 8000, 0, 60000, 1, 1, 60000, 60000, 'HOLD',
+       'fixture', 'FIXTURE', 'NORMAL', 0, 600000, 'fixture', $4, clock_timestamp(), $3)
+     ON CONFLICT DO NOTHING`,
+    [input.tenantId, `irl_fixture-${tag}`, input.userId, `incident-rule.v1:${sha('fixture-rule')}`],
+  );
+  await pool.query(
+    `INSERT INTO incidents (tenant_id, id, site_id, asset_id, asset_revision_id, rule_revision_id, procedure_revision_id,
+       trigger_kind, trigger_input_origin, state, fault_family, fault_window_key, urgency, trigger_event_at,
+       trigger_received_at, opened_at, open_latency_ms, deadline_kind, deadline_basis, deadline_basis_at,
+       deadline_computed_at, deadline_basis_digest, deadline_timezone_basis, original_response_deadline_at,
+       current_response_deadline_at, deadline_status, correlation_id, version)
+     SELECT a.tenant_id, $3, a.site_id, a.id, a.current_revision_id, $4, $5, 'MANUAL_REPORT', 'OPERATOR_REPORT',
+       'TRIAGING', 'FIXTURE', $6, 'NORMAL', now(), now(), now(), 0, 'RESPONSE', 'OPENED_AT', now(), now(), $7, 'UTC',
+       now() + interval '30 minutes', now() + interval '30 minutes', 'RUNNING', 'corr_fixture-incident', 1
+       FROM assets a WHERE a.tenant_id = $1 AND a.id = $2
+     ON CONFLICT DO NOTHING`,
+    [
+      input.tenantId,
+      input.assetId,
+      id,
+      `irl_fixture-${tag}`,
+      `opr_fixture-${tag}`,
+      `fx-${input.label}`
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .slice(0, 64),
+      `incident-deadline-basis.v1:${sha(`fixture-${input.label}`)}`,
+    ],
+  );
+  const { rowCount } = await pool.query(`SELECT 1 FROM incidents WHERE tenant_id = $1 AND id = $2`, [
+    input.tenantId,
+    id,
+  ]);
+  if (rowCount !== 1) throw new Error(`fixture incident ${id} was not created (asset not in tenant?)`);
+  return id;
+}
