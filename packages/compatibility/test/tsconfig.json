@@ -1,0 +1,21 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["./**/*.ts"],
+  "references": [
+    { "path": ".." },
+    { "path": "../../contracts" },
+    { "path": "../../domain" },
+    { "path": "../../data" },
+    { "path": "../../evidence" },
+    { "path": "../../incidents" },
+    { "path": "../../telemetry" },
+    { "path": "../../../apps/sensor-gateway" }
+  ]
+}

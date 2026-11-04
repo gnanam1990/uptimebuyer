@@ -1,0 +1,23 @@
+{
+  "name": "@uptimebuyer/compatibility",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Compatibility and deterministic safety policy (M06): revision-bound candidate actions, fail-closed ALLOW/HOLD/REJECT decisions with an immutable lifecycle projection, signed named-engineer and policy-approver authority records, versioned policy administration and invalidation on evidence or policy change.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/evidence": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/sensor-gateway": "workspace:*"
+  }
+}
