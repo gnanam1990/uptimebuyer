@@ -123,3 +123,39 @@ describe('T-021 document parsing provenance', () => {
     expect(reason(() => parseDocument(many, 'application/pdf'))).toBe('DOCUMENT_BOMB');
   });
 });
+
+describe('T-021 parser resource bounds (security review)', () => {
+  it('rejects or finishes fast on object headers without endobj (no quadratic scan)', () => {
+    const body = Buffer.from(`%PDF-1.7\n${'1 0 obj\n'.repeat(400_000)}`);
+    expect(body.length).toBeLessThan(DOCUMENT_LIMITS.maxBytes);
+    const started = Date.now();
+    expect(reason(() => parseDocument(body, 'application/pdf'))).toMatch(/TOO_MANY_OBJECTS|PDF_MALFORMED|PDF_TEXT_UNAVAILABLE/);
+    expect(Date.now() - started).toBeLessThan(3_000);
+    // Just under the object cap, with a long tail after the last header: still linear.
+    const tail = Buffer.from(`%PDF-1.7\n${'1 0 obj\n'.repeat(19_000)}${'x'.repeat(7_000_000)}`);
+    const t2 = Date.now();
+    expect(reason(() => parseDocument(tail, 'application/pdf'))).toBe('PDF_TEXT_UNAVAILABLE');
+    expect(Date.now() - t2).toBeLessThan(750);
+  });
+
+  it('a dictionary full of comment markers is scanned in linear time', () => {
+    const body = Buffer.from(`%PDF-1.7\n1 0 obj\n<< ${'%\n'.repeat(3_000_000)} >>\nendobj\n`);
+    expect(body.length).toBeLessThan(DOCUMENT_LIMITS.maxBytes);
+    const started = Date.now();
+    expect(reason(() => parseDocument(body, 'application/pdf'))).toBe('PDF_TEXT_UNAVAILABLE');
+    expect(Date.now() - started).toBeLessThan(3_000);
+  });
+
+  it('many inline images in a content stream are skipped in linear time', () => {
+    const content = `BT (x) Tj ET\n${'BI /W 1 /H 1 ID \u0001 EI\n'.repeat(300_000)}`;
+    const pdf = buildPdf([['x']], { uncompressed: true });
+    const patched = Buffer.from(pdf.toString('latin1').replace('(x) Tj', content.replace(/\n/g, ' ')), 'latin1');
+    const started = Date.now();
+    try {
+      parseDocument(patched, 'application/pdf');
+    } catch {
+      // a structural rejection is acceptable; only the time bound matters here
+    }
+    expect(Date.now() - started).toBeLessThan(3_000);
+  });
+});

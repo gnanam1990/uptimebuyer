@@ -102,7 +102,13 @@ describe('T-009 migration and rollback on seeded tenant', () => {
   it('applies every M02 (and later module) migration forward once, then is a checksum-stable no-op', async () => {
     const { migrate } = await dbScripts();
     const applied = await migrate(db.url);
-    expect(applied).toEqual(['0000_bootstrap.sql', ...M02_MIGRATIONS, ...M03_MIGRATIONS, ...M04_MIGRATIONS, ...M05_MIGRATIONS]);
+    expect(applied).toEqual([
+      '0000_bootstrap.sql',
+      ...M02_MIGRATIONS,
+      ...M03_MIGRATIONS,
+      ...M04_MIGRATIONS,
+      ...M05_MIGRATIONS,
+    ]);
     expect(await migrate(db.url)).toEqual([]);
     const { rows } = await db.admin(`SELECT extname FROM pg_extension WHERE extname = 'btree_gist'`);
     expect(rows).toHaveLength(1);
