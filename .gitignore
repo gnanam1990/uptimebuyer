@@ -11,3 +11,4 @@ coverage/
 tmp/
 evidence/raw/
 spikes/f0/.secrets/
+tmp-t004-*/

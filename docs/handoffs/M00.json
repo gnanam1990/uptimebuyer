@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M00",
+  "status": "PASS",
+  "startingCommit": "e915555",
+  "endingCommit": "f9887d04dd29f68e119697fd648cc49e51886c06",
+  "branch": "feat/m00-intake-foundation",
+  "workingTree": "clean at handoff",
+  "localCommits": [
+    "f9887d0 ci(m00): clean-checkout bootstrap job with Postgres 17 service; ADR 0001",
+    "1e86f1b test(m00): T-001..T-004 bootstrap, dirty intake, secret scan and quality smoke",
+    "ec9191e feat(m00): checksum-verified migration runner and one-command bootstrap",
+    "8c06d02 feat(m00): read-only repository intake and multi-surface secret scan",
+    "9005e28 chore(m00): pnpm workspace with pinned TypeScript, lint, format and vitest projects"
+  ],
+  "ownedIds": {
+    "functional": [],
+    "nonfunctional": ["NFR-01", "NFR-12"],
+    "invariants": ["INV-13"],
+    "tests": ["T-001", "T-002", "T-003", "T-004"]
+  },
+  "diffSummary": "Workspace tooling, intake, secret scan, migration runner, bootstrap, CI, ADR 0001.",
+  "commands": [
+    {
+      "command": "pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "f9887d04dd29f68e119697fd648cc49e51886c06",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 14,
+        "integration": 1
+      },
+      "resultSummary": "lint, format, typecheck, tests, build, pack check and secret scan passed (local, Postgres 17 container)"
+    }
+  ],
+  "redEvidence": "T-002 failed against the first intake draft (first path character dropped by trim); fixed before commit.",
+  "externalActions": ["created private GitHub repository gnanam1990/uptimebuyer", "pushed branch", "opened PR #1"],
+  "userAuthorizations": [
+    "User instructed (2026-11-04) to build end to end with commits, PRs, merges and a public repository without further prompts."
+  ],
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN"
+  },
+  "unresolvedRisks": ["ADR 0001 substitutes Postgres outbox for Redis/BullMQ and signed HTTPS for MQTT."],
+  "nextModuleInputs": [
+    "Workspace globs apps/*, packages/*, edge/*",
+    "Migration files go in packages/data/migrations through the M02 owner",
+    "Integration tests need DATABASE_URL"
+  ],
+  "truthStatement": "Foundation only; no product behavior is claimed."
+}
