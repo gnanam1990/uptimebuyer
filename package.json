@@ -1,0 +1,37 @@
+{
+  "name": "uptimebuyer",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.10.0",
+  "engines": {
+    "node": ">=22.12 <23"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "build": "tsc -b --pretty false && pnpm -r --if-present run build:app",
+    "check:pack": "node docs/spec/scripts/check-build-pack.mjs --root docs/spec --config config/pack-check.json",
+    "secrets:scan": "node scripts/secret-scan.mjs --history",
+    "intake": "node scripts/intake.mjs",
+    "db:migrate": "node scripts/db.mjs migrate",
+    "db:seed": "node scripts/db.mjs seed",
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm check:pack && pnpm secrets:scan"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "pg": "8.23.1",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  }
+}

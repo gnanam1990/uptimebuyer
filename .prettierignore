@@ -1,0 +1,6 @@
+docs/spec/
+pnpm-lock.yaml
+dist/
+coverage/
+evidence/
+tmp-t004-*/
