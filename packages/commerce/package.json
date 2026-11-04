@@ -1,0 +1,21 @@
+{
+  "name": "@uptimebuyer/commerce",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Credential-free commercial authority (M09): plan-action approval binding, immutable signed execution authorities with an append-only lifecycle, budget adjustments, commercial-intent creation, read views, signed execution references and the client side of the exclusive Kite broker port. It never holds a Kite credential and never reaches paid egress.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/kite-contracts": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
