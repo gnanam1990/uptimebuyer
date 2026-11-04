@@ -201,6 +201,23 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   ],
   'planning.engine': ['service'],
   'planning.risk_publish': ['admin', 'site_admin'],
+  'commerce.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+    'service',
+  ],
+  'commerce.authority_issue': ['operator', 'maintenance_approver', 'finance_approver', 'service'],
+  'commerce.authority_manage': ['maintenance_approver', 'finance_approver', 'admin', 'site_admin'],
+  'commerce.intent_create': ['operator', 'service'],
+  'commerce.budget_adjust': ['finance_approver'],
+  'commerce.manual_resolve': ['finance_approver', 'admin', 'site_admin'],
+  'commerce.engine': ['service'],
 };
 
 function requestFor(action: ActionName, siteId: SiteId | null = s1): AuthorizationRequest {
