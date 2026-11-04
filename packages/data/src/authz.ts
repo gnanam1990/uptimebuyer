@@ -56,6 +56,14 @@ export const ACTIONS = Object.freeze({
   'registry.read': human(HUMAN_ROLES, 'OPTIONAL', { workerAllowed: true }),
   'registry.write': human(['admin'], 'OPTIONAL'),
   'incident.acknowledge': human(['operator'], 'REQUIRED'),
+  /** Incident projections and timelines at the incident's site (M04); outbox/job workers may read. */
+  'incident.read': human(HUMAN_ROLES, 'REQUIRED', { workerAllowed: true }),
+  /** Assignment, escalation, pause/resume, reopen and deadline commands at the incident's site (M04). */
+  'incident.manage': human(['operator'], 'REQUIRED'),
+  /** Authorized manual fault report at the asset's site (M04, T-020). */
+  'incident.report': human(['operator'], 'REQUIRED'),
+  /** Server-side incident engine: rule evaluation, system transitions, deadline sweep (M04). */
+  'incident.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
   'evidence.submit': human(['operator'], 'OPTIONAL'),
   'approval.plan_action': human(['maintenance_approver'], 'REQUIRED', {
     approvalKind: 'PLAN_ACTION',

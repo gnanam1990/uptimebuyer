@@ -21,6 +21,7 @@ import {
   type EvidenceRevisionId,
   type EvidenceTrust,
   type IncidentId,
+  type SiteId,
   type TenantId,
   type UtcInstant,
   decodeWire,
@@ -310,6 +311,31 @@ export async function appendSystemEvidence(
   if (input.trust === 'OPERATOR_ATTESTED') throw notPermitted('EVIDENCE_TRUST_NOT_PERMITTED');
   try {
     return await insertLedgerEntry(client, ctx, input, 'SYSTEM');
+  } catch (e) {
+    if (e instanceof Denial) throw e.error;
+    throw e;
+  }
+}
+
+/**
+ * The human (operator-attested) ledger path inside the caller's domain transaction, so a server command that records
+ * a human's material input (M04 manual reports) commits the ledger entry atomically with its own rows. Same rules as
+ * `appendLedgerEvidence` for a human: `evidence.submit`, MATERIAL_INPUT and OPERATOR_ATTESTED only.
+ */
+export async function appendOperatorEvidence(
+  client: Tx,
+  ctx: TenantContext,
+  input: LedgerEvidenceInput,
+  scope: { siteId: SiteId },
+): Promise<EvidenceEnvelope> {
+  assertTenantContext(ctx);
+  if (ctx.principal.kind !== 'HUMAN') throw notPermitted('PRINCIPAL_KIND_NOT_PERMITTED');
+  const decision = authorize(ctx, { action: 'evidence.submit', siteId: scope.siteId });
+  if (!decision.allowed) throw notPermitted(decision.reasonCode);
+  if (input.kind !== 'MATERIAL_INPUT') throw notPermitted('EVIDENCE_KIND_NOT_PERMITTED');
+  if (input.trust !== 'OPERATOR_ATTESTED') throw notPermitted('EVIDENCE_TRUST_NOT_PERMITTED');
+  try {
+    return await insertLedgerEntry(client, ctx, input, 'HUMAN');
   } catch (e) {
     if (e instanceof Denial) throw e.error;
     throw e;
