@@ -1,0 +1,119 @@
+{
+  "fixtureClass": "SYNTHETIC_FIXTURE",
+  "classification": "Synthetic live-shaped responses written from the documented uptimebuyer-provider-api.v1 sandbox contract. Not recorded from any real provider; a real connectivity probe is NOT_RUN.",
+  "realProbe": "NOT_RUN",
+  "provider": "coldline-dispatch (fictional)",
+  "searchPages": {
+    "first": {
+      "status": 200,
+      "body": {
+        "schema": "provider-search-page.v1",
+        "items": [
+          {
+            "id": "cl-001",
+            "name": "Coldline Service Co",
+            "kind": "TECHNICIAN",
+            "country": "GB",
+            "postalCode": "SW1A 1AA",
+            "website": "coldline.example",
+            "serviceArea": { "countries": ["GB"], "postalPrefixes": ["SW1", "SE1"] },
+            "contacts": [
+              { "channel": "API", "value": "cl-001" },
+              { "channel": "EMAIL", "value": "dispatch@coldline.example" },
+              { "channel": "PHONE", "value": "+44 20 7946 0001" }
+            ],
+            "availability": { "status": "AVAILABLE", "nextWindowAt": "2026-11-05T14:00:00.000Z" },
+            "price": { "amountMinor": "9500", "currency": "GBP", "basis": "CALLOUT" },
+            "etaMinutes": 90,
+            "capabilities": ["REFRIGERATION", "EVAPORATOR_FAN"]
+          },
+          {
+            "id": "fr-207",
+            "name": "  FrostFix   Refrigeration Ltd. ",
+            "kind": "TECHNICIAN",
+            "country": "GB",
+            "postalCode": "E1 6AN",
+            "website": "frostfix.example",
+            "serviceArea": { "countries": ["GB"], "postalPrefixes": ["E1", "E2"] },
+            "contacts": [{ "channel": "EMAIL", "value": "jobs@frostfix.example" }],
+            "availability": { "status": "LIMITED", "nextWindowAt": null },
+            "price": null,
+            "etaMinutes": null,
+            "capabilities": ["REFRIGERATION"]
+          }
+        ],
+        "nextCursor": "page-2"
+      }
+    },
+    "second": {
+      "status": 200,
+      "body": {
+        "schema": "provider-search-page.v1",
+        "items": [
+          {
+            "id": "nw-330",
+            "name": "Northwind Authorised Service",
+            "kind": "TECHNICIAN",
+            "country": "GB",
+            "postalCode": "SW1P 3BU",
+            "website": "northwind-service.example",
+            "serviceArea": { "countries": ["GB"], "postalPrefixes": ["SW1"] },
+            "contacts": [{ "channel": "API", "value": "nw-330" }],
+            "availability": { "status": "UNAVAILABLE", "nextWindowAt": "2026-11-07T08:00:00.000Z" },
+            "price": { "amountMinor": "14000", "currency": "GBP", "basis": "HOURLY" },
+            "etaMinutes": 2880,
+            "capabilities": ["REFRIGERATION"]
+          }
+        ],
+        "nextCursor": null
+      }
+    }
+  },
+  "rateLimited": {
+    "status": 429,
+    "headers": { "retry-after": "30" },
+    "body": { "error": { "kind": "RATE_LIMITED", "retryAfterMs": 30000 } }
+  },
+  "providerError": {
+    "status": 503,
+    "body": { "error": { "kind": "PROVIDER_ERROR", "code": "UPSTREAM_UNAVAILABLE", "retryable": true } }
+  },
+  "contactAccepted": {
+    "status": 202,
+    "body": {
+      "schema": "contact-ack.v1",
+      "status": "received",
+      "requestRef": "cr-77801",
+      "consent": { "recording": "NOT_APPLICABLE", "processing": "GRANTED" },
+      "quote": null
+    }
+  },
+  "contactQuoted": {
+    "status": 200,
+    "body": {
+      "schema": "contact-ack.v1",
+      "status": "quoted",
+      "requestRef": "cr-77802",
+      "consent": { "recording": "NOT_APPLICABLE", "processing": "GRANTED" },
+      "quote": {
+        "scope": "DIAGNOSTIC_VISIT",
+        "amountMinor": "18500",
+        "taxMinor": "3700",
+        "currency": "GBP",
+        "etaMinutes": 120,
+        "validUntil": "2026-11-12T00:00:00.000Z",
+        "availability": "AVAILABLE"
+      }
+    }
+  },
+  "contactDeclined": {
+    "status": 409,
+    "body": { "schema": "contact-ack.v1", "status": "declined", "reason": "OUT_OF_AREA", "requestRef": null }
+  },
+  "lookupReceived": {
+    "status": 200,
+    "body": { "schema": "contact-status.v1", "status": "received", "requestRef": "cr-77801" }
+  },
+  "lookupNotFound": { "status": 404, "body": { "error": { "kind": "NOT_FOUND" } } },
+  "lookupUnsupported": { "status": 501, "body": { "error": { "kind": "LOOKUP_UNSUPPORTED" } } }
+}
