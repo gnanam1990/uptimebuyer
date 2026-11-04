@@ -242,9 +242,9 @@ describe('T-010 cross-tenant access denial', () => {
               capabilities: ['PURCHASE'],
               paid: true,
               ownerService: 'KITE_BROKER_PAID',
-              credentialRef: 'secretref:provider/hijack',
+              credentialRef: `secretref:provider/tenants/${a.tenantId}/hijack`,
               endpointPolicyDigest: sha('x'),
-              webhookVerifierRef: 'secretref:webhook/hijack',
+              webhookVerifierRef: `secretref:webhook/tenants/${a.tenantId}/hijack`,
             },
             source: 'API',
           }),
@@ -254,9 +254,9 @@ describe('T-010 cross-tenant access denial', () => {
               capabilities: ['PURCHASE'],
               paid: true,
               ownerService: 'KITE_BROKER_PAID',
-              credentialRef: 'secretref:provider/hijack',
+              credentialRef: `secretref:provider/tenants/${a.tenantId}/hijack`,
               endpointPolicyDigest: sha('x'),
-              webhookVerifierRef: 'secretref:webhook/hijack',
+              webhookVerifierRef: `secretref:webhook/tenants/${a.tenantId}/hijack`,
             },
             source: 'API',
           }),
@@ -522,7 +522,7 @@ describe('T-010 cross-tenant access denial', () => {
     // Device principals are bound to their own tenant.
     const creds = resolver();
     const key = syntheticKey();
-    creds.set(`secretref:device/alpha-1`, key);
+    creds.set(`secretref:device/tenants/${a.tenantId}/alpha-1`, key);
     const device = await authenticateDevice(db.pool, creds, await signPrincipalToken('DEVICE', A.device.deviceId, key));
     expect((await rejection(resolveTenantContext(db.pool, device, b.tenantId))).code).toBe('FORBIDDEN');
     expect((await resolveTenantContext(db.pool, device, undefined)).tenantId).toBe(a.tenantId);

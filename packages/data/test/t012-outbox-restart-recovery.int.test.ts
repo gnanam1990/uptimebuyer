@@ -85,7 +85,7 @@ describe('T-012 outbox restart recovery', () => {
         );
       const device = await registerDevice(db.pool, t.admin, {
         siteId: site.siteId,
-        credentialRef: `secretref:device/${t.tenantId}`,
+        credentialRef: `secretref:device/tenants/${t.tenantId}/device`,
         source: 'API',
       });
       fixtures.push({ ctx: t.admin, deviceId: device.deviceId, assetIds });

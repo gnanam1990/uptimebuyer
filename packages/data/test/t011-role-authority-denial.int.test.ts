@@ -213,10 +213,10 @@ describe('T-011 role and approval authority denial', () => {
     ctx.admin = t.admin;
 
     const deviceKey = syntheticKey();
-    creds.set('secretref:device/gamma-1', deviceKey);
+    creds.set(`secretref:device/tenants/${t.tenantId}/gamma-1`, deviceKey);
     const device = await registerDevice(db.pool, t.admin, {
       siteId: s1,
-      credentialRef: 'secretref:device/gamma-1',
+      credentialRef: `secretref:device/tenants/${t.tenantId}/gamma-1`,
       source: 'API',
     });
     subjects.device = device.deviceId;
@@ -227,10 +227,10 @@ describe('T-011 role and approval authority denial', () => {
     );
 
     const serviceKey = syntheticKey();
-    creds.set('secretref:service/gamma-worker', serviceKey);
+    creds.set(`secretref:service/tenants/${t.tenantId}/gamma-worker`, serviceKey);
     const svc = await registerServiceIdentity(db.pool, t.admin, {
       workload: 'general-worker',
-      credentialRef: 'secretref:service/gamma-worker',
+      credentialRef: `secretref:service/tenants/${t.tenantId}/gamma-worker`,
     });
     await assignRole(db.pool, t.admin, {
       principal: { kind: 'SERVICE', serviceIdentityId: svc.serviceIdentityId },
@@ -251,17 +251,17 @@ describe('T-011 role and approval authority denial', () => {
         capabilities: ['WEBHOOK'],
         paid: false,
         ownerService: 'M07_UNPAID',
-        credentialRef: 'secretref:provider/gamma-cmms',
+        credentialRef: `secretref:provider/tenants/${t.tenantId}/gamma-cmms`,
         endpointPolicyDigest: sha('gamma-endpoint'),
-        webhookVerifierRef: 'secretref:webhook/gamma-cmms',
+        webhookVerifierRef: `secretref:webhook/tenants/${t.tenantId}/gamma-cmms`,
       },
       source: 'API',
     });
     const integrationKey = syntheticKey();
-    creds.set('secretref:integration/gamma-cmms', integrationKey);
+    creds.set(`secretref:integration/tenants/${t.tenantId}/gamma-cmms`, integrationKey);
     const integ = await registerIntegrationIdentity(db.pool, t.admin, {
       providerAccountId: provider.providerAccountId,
-      credentialRef: 'secretref:integration/gamma-cmms',
+      credentialRef: `secretref:integration/tenants/${t.tenantId}/gamma-cmms`,
     });
     await assignRole(db.pool, t.admin, {
       principal: { kind: 'INTEGRATION', integrationIdentityId: integ.integrationIdentityId },
@@ -466,14 +466,14 @@ describe('T-011 role and approval authority denial', () => {
     expect(authorize(fresh, requestFor('registry.read'), policy).allowed).toBe(false);
 
     await setDeviceStatus(db.pool, t.admin, subjects.device as never, 'REVOKED');
-    const key = creds.get('secretref:device/gamma-1')!;
+    const key = creds.get(`secretref:device/tenants/${t.tenantId}/gamma-1`)!;
     await expect(
       authenticateDevice(db.pool, creds, await signPrincipalToken('DEVICE', subjects.device!, key)),
     ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
   it('principal kinds authenticate separately: tokens are not interchangeable and bad tokens fail closed', async () => {
-    const serviceKey = creds.get('secretref:service/gamma-worker')!;
+    const serviceKey = creds.get(`secretref:service/tenants/${t.tenantId}/gamma-worker`)!;
     const serviceToken = await signPrincipalToken('SERVICE', subjects.service!, serviceKey);
     await expect(authenticateDevice(db.pool, creds, serviceToken)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
     await expect(authenticateIntegration(db.pool, creds, serviceToken)).rejects.toMatchObject({

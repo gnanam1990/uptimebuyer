@@ -63,7 +63,7 @@ export async function seedRepresentativeDataset(
   });
   const device = await registerDevice(pool, admin, {
     siteId: site.siteId,
-    credentialRef: `secretref:device/${label}-1`,
+    credentialRef: `secretref:device/tenants/${admin.tenantId}/${label}-1`,
     source: 'API',
   });
   const assignment = await assignDeviceToAsset(pool, admin, {
@@ -141,7 +141,7 @@ export async function seedRepresentativeDataset(
   });
   const first = await appendLedgerEvidence(pool, admin, {
     kind: 'MATERIAL_INPUT',
-    trust: 'AUTHORITATIVE',
+    trust: 'OPERATOR_ATTESTED',
     subject: { aggregateType: 'evidence_revision', aggregateId: evidence.evidenceRevisionId },
     incidentId: inc,
     payloadSchema: 'evidence.manifest.v1',
@@ -167,9 +167,9 @@ export async function seedRepresentativeDataset(
       capabilities: ['PURCHASE', 'WEBHOOK'],
       paid: true,
       ownerService: 'KITE_BROKER_PAID',
-      credentialRef: `secretref:provider/${label}-bitrefill`,
+      credentialRef: `secretref:provider/tenants/${admin.tenantId}/${label}-bitrefill`,
       endpointPolicyDigest: sha(`${label}-endpoint-policy`),
-      webhookVerifierRef: `secretref:webhook/${label}-bitrefill`,
+      webhookVerifierRef: `secretref:webhook/tenants/${admin.tenantId}/${label}-bitrefill`,
     },
     source: 'API',
   });
@@ -178,9 +178,9 @@ export async function seedRepresentativeDataset(
       capabilities: ['PURCHASE', 'WEBHOOK', 'QUOTE'],
       paid: true,
       ownerService: 'KITE_BROKER_PAID',
-      credentialRef: `secretref:provider/${label}-bitrefill-2`,
+      credentialRef: `secretref:provider/tenants/${admin.tenantId}/${label}-bitrefill-2`,
       endpointPolicyDigest: sha(`${label}-endpoint-policy-2`),
-      webhookVerifierRef: `secretref:webhook/${label}-bitrefill-2`,
+      webhookVerifierRef: `secretref:webhook/tenants/${admin.tenantId}/${label}-bitrefill-2`,
     },
     source: 'API',
   });
