@@ -145,7 +145,10 @@ async function discoverFor(w: PlanningWorld, incidentId: string) {
       if (cp.reviewState !== 'VERIFIED')
         await reviewContactPoint(w.db.pool, w.admin, { contactPointId: cp.contactPointId, decision: 'VERIFIED' });
     }
-    providers[r.discovery.externalRef] = { serviceProviderId: r.provider.serviceProviderId, points };
+    providers[r.discovery.externalRef ?? r.provider.serviceProviderId] = {
+      serviceProviderId: r.provider.serviceProviderId,
+      points,
+    };
   }
   await linkApprovedVendor(w.db.pool, w.admin, {
     serviceProviderId: providers['cl-001']!.serviceProviderId,

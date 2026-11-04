@@ -18,10 +18,18 @@ import {
   prepareApprovalRequest,
   runPlanRevalidationJobs,
 } from '../src/index.js';
-import { MANUFACTURER, createPlanningWorld, outboxEvents, rejection, scenario, type PlanningWorld } from './helpers.js';
+import {
+  MANUFACTURER,
+  createPlanningWorld,
+  outboxEvents,
+  rejection,
+  scenario,
+  type Offer,
+  type PlanningWorld,
+} from './helpers.js';
 
 let w: PlanningWorld;
-const OFFERS = [
+const OFFERS: Offer[] = [
   { label: 'cheap', priceMinor: 18_500n, etaMinutes: 25 },
   { label: 'fast', priceMinor: 24_000n, etaMinutes: 10 },
 ];
@@ -50,7 +58,7 @@ async function drainPlanning() {
 
 describe('T-035 approval request preparation holds on stale, forged or incomplete plans (INV-03)', () => {
   beforeAll(async () => {
-    w = await createPlanningWorld('t035-lifecycle');
+    w = await createPlanningWorld('t035l');
   });
   afterAll(async () => {
     await w?.close();

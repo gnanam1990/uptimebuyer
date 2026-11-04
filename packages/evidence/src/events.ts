@@ -2,7 +2,8 @@
 // emitted on the incident's plan scope (aggregate type `plan`, aggregate id = incident id, contiguous versions) each
 // time a new evidence revision supersedes the previous one; M06/M08/M09 consume it to invalidate decisions, plans
 // and unexecuted approvals bound to the superseded revision. M06 emits the same event on the same scope with reason
-// POLICY_REVISION_CHANGED when a new policy revision becomes effective.
+// POLICY_REVISION_CHANGED when a new policy revision becomes effective, and M08 with PLAN_INPUT_STALE or
+// PLAN_SUPERSEDED_BY_REVISION when it invalidated open recovery plans.
 import {
   AssetRevisionIdSchema,
   EvidenceRevisionIdSchema,
@@ -61,9 +62,31 @@ export const PlanInvalidatedByPolicyPayloadSchema = z.strictObject({
   invalidatedApprovalIds: z.array(z.string().regex(/^apr_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000),
 });
 
+const PlanIdListSchema = z.array(z.string().regex(/^pln_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000);
+
+/**
+ * Emitted by M08 when open recovery plans of the incident were invalidated because a bound planning input changed
+ * (quote/price, deadline projection, compatibility decision, economic estimate, inventory value, evidence, asset or
+ * policy revision: PLAN_INPUT_STALE) or a newer plan revision superseded them (PLAN_SUPERSEDED_BY_REVISION). Their
+ * prepared approval requests and unexecuted approvals bound to the old plan hashes are invalidated with them;
+ * `inFlightPlanIds` were EXECUTING and keep reconciling their possible external effects.
+ */
+export const PlanInvalidatedByPlanningPayloadSchema = z.strictObject({
+  incidentId: IncidentIdSchema,
+  reasonCode: z.enum(['PLAN_INPUT_STALE', 'PLAN_SUPERSEDED_BY_REVISION']),
+  staleInputs: z
+    .array(z.enum(['EVIDENCE', 'ASSET', 'POLICY', 'DEADLINE', 'QUOTE', 'DECISION', 'RISK_ESTIMATE', 'INVENTORY', 'RECOMPUTE']))
+    .max(16),
+  invalidatedPlanIds: PlanIdListSchema,
+  inFlightPlanIds: PlanIdListSchema,
+  invalidatedApprovalRequestIds: z.array(z.string().regex(/^apq_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000),
+  invalidatedApprovalIds: z.array(z.string().regex(/^apr_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/)).max(10_000),
+});
+
 export const PlanInvalidatedPayloadSchema = z.discriminatedUnion('reasonCode', [
   PlanInvalidatedByEvidencePayloadSchema,
   PlanInvalidatedByPolicyPayloadSchema,
+  PlanInvalidatedByPlanningPayloadSchema,
 ]);
 export const PlanInvalidatedEventSchema = defineDomainEvent('plan.invalidated.v1', PlanInvalidatedPayloadSchema, 'incidentId');
 

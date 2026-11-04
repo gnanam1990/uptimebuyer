@@ -131,7 +131,7 @@ describe('T-033 cost-to-recovery formula correctness (persisted plan)', () => {
       approved: false,
     });
     const ledger = await w.db.pool.query(
-      `SELECT kind FROM evidence_ledger_entries WHERE tenant_id = $1 AND subject_aggregate_type = 'recovery_plan' AND subject_aggregate_id = $2`,
+      `SELECT kind FROM evidence_ledger_entries WHERE tenant_id = $1 AND subject_aggregate_type = 'plan' AND subject_aggregate_id = $2`,
       [w.tenant.tenantId, plan!.planId],
     );
     expect(ledger.rows.map((r) => r.kind)).toEqual(['POLICY_DECISION']);
