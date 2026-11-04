@@ -125,14 +125,30 @@ export async function recordApproval(
     );
     const actorUserId = humanActor(ctx);
 
-    const site = await c.query(`SELECT 1 FROM sites WHERE tenant_id = $1 AND id = $2`, [ctx.tenantId, a.siteId]);
-    if (site.rowCount !== 1) throw unavailable(meta, a.siteId, 'site');
-    const ar = await c.query(
-      `SELECT r.superseded_at, x.site_id FROM asset_revisions r JOIN assets x ON x.tenant_id = r.tenant_id AND x.id = r.asset_id
-        WHERE r.tenant_id = $1 AND r.id = $2`,
+    // Lock the stable parents before reading their current revision (TOCTOU, INV-03): a concurrent supersession
+    // takes FOR UPDATE on the same row, so it either commits first (and the locked re-read below sees the new
+    // pointer) or waits until this approval has committed (and then invalidates it). Asset before provider account.
+    const asset = await c.query<{ site_id: string; current_revision_id: string }>(
+      `SELECT x.site_id, x.current_revision_id FROM assets x
+        WHERE x.tenant_id = $1 AND x.id = (SELECT asset_id FROM asset_revisions WHERE tenant_id = $1 AND id = $2)
+        FOR SHARE`,
       [ctx.tenantId, a.assetRevisionId],
     );
-    if (!ar.rows[0]) throw unavailable(meta, a.assetRevisionId, 'asset_revision');
+    if (!asset.rows[0]) throw unavailable(meta, a.assetRevisionId, 'asset_revision');
+    let account: { current_revision_id: string; status: string; paid: boolean } | undefined;
+    if (a.providerAccountRevisionId !== null) {
+      const pr = await c.query<{ current_revision_id: string; status: string; paid: boolean }>(
+        `SELECT p.current_revision_id, p.status, r.paid FROM provider_account_revisions r
+           JOIN provider_accounts p ON p.tenant_id = r.tenant_id AND p.id = r.provider_account_id
+          WHERE r.tenant_id = $1 AND r.id = $2
+          FOR SHARE OF p`,
+        [ctx.tenantId, a.providerAccountRevisionId],
+      );
+      if (!pr.rows[0]) throw unavailable(meta, a.providerAccountRevisionId, 'provider_account_revision');
+      account = pr.rows[0];
+    }
+    const site = await c.query(`SELECT 1 FROM sites WHERE tenant_id = $1 AND id = $2`, [ctx.tenantId, a.siteId]);
+    if (site.rowCount !== 1) throw unavailable(meta, a.siteId, 'site');
     if (a.evidenceRevisionId !== null) {
       const ev = await c.query(
         `SELECT asset_revision_id, incident_id FROM evidence_revisions WHERE tenant_id = $1 AND id = $2`,
@@ -142,20 +158,13 @@ export async function recordApproval(
       if (ev.rows[0].asset_revision_id !== a.assetRevisionId || ev.rows[0].incident_id !== a.incidentId)
         throw hold('EVIDENCE_REVISION_NOT_BOUND');
     }
-    if (a.providerAccountRevisionId !== null) {
-      const pr = await c.query(
-        `SELECT r.superseded_at, r.paid, p.status FROM provider_account_revisions r
-           JOIN provider_accounts p ON p.tenant_id = r.tenant_id AND p.id = r.provider_account_id
-          WHERE r.tenant_id = $1 AND r.id = $2`,
-        [ctx.tenantId, a.providerAccountRevisionId],
-      );
-      if (!pr.rows[0]) throw unavailable(meta, a.providerAccountRevisionId, 'provider_account_revision');
-      if (pr.rows[0].superseded_at !== null || pr.rows[0].status !== 'ACTIVE')
+    if (account) {
+      if (account.current_revision_id !== a.providerAccountRevisionId || account.status !== 'ACTIVE')
         throw hold('PROVIDER_ACCOUNT_REVISION_NOT_CURRENT');
-      if (pr.rows[0].paid !== a.paid) throw hold('PROVIDER_ACCOUNT_PAID_MISMATCH');
+      if (account.paid !== a.paid) throw hold('PROVIDER_ACCOUNT_PAID_MISMATCH');
     }
-    if (ar.rows[0].superseded_at !== null) throw hold('ASSET_REVISION_SUPERSEDED');
-    if (ar.rows[0].site_id !== a.siteId) throw hold('ASSET_NOT_AT_SITE');
+    if (asset.rows[0].current_revision_id !== a.assetRevisionId) throw hold('ASSET_REVISION_SUPERSEDED');
+    if (asset.rows[0].site_id !== a.siteId) throw hold('ASSET_NOT_AT_SITE');
     const now = await dbNow(c);
     if (Date.parse(a.expiresAt) <= Date.parse(now)) throw hold('APPROVAL_ALREADY_EXPIRED');
 

@@ -38,6 +38,7 @@ const M02_MIGRATIONS = [
   '0004_m02_outbox_jobs_audit.sql',
   '0005_m02_provider_accounts.sql',
   '0006_m02_privacy_lifecycle.sql',
+  '0007_m02_security_hardening.sql',
 ];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.

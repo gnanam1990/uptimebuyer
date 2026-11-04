@@ -16,7 +16,8 @@ import {
 import { z } from 'zod';
 import { requireAuthorized } from './authz.js';
 import { recordAudit, tenantCommand, unavailable } from './command.js';
-import { actorOf, humanActor, HUMAN_ROLES, type Role, type TenantContext } from './context.js';
+import { actorOf, assertTenantContext, humanActor, HUMAN_ROLES, type Role, type TenantContext } from './context.js';
+import { assertTenantSecretRef } from './secret-ref.js';
 import { UNIQUE_VIOLATION, pgCode, versionConflict, withTransaction, type Db } from './db.js';
 import { IntegrationIdentityIdSchema, newDataId, type IntegrationIdentityId, type RoleAssignmentId } from './ids.js';
 import { appendRegistryRevision, RegistrySourceSchema, type RegistrySource } from './registry-core.js';
@@ -239,6 +240,8 @@ export async function registerServiceIdentity(
     !SecretRefSchema.safeParse(input.credentialRef).success
   )
     throw validation('INVALID_SERVICE_IDENTITY');
+  assertTenantContext(ctx);
+  assertTenantSecretRef(ctx.tenantId, input.credentialRef, 'credentialRef');
   const serviceIdentityId = newId('serviceIdentity');
   const meta = { action: 'service_identity.register', resourceType: 'service_identity', resourceId: serviceIdentityId };
   return tenantCommand(pool, ctx, meta, async (c) => {
@@ -264,6 +267,8 @@ export async function registerIntegrationIdentity(
     (input.providerAccountId !== null && !ProviderAccountIdSchema.safeParse(input.providerAccountId).success)
   )
     throw validation('INVALID_INTEGRATION_IDENTITY');
+  assertTenantContext(ctx);
+  assertTenantSecretRef(ctx.tenantId, input.credentialRef, 'credentialRef');
   const integrationIdentityId = newDataId('integrationIdentity') as IntegrationIdentityId;
   const meta = {
     action: 'integration_identity.register',

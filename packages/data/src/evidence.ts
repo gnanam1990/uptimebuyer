@@ -26,10 +26,20 @@ import {
   decodeWire,
 } from '@uptimebuyer/contracts';
 import { canonicalize, computeEnvelopeDigest, verifyEvidenceChain, type ChainVerification } from '@uptimebuyer/domain';
-import { requireAuthorized } from './authz.js';
-import { recordAudit, tenantCommand, unavailable } from './command.js';
-import { actorOf, type TenantContext } from './context.js';
-import { dbNow, isoNN, lockKey, sha256Digest, type Db } from './db.js';
+import { authorize, requireAuthorized } from './authz.js';
+import { Denial, notPermitted, recordAudit, resourceUnavailable, tenantCommand, unavailable } from './command.js';
+import { actorOf, assertTenantContext, type TenantContext } from './context.js';
+import {
+  dbNow,
+  isoNN,
+  lockKey,
+  pgCode,
+  sha256Digest,
+  UNIQUE_VIOLATION,
+  versionConflict,
+  type Db,
+  type Tx,
+} from './db.js';
 import { appendOutboxEvent } from './outbox.js';
 import { tenantObjectKey } from './tenant-scope.js';
 
@@ -237,7 +247,22 @@ const toEnvelope = (r: LedgerRow): EvidenceEnvelope =>
     envelopeDigest: r.envelope_digest,
   });
 
-/** Append one envelope to the tenant's evidence chain (serialized per tenant). */
+type LedgerWriter = 'HUMAN' | 'DEVICE' | 'SYSTEM';
+
+const ledgerDenied = (reasonCode: string, resourceId: string | null = null) =>
+  new Denial(notPermitted(reasonCode), {
+    action: 'evidence_ledger.append',
+    resourceType: 'evidence',
+    resourceId,
+    reasonCode,
+  });
+
+/**
+ * Generic evidence submission (the only ledger path reachable from request handlers). Humans holding
+ * `evidence.submit` append OPERATOR_ATTESTED material input; devices append AUTHORITATIVE telemetry-derived
+ * (`telemetry.*`) material input about themselves and never correct. Every other kind or trust is server-produced
+ * and goes through `appendSystemEvidence`.
+ */
 export async function appendLedgerEvidence(
   pool: Db,
   ctx: TenantContext,
@@ -245,8 +270,86 @@ export async function appendLedgerEvidence(
 ): Promise<EvidenceEnvelope> {
   const meta = { action: 'evidence_ledger.append', resourceType: 'evidence', resourceId: input.supersedesEvidenceId };
   return tenantCommand(pool, ctx, meta, async (c) => {
-    requireAuthorized(ctx, { action: 'evidence.submit', siteId: null });
+    const p = ctx.principal;
+    let writer: LedgerWriter;
+    if (p.kind === 'HUMAN') {
+      requireAuthorized(ctx, { action: 'evidence.submit', siteId: null });
+      if (input.kind !== 'MATERIAL_INPUT') throw ledgerDenied('EVIDENCE_KIND_NOT_PERMITTED');
+      if (input.trust !== 'OPERATOR_ATTESTED') throw ledgerDenied('EVIDENCE_TRUST_NOT_PERMITTED');
+      writer = 'HUMAN';
+    } else if (p.kind === 'DEVICE') {
+      requireAuthorized(ctx, { action: 'telemetry.ingest', siteId: p.siteId });
+      if (input.kind !== 'MATERIAL_INPUT') throw ledgerDenied('EVIDENCE_KIND_NOT_PERMITTED');
+      if (input.trust !== 'AUTHORITATIVE') throw ledgerDenied('EVIDENCE_TRUST_NOT_PERMITTED');
+      if (input.subject.aggregateType !== 'device' || input.subject.aggregateId !== p.id)
+        throw ledgerDenied('EVIDENCE_SUBJECT_NOT_SELF');
+      if (!/^telemetry\.[a-z0-9_.]+\.v[1-9][0-9]*$/.test(input.payloadSchema))
+        throw ledgerDenied('EVIDENCE_PAYLOAD_NOT_TELEMETRY');
+      if (input.supersedesEvidenceId !== null) throw ledgerDenied('DEVICE_CANNOT_CORRECT');
+      writer = 'DEVICE';
+    } else throw ledgerDenied('PRINCIPAL_KIND_NOT_PERMITTED');
+    return insertLedgerEntry(c, ctx, input, writer);
+  });
+}
+
+/**
+ * Server-side ledger path for server-produced kinds (approval, policy decision, external action, payment state,
+ * receipt, recovery decision, model proposal). Runs inside the caller's domain transaction and is permitted only
+ * for outbox/job worker contexts and authenticated service workloads holding the `worker` role; it can never
+ * claim human attestation.
+ */
+export async function appendSystemEvidence(
+  client: Tx,
+  ctx: TenantContext,
+  input: LedgerEvidenceInput,
+): Promise<EvidenceEnvelope> {
+  assertTenantContext(ctx);
+  const p = ctx.principal;
+  const permitted = p.kind === 'WORKER' || (p.kind === 'SERVICE' && authorize(ctx, { action: 'job.execute' }).allowed);
+  if (!permitted) throw notPermitted('PRINCIPAL_KIND_NOT_PERMITTED');
+  if (input.trust === 'OPERATOR_ATTESTED') throw notPermitted('EVIDENCE_TRUST_NOT_PERMITTED');
+  try {
+    return await insertLedgerEntry(client, ctx, input, 'SYSTEM');
+  } catch (e) {
+    if (e instanceof Denial) throw e.error;
+    throw e;
+  }
+}
+
+/** Correction rules: same tenant, not already corrected, and of a kind the writer may correct. */
+async function checkCorrection(c: Tx, ctx: TenantContext, writer: LedgerWriter, targetId: string): Promise<void> {
+  const { rows } = await c.query<{ kind: string; trust: string }>(
+    `SELECT kind, trust FROM evidence_ledger_entries WHERE tenant_id = $1 AND id = $2`,
+    [ctx.tenantId, targetId],
+  );
+  const target = rows[0];
+  if (!target)
+    throw new Denial(resourceUnavailable(), {
+      action: 'evidence_ledger.append',
+      resourceType: 'evidence',
+      resourceId: targetId,
+      reasonCode: 'RESOURCE_UNAVAILABLE',
+    });
+  if (writer === 'HUMAN' && !(target.kind === 'MATERIAL_INPUT' && target.trust === 'OPERATOR_ATTESTED'))
+    throw ledgerDenied('EVIDENCE_NOT_CORRECTABLE_BY_CALLER', targetId);
+  if (writer === 'DEVICE') throw ledgerDenied('DEVICE_CANNOT_CORRECT', targetId);
+  const already = await c.query(
+    `SELECT 1 FROM evidence_ledger_entries WHERE tenant_id = $1 AND supersedes_evidence_id = $2`,
+    [ctx.tenantId, targetId],
+  );
+  if (already.rowCount !== 0) throw versionConflict('EVIDENCE_ALREADY_CORRECTED');
+}
+
+async function insertLedgerEntry(
+  c: Tx,
+  ctx: TenantContext,
+  input: LedgerEvidenceInput,
+  writer: LedgerWriter,
+): Promise<EvidenceEnvelope> {
+  const meta = { action: 'evidence_ledger.append', resourceType: 'evidence', resourceId: input.supersedesEvidenceId };
+  {
     await lockKey(c, `evidence-ledger:${ctx.tenantId}`);
+    if (input.supersedesEvidenceId !== null) await checkCorrection(c, ctx, writer, input.supersedesEvidenceId);
     const last = await c.query<LedgerRow>(
       `SELECT * FROM evidence_ledger_entries WHERE tenant_id = $1 ORDER BY sequence DESC LIMIT 1`,
       [ctx.tenantId],
@@ -280,34 +383,39 @@ export async function appendLedgerEvidence(
       throw validation('INVALID_EVIDENCE_ENVELOPE');
     }
     encodeWire(EvidenceEnvelopeSchema, envelope);
-    await c.query(
-      `INSERT INTO evidence_ledger_entries (tenant_id, id, sequence, kind, trust, subject_aggregate_type, subject_aggregate_id,
+    try {
+      await c.query(
+        `INSERT INTO evidence_ledger_entries (tenant_id, id, sequence, kind, trust, subject_aggregate_type, subject_aggregate_id,
          incident_id, recorded_at, correlation_id, causation_id, payload_schema, payload_digest, payload_ref,
          supersedes_evidence_id, previous_envelope_digest, envelope_digest)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-      [
-        envelope.tenantId,
-        envelope.evidenceId,
-        envelope.sequence,
-        envelope.kind,
-        envelope.trust,
-        envelope.subject.aggregateType,
-        envelope.subject.aggregateId,
-        envelope.incidentId,
-        envelope.recordedAt,
-        envelope.correlation.correlationId,
-        envelope.correlation.causationId,
-        envelope.payloadSchema,
-        envelope.payloadDigest,
-        envelope.payloadRef,
-        envelope.supersedesEvidenceId,
-        envelope.previousEnvelopeDigest,
-        envelope.envelopeDigest,
-      ],
-    );
+        [
+          envelope.tenantId,
+          envelope.evidenceId,
+          envelope.sequence,
+          envelope.kind,
+          envelope.trust,
+          envelope.subject.aggregateType,
+          envelope.subject.aggregateId,
+          envelope.incidentId,
+          envelope.recordedAt,
+          envelope.correlation.correlationId,
+          envelope.correlation.causationId,
+          envelope.payloadSchema,
+          envelope.payloadDigest,
+          envelope.payloadRef,
+          envelope.supersedesEvidenceId,
+          envelope.previousEnvelopeDigest,
+          envelope.envelopeDigest,
+        ],
+      );
+    } catch (e) {
+      if (pgCode(e) === UNIQUE_VIOLATION) throw versionConflict('EVIDENCE_ALREADY_CORRECTED');
+      throw e;
+    }
     await recordAudit(c, ctx, { ...meta, resourceId: envelope.evidenceId, result: 'SUCCEEDED' });
     return envelope;
-  });
+  }
 }
 
 export async function readEvidenceLedger(pool: Db, ctx: TenantContext): Promise<EvidenceEnvelope[]> {

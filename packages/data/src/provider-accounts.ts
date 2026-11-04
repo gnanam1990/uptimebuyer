@@ -29,6 +29,7 @@ import {
 } from './db.js';
 import { newDataId, type WebhookDeliveryId } from './ids.js';
 import { SecretRefSchema } from './identity.js';
+import { assertTenantSecretRef } from './secret-ref.js';
 import { RegistrySourceSchema, type RegistrySource } from './registry-core.js';
 import { recordSecurityAudit } from './security-audit.js';
 
@@ -63,6 +64,14 @@ export type ProviderAccountRevisionInput = z.input<typeof RevisionSchema>;
 
 const validation = (reasonCode: string) =>
   new DomainError('VALIDATION_FAILED', 'Input failed contract validation.', { reasonCode });
+
+/** Both references must be bound to the caller tenant (no confused-deputy access to another tenant's secret). */
+function assertRevisionRefs(ctx: TenantContext, r: z.output<typeof RevisionSchema>): void {
+  assertTenantContext(ctx);
+  assertTenantSecretRef(ctx.tenantId, r.credentialRef, 'revision.credentialRef');
+  if (r.webhookVerifierRef !== null)
+    assertTenantSecretRef(ctx.tenantId, r.webhookVerifierRef, 'revision.webhookVerifierRef');
+}
 
 async function insertRevision(
   c: Tx,
@@ -122,6 +131,7 @@ export async function createProviderAccount(
     !RegistrySourceSchema.safeParse(input.source).success
   )
     throw validation('INVALID_PROVIDER_ACCOUNT');
+  assertRevisionRefs(ctx, rev.data);
   const providerAccountId = newId('providerAccount');
   const meta = { action: 'provider_account.create', resourceType: 'provider_account', resourceId: providerAccountId };
   const webhookBinding = randomBytes(32).toString('base64url');
@@ -162,6 +172,7 @@ export async function appendProviderAccountRevision(
   const rev = RevisionSchema.safeParse(input.revision);
   if (!rev.success || !RegistrySourceSchema.safeParse(input.source).success)
     throw validation('INVALID_PROVIDER_ACCOUNT_REVISION');
+  assertRevisionRefs(ctx, rev.data);
   const meta = { action: 'provider_account.revise', resourceType: 'provider_account', resourceId: providerAccountId };
   return tenantCommand(pool, ctx, meta, async (c) => {
     const { rows } = await c.query(
@@ -307,7 +318,10 @@ export async function resolveWebhookBinding(
   return b;
 }
 
-/** Record a delivery; a replay of the same provider event in the same account namespace returns the original. */
+/**
+ * Record a delivery. A VALID delivery owns the (tenant, account, provider event) replay key, so a replay returns the
+ * original; INVALID deliveries are always recorded separately and can never pre-empt the genuine one.
+ */
 export async function recordWebhookDelivery(
   pool: Db,
   binding: WebhookBinding,
@@ -319,30 +333,40 @@ export async function recordWebhookDelivery(
     throw validation('INVALID_WEBHOOK_DELIVERY');
   return withTransaction(pool, async (c) => {
     const deliveryId = newDataId('webhookDelivery') as WebhookDeliveryId;
-    const ins = await c.query<{ id: WebhookDeliveryId }>(
-      `INSERT INTO webhook_deliveries (tenant_id, id, provider_account_id, provider_account_revision_id, provider_event_id,
-                                       signature_result, body_digest)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (tenant_id, provider_account_id, provider_event_id) DO NOTHING RETURNING id`,
-      [
-        binding.tenantId,
-        deliveryId,
-        binding.providerAccountId,
-        binding.providerAccountRevisionId,
-        input.providerEventId,
-        input.signatureValid ? 'VALID' : 'INVALID',
-        input.bodyDigest,
-      ],
-    );
-    const duplicate = !ins.rows[0];
-    const id =
-      ins.rows[0]?.id ??
-      (
-        await c.query<{ id: WebhookDeliveryId }>(
-          `SELECT id FROM webhook_deliveries WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_event_id = $3`,
-          [binding.tenantId, binding.providerAccountId, input.providerEventId],
-        )
-      ).rows[0]!.id;
+    const params = [
+      binding.tenantId,
+      deliveryId,
+      binding.providerAccountId,
+      binding.providerAccountRevisionId,
+      input.providerEventId,
+      input.signatureValid ? 'VALID' : 'INVALID',
+      input.bodyDigest,
+    ];
+    const insert = `INSERT INTO webhook_deliveries (tenant_id, id, provider_account_id, provider_account_revision_id,
+                                                    provider_event_id, signature_result, body_digest)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)`;
+    let id: WebhookDeliveryId = deliveryId;
+    let duplicate = false;
+    if (!input.signatureValid) {
+      // An unauthenticated delivery is retained as evidence but never occupies the replay key.
+      await c.query(insert, params);
+    } else {
+      const ins = await c.query<{ id: WebhookDeliveryId }>(
+        `${insert} ON CONFLICT (tenant_id, provider_account_id, provider_event_id) WHERE signature_result = 'VALID'
+           DO NOTHING RETURNING id`,
+        params,
+      );
+      if (!ins.rows[0]) {
+        duplicate = true;
+        id = (
+          await c.query<{ id: WebhookDeliveryId }>(
+            `SELECT id FROM webhook_deliveries WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_event_id = $3
+                AND signature_result = 'VALID'`,
+            [binding.tenantId, binding.providerAccountId, input.providerEventId],
+          )
+        ).rows[0]!.id;
+      }
+    }
     await c.query(
       `INSERT INTO audit_entries (tenant_id, id, actor_kind, actor_id, action, resource_type, resource_id, result, reason_code, correlation_id)
        VALUES ($1, $2, 'WEBHOOK', $3, 'webhook.receive', 'webhook_delivery', $4, 'SUCCEEDED', $5, $6)`,
@@ -376,7 +400,8 @@ export async function findWebhookDelivery(
     requireAuthorized(ctx, { action: 'registry.read', siteId: null });
     const { rows } = await c.query(
       `SELECT id, signature_result, received_at FROM webhook_deliveries
-        WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_event_id = $3`,
+        WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_event_id = $3
+        ORDER BY (signature_result = 'VALID') DESC, received_at DESC, id LIMIT 1`,
       [ctx.tenantId, providerAccountId, providerEventId],
     );
     return rows[0]

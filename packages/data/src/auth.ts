@@ -192,8 +192,9 @@ async function authenticateMachine(
   const row = rows[0]!;
   const key = await resolver.resolveSigningKey(row.credential_ref);
   if (!key || key.byteLength < MIN_KEY_BYTES) return fail('CREDENTIAL_UNAVAILABLE', row.id);
+  let payload: Awaited<ReturnType<typeof jwtVerify>>['payload'];
   try {
-    const { payload } = await jwtVerify(token, key, {
+    ({ payload } = await jwtVerify(token, key, {
       algorithms: ['HS256'],
       typ: m.typ,
       issuer: m.issuer,
@@ -202,11 +203,21 @@ async function authenticateMachine(
       clockTolerance: 5,
       maxTokenAge: MAX_TTL_SECONDS + 60,
       requiredClaims: ['sub', 'exp', 'iat', 'jti'],
-    });
-    if (payload.sub !== header.kid) return fail('SUBJECT_MISMATCH', row.id);
+    }));
   } catch {
     return fail('TOKEN_REJECTED', row.id);
   }
+  if (payload.sub !== header.kid) return fail('SUBJECT_MISMATCH', row.id);
+  const jti = payload.jti;
+  if (typeof jti !== 'string' || jti.length < 16 || jti.length > 64 || typeof payload.exp !== 'number')
+    return fail('TOKEN_ID_INVALID', row.id);
+  // One use per token id: a captured token cannot be replayed within its lifetime.
+  const use = await pool.query(
+    `INSERT INTO principal_token_uses (tenant_id, id, principal_kind, principal_id, expires_at)
+     VALUES ($1, $2, $3, $4, to_timestamp($5)) ON CONFLICT (tenant_id, id) DO NOTHING`,
+    [row.tenant_id, jti, kind, row.id, payload.exp],
+  );
+  if (use.rowCount !== 1) return fail('TOKEN_REPLAYED', row.id);
   return { row };
 }
 

@@ -23,7 +23,8 @@ import { canonicalDigest } from '@uptimebuyer/domain';
 import { z } from 'zod';
 import { authorize, requireAuthorized } from './authz.js';
 import { Denial, recordAudit, resourceUnavailable, tenantCommand, unavailable, type CommandMeta } from './command.js';
-import { actorOf, type TenantContext } from './context.js';
+import { actorOf, assertTenantContext, type TenantContext } from './context.js';
+import { assertTenantSecretRef } from './secret-ref.js';
 import { dbNow, iso, isoNN, laterThan, UNIQUE_VIOLATION, pgCode, versionConflict, type Db, type Tx } from './db.js';
 import { newDataId, type DeviceAssignmentId, type SensorChannelId, type SensorChannelRevisionId } from './ids.js';
 import { enqueueJob } from './jobs.js';
@@ -532,8 +533,10 @@ export async function registerDevice(
   ctx: TenantContext,
   input: { siteId: SiteId; credentialRef: string; source: RegistrySource },
 ): Promise<{ deviceId: DeviceId }> {
+  assertTenantContext(ctx);
   if (!SiteIdSchema.safeParse(input.siteId).success || !SecretRef.safeParse(input.credentialRef).success)
     throw validation('INVALID_DEVICE');
+  assertTenantSecretRef(ctx.tenantId, input.credentialRef, 'credentialRef');
   const src = source(input.source);
   const deviceId = newId('device');
   const meta = { action: 'device.register', resourceType: 'site', resourceId: input.siteId };
