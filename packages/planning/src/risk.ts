@@ -3,7 +3,8 @@
 // revisions per scope (tenant-wide or one site); planning selects the most specific estimate effective now (a site
 // estimate overrides the tenant-wide one). An optional model may inform it (basis MODEL_INFORMED, with the model's
 // version, calibration population, input revisions and as-of recorded as evidence) but is never required, and a
-// model can never move a deadline. Publication revalidates open plans of the affected scope.
+// model can never move a deadline. Publication revalidates open plans of the affected scope; a future-dated estimate
+// also schedules a plan.revalidate_for_risk_estimate job at its effective_at.
 import {
   CurrencyCodeSchema,
   SiteIdSchema,
@@ -14,6 +15,7 @@ import {
 import { canonicalDigest, type PlanEconomics, type PpmInput } from '@uptimebuyer/domain';
 import {
   dbNow,
+  enqueueJob,
   lockKey,
   recordAudit,
   requireAuthorized,
@@ -149,6 +151,16 @@ export async function publishTenantRiskEstimate(
         actor.id,
       ],
     );
+    // A future-dated estimate re-prices nothing now; schedule the revalidation for the moment it takes effect.
+    // (Approval preparation recomputes against the effective estimate regardless, so correctness never depends on
+    // the job running on time.)
+    if (eff !== now)
+      await enqueueJob(c, ctx, {
+        kind: 'plan.revalidate_for_risk_estimate',
+        payload: { riskEstimateId: id, siteId, correlationId: ctx.correlationId },
+        dedupeKey: `risk-estimate-effective:${id}`,
+        runAfter: eff,
+      });
     // Open plans priced under another estimate are stale once this one is selected.
     const incidents = await c.query<{ incident_id: string }>(
       `SELECT DISTINCT incident_id FROM recovery_plans

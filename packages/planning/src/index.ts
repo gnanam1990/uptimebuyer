@@ -33,6 +33,7 @@ export {
   PLANNING_CONSUMER,
   PLANNING_EVENT_TYPES,
   PLAN_REVALIDATION_JOB,
+  RISK_ESTIMATE_REVALIDATION_JOB,
   handlePlanRevalidationJob,
   handlePlanningEvent,
   runPlanRevalidationJobs,
