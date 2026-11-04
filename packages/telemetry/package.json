@@ -1,0 +1,15 @@
+{
+  "name": "@uptimebuyer/telemetry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Telemetry wire protocol shared by the sensor gateway and edge agents: strict batch schema and bounds, HMAC body signing, versioned lateness and freshness policies, unit normalization and telemetry event payloads.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

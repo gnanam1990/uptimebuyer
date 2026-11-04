@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M03",
+  "status": "PASS",
+  "startingCommit": "dbfdc73",
+  "endingCommit": "1a42b17",
+  "branch": "feat/m03-sensor-edge-gateway",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "1a42b17 fix(m03): charge credential budgets only on verified failures; replays never evict cached keys",
+    "c236827 test(m03): targeted kid lockout and replay cache-eviction regressions (red)",
+    "16fbf6f Merge remote-tracking branch 'origin/main' into feat/m03-sensor-edge-gateway (coordinator)",
+    "73fdbfd fix(m03): race-free, per-credential failure budgets that cannot lock out a valid device",
+    "7ebd138 test(m03): pre-auth limiter race and shared-address lockout regressions (red)",
+    "3db432c fix(m03): clamp health evaluation time, bound pre-auth failures, drop public cross-tenant metrics",
+    "79cdd96 test(m03): security-review regressions for rewound health clocks, pre-auth floods and cross-tenant metrics (red)",
+    "55a87ff test(m03): correct fixture defects found on first green run",
+    "1b8ebce feat(m03): @uptimebuyer/sensor-gateway HTTP ingestion and @uptimebuyer/sensor-agent reference edge client",
+    "9a445e5 feat(m03): telemetry migration 0008 and @uptimebuyer/data ingestion, health and read repositories",
+    "dfc6570 feat(m03): @uptimebuyer/telemetry wire protocol, signing and versioned policies",
+    "3b6c51f test(m03): T-013..T-016 telemetry acceptance, dedupe, freshness and backfill gates; T-010/T-011 re-run on telemetry (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-02", "FR-22"],
+    "nonfunctional": ["NFR-04", "NFR-08", "NFR-11"],
+    "invariants": ["INV-11"],
+    "tests": ["T-013", "T-014", "T-015", "T-016"]
+  },
+  "changedFiles": [
+    "packages/telemetry/** (new @uptimebuyer/telemetry: package.json, tsconfig.json, src/{protocol,signing,policy,normalize,events,clock,index}.ts, test/t013-body-signature.test.ts, t013-wire-schema.test.ts, t015-freshness-policy.test.ts, t016-lateness-classification.test.ts, test/tsconfig.json)",
+    "packages/data/migrations/0008_m03_telemetry.sql",
+    "packages/data/src/telemetry.ts (new), index.ts, authz.ts (telemetry.read), ids.ts (tbt, tsm, trj, tgp, tdd, thp), registry.ts (device inputClass; rebind/supersession/recalibration start after bound telemetry), registry-core.ts (device body inputClass)",
+    "packages/data/package.json, tsconfig.json (depend on @uptimebuyer/telemetry)",
+    "packages/data/test/t009-migration-forward-fix.int.test.ts (applied list includes 0008), t011-role-authority-denial.int.test.ts (telemetry.read row in the authority matrix)",
+    "apps/sensor-gateway/** (new @uptimebuyer/sensor-gateway: src/{app,scheduler,sweeper,index}.ts; test/helpers.ts, t010-telemetry-cross-tenant.int.test.ts, t011-telemetry-authority.int.test.ts, t013-authenticated-acceptance.int.test.ts, t013-security-review.int.test.ts, t014-duplicate-out-of-order.int.test.ts, t015-stale-offline-health.int.test.ts, t015-security-review.int.test.ts, t016-edge-reconnect-backfill.int.test.ts, t016-ingest-scheduler.test.ts)",
+    "edge/sensor-agent/** (new @uptimebuyer/sensor-agent: src/{buffer,agent,token,simulator,index}.ts, test/t016-edge-buffer-agent.test.ts)",
+    "tsconfig.json (references for the three new packages and their test projects)",
+    "pnpm-lock.yaml (fastify 5.12.7; workspace links)"
+  ],
+  "diffSummary": "Signed HTTPS telemetry ingestion end to end: a shared strict wire protocol with HMAC body signing and versioned lateness/freshness policies; one forward-only migration with immutable samples pinned to the binding effective at source time, rejection/gap/disclosure records and a guarded per-channel freshness projection; data-layer ingestion, health, read and sweeper APIs; a Fastify gateway with bounded live-first scheduling and per-device rate budgets; and a reference edge agent/simulator with a bounded ring buffer, overflow disclosure and rate-limited backfill.",
+  "configChanges": [
+    "Root tsconfig.json references packages/telemetry, apps/sensor-gateway, edge/sensor-agent and their test projects.",
+    "Runtime dependencies pinned exactly: fastify 5.12.7 (gateway; 5.12.8 was <2 weeks old), jose 6.2.12 (agent token minting, same pin as data), zod 4.6.7 (telemetry). No new dev dependency."
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run --project unit packages/telemetry edge/sensor-agent apps/sensor-gateway; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/sensor-gateway packages/data/test/t009-migration-forward-fix.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "3b6c51f",
+      "exitCode": 1,
+      "testCounts": {
+        "unit": 0,
+        "unitFailedFiles": 6,
+        "integration": 7,
+        "integrationFailed": 1,
+        "integrationFailedFiles": 7
+      },
+      "resultSummary": "RED: 6 unit and 6 gateway integration files failed to load (no source); T-009 failed 1/7 because 0008_m03_telemetry.sql did not exist"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "55a87ff (working tree, before the security-review commits)",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 535,
+        "integration": 81
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration, build, pack check and history secret scan passed"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/sensor-gateway/test/t013-security-review.int.test.ts apps/sensor-gateway/test/t015-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "79cdd96",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": 3,
+        "failed": 3
+      },
+      "resultSummary": "RED (security review): a past evaluation time read and persisted a stale channel as FRESH; 20 bad-token requests all reached the credential lookup and audit insert; GET /metrics served process-wide counters"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "3db432c (superseded by the final run below)",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 535,
+        "integration": 84,
+        "m03Unit": 37,
+        "m03Integration": 39,
+        "byFile": {
+          "packages/telemetry/test/t013-body-signature.test.ts": 5,
+          "packages/telemetry/test/t013-wire-schema.test.ts": 6,
+          "packages/telemetry/test/t015-freshness-policy.test.ts": 6,
+          "packages/telemetry/test/t016-lateness-classification.test.ts": 7,
+          "edge/sensor-agent/test/t016-edge-buffer-agent.test.ts": 8,
+          "apps/sensor-gateway/test/t016-ingest-scheduler.test.ts": 5,
+          "apps/sensor-gateway/test/t013-authenticated-acceptance.int.test.ts": 9,
+          "apps/sensor-gateway/test/t013-security-review.int.test.ts": 2,
+          "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts": 7,
+          "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts": 8,
+          "apps/sensor-gateway/test/t015-security-review.int.test.ts": 1,
+          "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts": 4,
+          "apps/sensor-gateway/test/t010-telemetry-cross-tenant.int.test.ts": 4,
+          "apps/sensor-gateway/test/t011-telemetry-authority.int.test.ts": 4
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17 container, throwaway databases), build, pack check and history secret scan all passed; earlier M00-M02 suites unchanged and green"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/sensor-gateway/test/t013-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "7ebd138",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": 5,
+        "failed": 3
+      },
+      "resultSummary": "RED (coordinator security review): 20 concurrent forged-key tokens and 20 concurrent malformed tokens all reached authenticateDevice (has-then-await-then-take race); an attacker exhausting the per-address budget blocked a valid device from the same address (429)"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "73fdbfd",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 535,
+        "integration": 87,
+        "m03Unit": 37,
+        "m03Integration": 42,
+        "byFile": {
+          "packages/telemetry/test/t013-body-signature.test.ts": 5,
+          "packages/telemetry/test/t013-wire-schema.test.ts": 6,
+          "packages/telemetry/test/t015-freshness-policy.test.ts": 6,
+          "packages/telemetry/test/t016-lateness-classification.test.ts": 7,
+          "edge/sensor-agent/test/t016-edge-buffer-agent.test.ts": 8,
+          "apps/sensor-gateway/test/t016-ingest-scheduler.test.ts": 5,
+          "apps/sensor-gateway/test/t013-authenticated-acceptance.int.test.ts": 9,
+          "apps/sensor-gateway/test/t013-security-review.int.test.ts": 5,
+          "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts": 7,
+          "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts": 8,
+          "apps/sensor-gateway/test/t015-security-review.int.test.ts": 1,
+          "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts": 4,
+          "apps/sensor-gateway/test/t010-telemetry-cross-tenant.int.test.ts": 4,
+          "apps/sensor-gateway/test/t011-telemetry-authority.int.test.ts": 4
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration, build, pack check and history secret scan all passed after both security-review rounds"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/sensor-gateway/test/t013-security-review.int.test.ts",
+      "cwd": "worktree root",
+      "commitSha": "c236827",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": 7,
+        "failed": 3
+      },
+      "resultSummary": "RED (second coordinator review): bad tokens with a cold device's kid from another address made its first valid token 429; a replay of a token first used on the database path was recognised, uncharged and evicted the cached key; concurrency gate updated to (source, kid) budget + per-source fallback"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "worktree root",
+      "commitSha": "1a42b17",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 535,
+        "integration": 90,
+        "m03Unit": 37,
+        "m03Integration": 44,
+        "byFile": {
+          "packages/telemetry/test/t013-body-signature.test.ts": 5,
+          "packages/telemetry/test/t013-wire-schema.test.ts": 6,
+          "packages/telemetry/test/t015-freshness-policy.test.ts": 6,
+          "packages/telemetry/test/t016-lateness-classification.test.ts": 7,
+          "edge/sensor-agent/test/t016-edge-buffer-agent.test.ts": 8,
+          "apps/sensor-gateway/test/t016-ingest-scheduler.test.ts": 5,
+          "apps/sensor-gateway/test/t013-authenticated-acceptance.int.test.ts": 9,
+          "apps/sensor-gateway/test/t013-security-review.int.test.ts": 7,
+          "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts": 7,
+          "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts": 8,
+          "apps/sensor-gateway/test/t015-security-review.int.test.ts": 1,
+          "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts": 4,
+          "apps/sensor-gateway/test/t010-telemetry-cross-tenant.int.test.ts": 4,
+          "apps/sensor-gateway/test/t011-telemetry-authority.int.test.ts": 4
+        }
+      },
+      "resultSummary": "all verify stages passed after the second limiter review"
+    }
+  ],
+  "redEvidence": "T-013..T-016 (plus the T-010/T-011 telemetry re-runs) were committed first (3b6c51f) and failed to load; T-009 failed on the missing 0008. The first green run exposed only fixture defects (readings stamped before a just-created channel revision, a non-identity spread into reviseAssetIdentity, a monotonic test clock that left two probes before their rebind, a resend that hit the exhausted backfill budget), fixed in 55a87ff without loosening an assertion. Security review produced 3 more red regressions (79cdd96) fixed in 3db432c. A coordinator security review then found a check-then-act race and a shared-address lockout in the pre-auth limiter; red regressions in 7ebd138, fixed in 73fdbfd. A second coordinator review found a targeted kid lockout and replay-driven cache eviction; red in c236827, fixed in 1a42b17.",
+  "evidence": [
+    "T-013: a FAHRENHEIT channel reading (39614 mF) is stored as exactly 4230 mC with source value/unit and the exact assignment, asset revision, channel revision and calibration revision effective at source time, source and receipt time, boot id, sequence, LIVE class, lateness policy and PHYSICAL_SENSOR origin, and emits a typed telemetry.accepted.v1; 15 request-level attacks (missing/malformed/wrong-key/replayed/service token, missing/wrong-key/tampered signature, stale/future signing time, foreign/malformed X-Tenant-ID, body naming another device, payload asserting asset or tenant) are rejected with no telemetry row written and audited reasons; oversized bodies 413; revoked devices 401; BINDING_MISSING (never assigned, before assignment start), BINDING_SUPERSEDED, BINDING_OVERLAPPING (with the exclusion constraint removed), CHANNEL_UNKNOWN (identical for a foreign and a nonexistent channel, stored only as a digest), CHANNEL_REVISION_MISSING and UNIT_MISMATCH per sample; the binding trigger refuses a forged row.",
+    "T-014: sequential and 6-way concurrent re-delivery stores one byte-identical row; a conflicting duplicate is rejected and never overwrites; out-of-order samples keep their own source time and fill tracked gaps; after asset revision + recalibration, an out-of-order earlier sample is pinned to the old assignment/asset/channel/calibration revisions while a new one gets the new revisions and offset, the pre-rebind row is unchanged and the health basis does not move backwards; a rebind after a future-skewed sample starts after it; the database refuses to end an interval under bound telemetry; samples reject UPDATE/DELETE/TRUNCATE.",
+    "T-015: never-reported channels are OFFLINE NO_LIVE_TELEMETRY; with an advancing clock reads go FRESH -> STALE -> OFFLINE before any sweep, the sweeper persists each step idempotently with typed telemetry.stale.v1 events; LATE/BACKFILL arrivals never refresh; a new LIVE reading refreshes without backdating; stopped heartbeats move the channel and device rollup to STALE/OFFLINE; device-reported OUT_OF_RANGE, implausible values and unit-mismatched live readings are INVALID with their reason until a newer good LIVE sample; a revoked device is INVALID DEVICE_REVOKED; an unauthenticated request leaves the projection unchanged; the database refuses FRESH without a LIVE flag-free basis and any state outside FRESH/STALE/OFFLINE/INVALID; a rewound evaluation time cannot read or persist FRESH.",
+    "T-016: the reference agent disconnected for 12 readings with an 8-slot buffer drops 4 (disclosed with count, sequence/time range and exact aggregates), reconnects, sends live first (LIVE) and drains the rest oldest-first in <=3-message BACKFILL batches under a 4-message/1-per-second gateway budget (429 + Retry-After honoured, nothing lost); stored rows keep original event times, receipt times follow send order, the dropped range is the only outstanding gap and is marked disclosed; re-sending a backfilled message as live is a duplicate and the class stays BACKFILL (UPDATE refused); a 2-minute-late live delivery is LATE; LATE/BACKFILL never qualify for recovery; live data is accepted while the backfill budget is exhausted; the scheduler runs queued live before queued backfill and applies backpressure; simulator samples (and anything from a SIMULATOR-class device or labelled SIMULATED_INPUT) are stored SIMULATED_INPUT and fail assertPhysicalSensorClaim; devices.input_class cannot be changed.",
+    "T-010 re-run: every M03 table has (tenant_id, id) and tenant-leading FKs; five foreign telemetry reads are indistinguishable from nonexistent ids, audited in A without B's ids, B unchanged; a device cannot write into another tenant via its channel id, tenant header, device id or key; sweeper projections and events stay in their row's tenant.",
+    "T-011 re-run: telemetry.read is allowed to human roles at the device site (and workers) only; devices, services and other-site users are denied like a missing device; humans, services and other devices cannot ingest (DEVICE_MISMATCH); OIDC bearer tokens are refused at the gateway.",
+    "Security review (self, 3db432c): health reads/sweeper evaluate at max(requested, server clock); unauthenticated work is bounded before database access; process-wide metrics are not served on the device listener. Coordinator review (73fdbfd): failure budgets are reserved synchronously before any await and refunded on success (20 concurrent forged tokens -> exactly 3 reach authentication with a budget of 3; 20 concurrent malformed tokens -> exactly 5 with a per-source budget of 5); failures are charged per claimed credential (kid) plus a coarse per-source cap; a token verified in memory against a credential the gateway already authenticated (TTL cache, unseen jti) spends no budget, so an attacker exhausting both budgets from the same address does not stop the targeted device or its neighbour from having readings accepted; trustProxy is explicit configuration (default false).",
+    "Second coordinator review: pre-verification spends a (source, kid) budget with per-source fallback (20 concurrent forged tokens -> exactly 3 + 5 reach authentication); the per-credential budget is charged only on verified failures (TOKEN_REJECTED, SUBJECT_MISMATCH, TOKEN_ID_INVALID, TOKEN_REPLAYED via authenticateDevice onFailure); 30 forged tokens for a cold device's kid from 10.9.9.9 do not stop its first valid token from 10.1.1.1 being accepted; a replayed valid token is rejected, charged and leaves the cached key (a later valid token from an exhausted address is still accepted); token ids are recorded on both paths and the key TTL refreshes on success."
+  ],
+  "verification": ["pnpm verify exit 0 at 1a42b17 (unit 535, integration 90)"],
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN (no physical ESP32/probe path exercised; only the reference agent and the SIMULATED_INPUT simulator against an in-process gateway)",
+    "mqtt": "UNSUPPORTED (ADR 0001 \u00a74: signed HTTPS only; MQTT/TLS is a later adapter behind the same ingestion contract)",
+    "loadAndLatency": "NOT_RUN (NFR-08 p95 targets are not measured; metrics() exposes counters, lag and queue depth only)"
+  },
+  "schemaOrApiChanges": [
+    "Migration 0008_m03_telemetry.sql: devices.input_class (PHYSICAL_SENSOR | SIMULATOR, fixed); UNIQUE (tenant_id, device_id, id) on sensor_channels and device_asset_assignments; append-only telemetry_batches, telemetry_samples, telemetry_rejections, telemetry_sequence_gaps, telemetry_drop_disclosures; mutable telemetry_channel_health with FRESH guards; triggers ub_telemetry_sample_binding_guard, ub_interval_end_after_bound_telemetry (assignments, channel revisions, asset revisions), ub_telemetry_health_basis_guard, ub_device_input_class_fixed; binding violations raise SQLSTATE UB031.",
+    "HTTP: POST /v1/device/telemetry:batch (Authorization: Bearer <device token>, x-ub-timestamp: epoch ms, x-ub-signature: v1=<hex HMAC-SHA256 over 'ub-telemetry.v1\\n<ts>\\n<deviceId>\\n<sha256(body)>' with an HKDF-derived key>, optional X-Tenant-ID) -> 200 {batchId, receivedAt, accepted, duplicates, rejected, classCounts, disclosures, results[{bootId, sequence, channel, status ACCEPTED|DUPLICATE|REJECTED, reasonCode, sampleId, ingestionClass}]}; 400/401/403/413/415/429(Retry-After) with ApiErrorBody. GET /health/live, /health/ready. Wire message: {bootId, sequence, eventAt, samples[{channel: chn id, valueInt, unit mC|mF|mK|mA|mW|bool|none, quality, label?: SIMULATED_INPUT}]}.",
+    "Events: telemetry.accepted.v1 and telemetry.stale.v1 payloads (TelemetryAcceptedPayloadSchema / TelemetryStalePayloadSchema in @uptimebuyer/telemetry), device aggregate, per-event-type contiguous versions.",
+    "@uptimebuyer/data: new action telemetry.read; registerDevice accepts inputClass; DATA_ID_PREFIXES tbt, tsm, trj, tgp, tdd, thp; assignDeviceToAsset/reviseAssetIdentity/reviseSensorChannel now start the new interval strictly after any bound sample.",
+    "@uptimebuyer/data: peekMachineTokenSubject(kind, token), verifyMachineTokenOffline(kind, token, key) (no I/O, not authentication), resolveDeviceCredentialKey(pool, ctx, resolver). Gateway options: trustProxy; limits.preAuthRate, limits.credentialFailureRate, limits.credentialCacheTtlMs.",
+    "@uptimebuyer/data: authenticateDevice(pool, resolver, token, { onFailure }) and type MachineAuthFailureReason (server-side reason; HTTP stays uniform 401). Gateway metrics(): authFailures, chargedAuthFailures."
+  ],
+  "migrationOrRollback": [
+    "Forward-only and additive (one new column with a default, new tables, triggers, two extra unique constraints); applies in one transaction. Rollback before anything depends on it: revert the M03 commits on a database that never ran 0008; once applied, ship a forward fix (never edit 0008).",
+    "The new interval-end triggers can make a rebind/supersession that would end an interval at or before bound telemetry fail with UB031 instead of silently reinterpreting history; the repository functions already choose a later start, so only direct SQL writers are affected."
+  ],
+  "specAmbiguitiesResolved": [
+    "ADR 0001 \u00a74: transport is signed HTTPS; MQTT is UNSUPPORTED here. Device identity = M02's single-use HS256 device token; body integrity = HMAC-SHA256 with a key HKDF-derived from the same device credential (label ub-telemetry-body-signature.v1) plus a \u00b1300 s signing-time bound.",
+    "Wire channel references are sensor channel ids (chn_\u2026) owned by the authenticated device (sensor_channels has no human key); asset, tenant, revision and class claims are not in the schema at all.",
+    "Dedupe key is DATA-MODEL's (tenant, channel, boot_id, sequence); one device message carries one sequence shared by its channel samples. Sample digests cover only the device's claim, so a re-send under a different delivery mode is a DUPLICATE and keeps the stored class.",
+    "Lateness policy telemetry-lateness.v1 (code-versioned, digest pinned on every sample): BACKFILL delivery -> BACKFILL; live delivery lag <= 30 s LIVE, <= 10 min LATE, else BACKFILL; lead > 5 s FUTURE_EVENT_TIME; older than 7 d rejected. Freshness policy telemetry-freshness.v1 (pinned on each projection): STALE after 120 s, OFFLINE after 600 s from the newest LIVE flag-free source time. Tenant-configurable policies need a new M02 policy key (not added).",
+    "Freshness is per sensor channel (device health = worst channel); FRESH requires a LIVE flag-free basis; quality flags, live-lag binding/unit rejections and future timestamps make the channel INVALID until a newer good LIVE sample; revoked device or retired channel is INVALID. devices.status (registry lifecycle) is not driven by telemetry.",
+    "'Superseded binding' = the assignment effective at source time names an asset revision already superseded at that time (only reachable by direct writes, since the repository rebinds). 'Overlapping' cannot be created through the schema (exclusion constraints); the gateway still rejects it and T-013 proves it with the constraint dropped in a throwaway database.",
+    "Sequence gaps are recorded only after the first observed sequence of a boot; outstanding ranges subtract later arrivals and rejected sequences; 'disclosed' means every outstanding range is covered by an edge drop disclosure.",
+    "FR-22 simulator labelling is server-enforced: a SIMULATOR-class device's samples are always SIMULATED_INPUT; a sample label can only downgrade a physical device's sample.",
+    "Implausible values (temperature outside -100..150 \u00b0C, etc.) are stored with OUT_OF_RANGE for diagnosis rather than rejected; contract violations (below absolute zero, door not 0/1) are rejected.",
+    "Health reads and the sweeper evaluate at max(requested time, server clock) so callers cannot rewind freshness; tests drive a ManualClock that never runs behind real time.",
+    "Telemetry is not time-partitioned (DATA-MODEL suggests it); indexes on (tenant, channel, event_at), (tenant, device, boot, sequence) and per-binding columns instead. Successful ingests are not written to audit_entries (the batch/sample/rejection rows are the record); denials are."
+  ],
+  "unresolvedRisks": [
+    "Real sensor path, MQTT adapter, credential rotation with bounded overlap and firmware acceptance (HARDWARE-IOT \u00a74, \u00a711) are NOT_RUN/UNSUPPORTED.",
+    "Rate budgets, scheduler queues, failure budgets and the known-credential cache are per gateway process (in memory); multi-instance deployments need shared budgets or sticky routing. A device whose credential is not yet known to this process (cold start, cache TTL 10 min, key rotation) can still be delayed by 429 while an attacker at the same address holds the per-source budget or forges its kid; a rotated key is recognised again after its first successful authentication. trustProxy defaults to false and must be set explicitly behind a proxy.",
+    "The machine-token jti cache (principal_token_uses) is still never pruned (M02 residual); every device request adds a row.",
+    "listSequenceGaps issues two queries per gap (bounded to 1000 gaps) and is not cursor-paginated; listTelemetrySamples has a keyset cursor (after) capped at 5000 rows.",
+    "Ingest work per request is bounded (<=200 messages x 16 samples) but per-sample queries are not batched; NFR-08 latency targets are unmeasured.",
+    "Calibration records beyond calibration_revision/offset (reference method, curve, evidence digest, HARDWARE-IOT \u00a77) are not modelled.",
+    "process-wide metrics() is only in-process; no authenticated operations listener exists yet (M13).",
+    "The gateway keeps device credential keys in process memory (bounded, TTL) to recognise valid credentials before spending failure budgets; revocation and single-use jti remain enforced in the database on every request."
+  ],
+  "nextModuleInputs": [
+    "@uptimebuyer/data reads (telemetry.read at the device site; outbox/job WORKER contexts allowed): getDeviceHealth(pool, ctx, deviceId, {now?}) -> {freshness FRESH|STALE|OFFLINE|INVALID, statusReason, healthy (FRESH only), sourceTime, receiptTime, freshnessThresholdMs, offlineThresholdMs, ageMs, evaluatedAt, freshnessPolicyVersion, channels[ChannelHealthView]}; listTelemetrySamples(pool, ctx, {channelId, fromEventAt?, toEventAt?, ingestionClasses?, after?, limit<=5000}) -> TelemetrySampleRecord[] (assignment/asset/channel/calibration revisions, eventAt, receivedAt, valueInt milli-units, qualityFlags, ingestionClass, latenessPolicyDigest, inputOrigin); listSequenceGaps, listDropDisclosures, listTelemetryRejections(pool, ctx, deviceId).",
+    "Events for M04 (consume via consumeOnce): telemetry.accepted.v1 {deviceId, batchId, receivedAt, delivery, acceptedCount, duplicateCount, rejectedCount, classCounts, minEventAt, maxEventAt, channelIds, inputOrigin} and telemetry.stale.v1 {deviceId, channelId, previousFreshness, freshness STALE|OFFLINE|INVALID, statusReason, sourceTime, receiptTime, freshnessThresholdMs, offlineThresholdMs, evaluatedAt, freshnessPolicyVersion}; decode with TelemetryAcceptedEventSchema / TelemetryStaleEventSchema. Both are device-aggregate events with their own contiguous per-type versions; incident rules must re-read samples by event time rather than trust event order.",
+    "@uptimebuyer/telemetry for M04/M11: isRecoveryQualifying(sample) (LIVE and flag-free only), assertPhysicalSensorClaim(samples) (no SIMULATED_INPUT), evaluateFreshness/rollupFreshness, DEFAULT_LATENESS_POLICY/DEFAULT_FRESHNESS_POLICY and their digests, INGESTION_CLASSES, FRESHNESS_STATES, QUALITY_FLAGS, ManualClock/systemClock.",
+    "Gateway: buildSensorGateway({pool, credentials, clock?, latenessPolicy?, freshnessPolicy?, limits?}) -> {app, metrics(), close()}; startFreshnessSweeper({pool, clock?, intervalMs?}) must run in the deployed process (M14); sweepTelemetryFreshness(pool, {now}) is the platform worker entry point.",
+    "Edge: SensorAgent, BoundedMessageBuffer, SensorSimulator, createDeviceTokenProvider from @uptimebuyer/sensor-agent; registerDevice(..., {inputClass: 'SIMULATOR'}) for demo devices (FR-22 labelling).",
+    "M11 recovery evaluator must pin sample ids and their stored assignment/channel/calibration revisions and use only isRecoveryQualifying samples with eventAt strictly after the boundary and a currently FRESH tail from getDeviceHealth; LATE/BACKFILL and SIMULATED_INPUT exclusions are already persisted per sample."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M03 completed and locally verified signed HTTPS telemetry ingestion, revision-pinned immutable samples, freshness projection and a simulator-labelled reference edge agent against a local PostgreSQL 17 container; no physical sensor, MQTT broker, deployment, provider, Kite payment or recovery evidence exists, and all of it remains NOT_RUN."
+}

@@ -40,6 +40,7 @@ const M02_MIGRATIONS = [
   '0006_m02_privacy_lifecycle.sql',
   '0007_m02_security_hardening.sql',
 ];
+const M03_MIGRATIONS = ['0008_m03_telemetry.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {
@@ -96,10 +97,10 @@ describe('T-009 migration and rollback on seeded tenant', () => {
     await db?.drop();
   });
 
-  it('applies every M02 migration forward once, then is a checksum-stable no-op', async () => {
+  it('applies every M02 (and later module) migration forward once, then is a checksum-stable no-op', async () => {
     const { migrate } = await dbScripts();
     const applied = await migrate(db.url);
-    expect(applied).toEqual(['0000_bootstrap.sql', ...M02_MIGRATIONS]);
+    expect(applied).toEqual(['0000_bootstrap.sql', ...M02_MIGRATIONS, ...M03_MIGRATIONS]);
     expect(await migrate(db.url)).toEqual([]);
     const { rows } = await db.admin(`SELECT extname FROM pg_extension WHERE extname = 'btree_gist'`);
     expect(rows).toHaveLength(1);

@@ -20,6 +20,12 @@ export const DATA_ID_PREFIXES = Object.freeze({
   legalHold: 'lgh',
   privacyRequest: 'prq',
   redactionTombstone: 'rdt',
+  telemetryBatch: 'tbt',
+  telemetrySample: 'tsm',
+  telemetryRejection: 'trj',
+  telemetrySequenceGap: 'tgp',
+  telemetryDropDisclosure: 'tdd',
+  telemetryChannelHealth: 'thp',
 } as const);
 export type DataIdKind = keyof typeof DATA_ID_PREFIXES;
 
@@ -40,6 +46,8 @@ export const LegalHoldIdSchema = dataIdSchema('legalHold');
 export const PrivacyRequestIdSchema = dataIdSchema('privacyRequest');
 export const WebhookDeliveryIdSchema = dataIdSchema('webhookDelivery');
 export const ApprovedVendorIdSchema = dataIdSchema('approvedVendor');
+export const TelemetryBatchIdSchema = dataIdSchema('telemetryBatch');
+export const TelemetrySampleIdSchema = dataIdSchema('telemetrySample');
 
 export type RoleAssignmentId = z.infer<typeof RoleAssignmentIdSchema>;
 export type IntegrationIdentityId = z.infer<typeof IntegrationIdentityIdSchema>;
@@ -51,6 +59,8 @@ export type LegalHoldId = z.infer<typeof LegalHoldIdSchema>;
 export type PrivacyRequestId = z.infer<typeof PrivacyRequestIdSchema>;
 export type WebhookDeliveryId = z.infer<typeof WebhookDeliveryIdSchema>;
 export type ApprovedVendorId = z.infer<typeof ApprovedVendorIdSchema>;
+export type TelemetryBatchId = z.infer<typeof TelemetryBatchIdSchema>;
+export type TelemetrySampleId = z.infer<typeof TelemetrySampleIdSchema>;
 
 export function newDataId<K extends DataIdKind>(kind: K): string {
   return `${DATA_ID_PREFIXES[kind]}_${globalThis.crypto.randomUUID()}`;

@@ -26,9 +26,12 @@ export {
   authenticateHuman,
   authenticateIntegration,
   authenticateService,
+  peekMachineTokenSubject,
   signPrincipalToken,
+  verifyMachineTokenOffline,
   type CredentialResolver,
   type HumanSessionVerifier,
+  type MachineAuthFailureReason,
   type MachinePrincipalKind,
 } from './auth.js';
 export * from './authz.js';
@@ -54,3 +57,4 @@ export * from './jobs.js';
 export * from './provider-accounts.js';
 export * from './privacy.js';
 export * from './tenant-scope.js';
+export * from './telemetry.js';

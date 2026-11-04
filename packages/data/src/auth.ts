@@ -163,14 +163,27 @@ const LOOKUP: Record<MachinePrincipalKind, string> = {
                  JOIN tenants t ON t.id = i.tenant_id WHERE i.id = $1 AND i.status = 'ACTIVE' AND t.status = 'ACTIVE'`,
 };
 
+/** Why a machine authentication failed (server-side only; callers must still answer a uniform 401). */
+export type MachineAuthFailureReason =
+  | 'MALFORMED_CREDENTIAL'
+  | 'WRONG_TOKEN_KIND'
+  | 'UNKNOWN_OR_REVOKED_PRINCIPAL'
+  | 'CREDENTIAL_UNAVAILABLE'
+  | 'TOKEN_REJECTED'
+  | 'SUBJECT_MISMATCH'
+  | 'TOKEN_ID_INVALID'
+  | 'TOKEN_REPLAYED';
+
 async function authenticateMachine(
   pool: Db,
   resolver: CredentialResolver,
   kind: MachinePrincipalKind,
   token: string,
+  onFailure?: (reasonCode: MachineAuthFailureReason) => void,
 ): Promise<{ row: MachineRow }> {
   const m = MACHINE[kind];
-  const fail = async (reasonCode: string, id: string | null = null): Promise<never> => {
+  const fail = async (reasonCode: MachineAuthFailureReason, id: string | null = null): Promise<never> => {
+    onFailure?.(reasonCode);
     await recordSecurityAudit(pool, {
       principal: { kind, id },
       action: 'principal.authenticate',
@@ -221,12 +234,61 @@ async function authenticateMachine(
   return { row };
 }
 
+/**
+ * Structural pre-check of a machine token without any I/O: protected header (alg, typ, kid) only. Returns the claimed
+ * principal id, or null when the token is not even shaped like a token of this kind. Never proof of identity.
+ */
+export function peekMachineTokenSubject(kind: MachinePrincipalKind, token: string): string | null {
+  try {
+    const header = decodeProtectedHeader(token);
+    if (header.alg !== 'HS256' || header.typ !== MACHINE[kind].typ) return null;
+    return typeof header.kid === 'string' && /^[a-z]{2,5}_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/.test(header.kid)
+      ? header.kid
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * In-memory verification of a machine token against an already-known key (same parameters as authentication).
+ * Used by edge gateways to recognise a valid credential before spending failure budgets; it does NOT authenticate
+ * (no revocation check, no single-use jti) — the caller must still call the authenticate function.
+ */
+export async function verifyMachineTokenOffline(
+  kind: MachinePrincipalKind,
+  token: string,
+  key: Uint8Array,
+): Promise<{ subject: string; jti: string } | null> {
+  const m = MACHINE[kind];
+  const subject = peekMachineTokenSubject(kind, token);
+  if (!subject || !(key instanceof Uint8Array) || key.byteLength < MIN_KEY_BYTES) return null;
+  try {
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ['HS256'],
+      typ: m.typ,
+      issuer: m.issuer,
+      audience: m.audience,
+      subject,
+      clockTolerance: 5,
+      maxTokenAge: MAX_TTL_SECONDS + 60,
+      requiredClaims: ['sub', 'exp', 'iat', 'jti'],
+    });
+    return typeof payload.jti === 'string' && payload.jti.length >= 16 && payload.jti.length <= 64
+      ? { subject, jti: payload.jti }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function authenticateDevice(
   pool: Db,
   resolver: CredentialResolver,
   token: string,
+  opts: { onFailure?: (reasonCode: MachineAuthFailureReason) => void } = {},
 ): Promise<AuthenticatedPrincipal> {
-  const { row } = await authenticateMachine(pool, resolver, 'DEVICE', token);
+  const { row } = await authenticateMachine(pool, resolver, 'DEVICE', token, opts.onFailure);
   return issuePrincipal(
     { kind: 'DEVICE', id: row.id as DeviceId, tenantId: row.tenant_id, siteId: row.site_id as SiteId },
     'DEVICE_TOKEN',

@@ -1,0 +1,14 @@
+{
+  "name": "@uptimebuyer/sensor-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference edge telemetry agent: bounded ring buffer with overflow aggregates and an explicit dropped counter, rate-limited signed reconnect backfill, and a simulator whose every sample is labelled SIMULATED_INPUT.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/telemetry": "workspace:*",
+    "jose": "6.2.12"
+  }
+}

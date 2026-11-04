@@ -1,0 +1,19 @@
+{
+  "name": "@uptimebuyer/sensor-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Signed HTTPS telemetry ingestion (ADR 0001 §4): device authentication, HMAC body signature and skew bound, bounded batches, per-device rate buckets, live-over-backfill scheduling and the freshness sweeper.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/telemetry": "workspace:*",
+    "fastify": "5.12.7"
+  },
+  "devDependencies": {
+    "@uptimebuyer/sensor-agent": "workspace:*"
+  }
+}
