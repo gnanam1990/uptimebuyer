@@ -299,7 +299,11 @@ const attempt = {
 const enumFixture = (valid: string, wrong: string): Fixture => ({
   valid,
   object: false,
-  malformed: { 'foreign word': wrong, lowercase: valid.toLowerCase(), number: 1 },
+  malformed: {
+    'foreign word': wrong,
+    'case changed': valid === valid.toLowerCase() ? valid.toUpperCase() : valid.toLowerCase(),
+    number: 1,
+  },
 });
 
 const fixtures: Record<string, Fixture> = {
@@ -377,6 +381,11 @@ const fixtures: Record<string, Fixture> = {
     valid: 'ord-2207',
     object: false,
     malformed: { empty: '', whitespace: 'a b', long: 'x'.repeat(257) },
+  },
+  CausationIdSchema: {
+    valid: id('event'),
+    object: false,
+    malformed: { tenant: id('tenant'), correlation: id('correlation') },
   },
   OpaqueIdSchema: { valid: id('incident'), object: false, malformed: { noPrefix: 'fixture01', short: 'inc_ab' } },
   IdempotencyKeySchema: {
@@ -994,7 +1003,7 @@ describe('T-005 contract schema round trip', () => {
     });
     const transition = new contracts.DomainError('STATE_TRANSITION_INVALID', 'Transition not allowed');
     expect([transition.errorClass, transition.httpStatus]).toEqual(['CONFLICT', 409]);
-    const body = contracts.toApiErrorBody(new Error('db password leaked in stack'), id('correlation'));
+    const body = contracts.toApiErrorBody(new Error('db password leaked in stack'), id('correlation') as never);
     expect(body.error.code).toBe('INTERNAL');
     expect(JSON.stringify(body)).not.toContain('password');
     expect(contracts.ApiErrorBodySchema.safeParse(body).success).toBe(true);

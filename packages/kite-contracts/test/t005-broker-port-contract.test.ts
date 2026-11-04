@@ -46,6 +46,7 @@ const requestWire = {
   correlationId: id('correlation'),
   idempotencyKey: 'idem-intent-0001',
 };
+const tryDecode = (v: unknown) => z.safeDecode(CommercialIntentRequestSchema, v as never);
 const request = (overrides: Partial<Record<string, unknown>> = {}): CommercialIntentRequest =>
   decodeWire(CommercialIntentRequestSchema, { ...structuredClone(requestWire), ...overrides });
 
@@ -78,16 +79,14 @@ describe('T-005 commercial-intent broker port contract', () => {
         JSON.parse(JSON.stringify(encodeWire(CommercialIntentRequestSchema, decoded))),
       ),
     ).toEqual(decoded);
-    expect(z.safeDecode(CommercialIntentRequestSchema, { ...requestWire, kiteApiKey: 'x' }).success).toBe(false);
+    expect(tryDecode({ ...requestWire, kiteApiKey: 'x' }).success).toBe(false);
     expect(
-      z.safeDecode(CommercialIntentRequestSchema, {
+      tryDecode({
         ...requestWire,
         expectedMax: { amountMinor: 1.5, currency: 'USD' },
       }).success,
     ).toBe(false);
-    expect(
-      z.safeDecode(CommercialIntentRequestSchema, { ...requestWire, actionDigest: `sha256:${'2'.repeat(64)}` }).success,
-    ).toBe(false);
+    expect(tryDecode({ ...requestWire, actionDigest: `sha256:${'2'.repeat(64)}` }).success).toBe(false);
   });
 
   it('signs an opaque execution reference that names only an authority or an intent', () => {
