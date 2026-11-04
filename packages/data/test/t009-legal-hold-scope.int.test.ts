@@ -125,6 +125,29 @@ describe('T-009 legal holds block erasure across the scope hierarchy', () => {
     await releaseLegalHold(db.pool, admin, tenant.legalHoldId);
   });
 
+  it('a caller cannot dodge an incident hold by naming a different parent asset', async () => {
+    const { legalHoldId } = await placeLegalHold(db.pool, admin, {
+      scopeType: 'INCIDENT',
+      scopeId: incidentId('pinned'),
+      parentAssetId: a1,
+      reasonCode: 'REGULATOR_INQUIRY',
+    });
+    // The hold pins the incident to a1: a request or hold naming a2 for the same incident is a mismatch, never a pass.
+    await expect(request('INCIDENT', incidentId('pinned'), a2, 'REDACTION')).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    await expect(
+      placeLegalHold(db.pool, admin, {
+        scopeType: 'INCIDENT',
+        scopeId: incidentId('pinned'),
+        parentAssetId: a2,
+        reasonCode: 'LITIGATION',
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(await request('INCIDENT', incidentId('pinned'), a1, 'DELETION')).toBe('BLOCKED_LEGAL_HOLD');
+    await releaseLegalHold(db.pool, admin, legalHoldId);
+  });
+
   it('an incident scope must name an in-tenant asset consistent with recorded evidence', async () => {
     await expect(
       placeLegalHold(db.pool, admin, { scopeType: 'INCIDENT', scopeId: incidentId('x'), reasonCode: 'LITIGATION' }),

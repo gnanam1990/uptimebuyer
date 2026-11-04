@@ -60,6 +60,13 @@ async function resolveChain(
         [tenantId, scopeId],
       );
       if (bound.rows.some((b) => b.asset_id !== parentAssetId)) throw validation('INCIDENT_ASSET_MISMATCH');
+      // Until M04's incidents table exists, the first recorded chain pins the incident: any hold already placed for
+      // this incident fixes its asset, so a caller cannot dodge the hold by naming a different parent asset.
+      const pinned = await c.query<{ asset_id: string }>(
+        `SELECT DISTINCT asset_id FROM legal_holds WHERE tenant_id = $1 AND incident_id = $2 AND asset_id IS NOT NULL`,
+        [tenantId, scopeId],
+      );
+      if (pinned.rows.some((b) => b.asset_id !== parentAssetId)) throw validation('INCIDENT_ASSET_MISMATCH');
       return { siteId: r.rows[0].site_id, assetId: parentAssetId!, incidentId: scopeId };
     }
   }
@@ -127,9 +134,15 @@ async function overlappingHold(c: Tx, tenantId: TenantId, chain: ScopeChain): Pr
   const { rowCount } = await c.query(
     `SELECT 1 FROM legal_holds h
       WHERE h.tenant_id = $1 AND h.released_at IS NULL
-        AND ($2::text IS NULL OR h.site_id IS NULL OR h.site_id = $2)
-        AND ($3::text IS NULL OR h.asset_id IS NULL OR h.asset_id = $3)
-        AND ($4::text IS NULL OR h.incident_id IS NULL OR h.incident_id = $4)
+        AND (
+          -- Same incident always overlaps, whatever parent chain the caller supplied.
+          ($4::text IS NOT NULL AND h.incident_id = $4)
+          OR (
+            ($2::text IS NULL OR h.site_id IS NULL OR h.site_id = $2)
+            AND ($3::text IS NULL OR h.asset_id IS NULL OR h.asset_id = $3)
+            AND ($4::text IS NULL OR h.incident_id IS NULL OR h.incident_id = $4)
+          )
+        )
       LIMIT 1
       FOR SHARE`,
     [tenantId, chain.siteId, chain.assetId, chain.incidentId],
