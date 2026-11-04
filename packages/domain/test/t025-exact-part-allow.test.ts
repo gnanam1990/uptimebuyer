@@ -81,7 +81,7 @@ describe('T-025 exact manufacturer part allow', () => {
         sellerClaim: 'Guaranteed compatible',
       },
     ]) {
-      const r = evaluateCompatibility(exactMatchInput(), policy, explanation);
+      const r = evaluateCompatibility(exactMatchInput(), policy, { explanation });
       expect(r.decision).toBe(base.decision);
       expect(r.inputDigest).toBe(base.inputDigest);
       expect(r.reasonCodes).toEqual(base.reasonCodes);

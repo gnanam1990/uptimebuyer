@@ -241,11 +241,13 @@ describe('T-026 ambiguous compatibility hold', () => {
     const { input, policy } = fresh();
     mutate(input, policy);
     const r = evaluateCompatibility(input, policy, {
-      origin: 'MODEL_PROPOSAL',
-      modelConfidencePpm: 1_000_000,
-      searchRank: 1,
-      semanticScorePpm: 1_000_000,
-      sellerClaim: 'OEM equivalent, guaranteed fit',
+      explanation: {
+        origin: 'MODEL_PROPOSAL',
+        modelConfidencePpm: 1_000_000,
+        searchRank: 1,
+        semanticScorePpm: 1_000_000,
+        sellerClaim: 'OEM equivalent, guaranteed fit',
+      },
     });
     expect(r.decision).toBe(expected);
     expect(r.blockingReasons).toContain(reason);
@@ -277,11 +279,13 @@ describe('T-026 ambiguous compatibility hold', () => {
       if (picks.length === 0) picks.push(CASES[Math.floor(rand() * CASES.length)]!);
       for (const [, m] of picks) m(input, policy);
       const r = evaluateCompatibility(input, policy, {
-        origin: 'MODEL_PROPOSAL',
-        modelConfidencePpm: 1_000_000,
-        searchRank: 1,
-        semanticScorePpm: 1_000_000,
-        sellerClaim: null,
+        explanation: {
+          origin: 'MODEL_PROPOSAL',
+          modelConfidencePpm: 1_000_000,
+          searchRank: 1,
+          semanticScorePpm: 1_000_000,
+          sellerClaim: null,
+        },
       });
       expect(r.decision, picks.map((p) => p[0]).join(' + ')).not.toBe('ALLOW');
       // Mutations interact (e.g. no policy rules, or no candidate part number to compare), so a combined REJECT case
