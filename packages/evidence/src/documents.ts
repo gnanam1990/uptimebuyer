@@ -348,12 +348,7 @@ async function loadDocument(c: Tx, ctx: TenantContext, meta: { action: string; r
 }
 
 /** Ingest one document for the caller's tenant (bounded, parsed, content-addressed, immutable). */
-export async function ingestDocument(
-  pool: Db,
-  ctx: TenantContext,
-  store: ObjectStorePort,
-  raw: IngestDocumentInput,
-): Promise<IngestedDocument> {
+function parseIngest(raw: IngestDocumentInput) {
   if (raw?.bytes instanceof Uint8Array && raw.bytes.length > DOCUMENT_LIMITS.maxBytes)
     throw rejected('DOCUMENT_TOO_LARGE', 'The document exceeds the size bound.');
   const p = IngestSchema.safeParse(raw);
@@ -365,8 +360,18 @@ export async function ingestDocument(
     throw rejected('COMMUNICATION_CONSENT_REQUIRED', 'Communication content needs consent, purpose and an asset.');
   // Parse before opening a transaction: hostile bytes never reach storage.
   const parsed = parseDocument(input.bytes, input.mediaType);
-  const meta = { action: 'evidence_document.ingest', resourceType: 'evidence_document', resourceId: null };
-  return tenantCommand(pool, ctx, meta, async (c) => {
+  return { input, parsed };
+}
+
+const INGEST_META = { action: 'evidence_document.ingest', resourceType: 'evidence_document', resourceId: null };
+
+async function ingestParsedTx(
+  c: Tx,
+  ctx: TenantContext,
+  store: ObjectStorePort,
+  { input, parsed }: ReturnType<typeof parseIngest>,
+): Promise<IngestedDocument> {
+  const meta = INGEST_META;
     let siteId: SiteId | null = null;
     const assetId = input.applicability.assetId ?? null;
     if (assetId) {
@@ -429,7 +434,29 @@ export async function ingestDocument(
       metadata: { existing: result.existing, flaggedSpans: result.injectionFlaggedSpanCount },
     });
     return result;
-  });
+}
+
+export async function ingestDocument(
+  pool: Db,
+  ctx: TenantContext,
+  store: ObjectStorePort,
+  raw: IngestDocumentInput,
+): Promise<IngestedDocument> {
+  const prepared = parseIngest(raw);
+  return tenantCommand(pool, ctx, INGEST_META, (c) => ingestParsedTx(c, ctx, store, prepared));
+}
+
+/**
+ * Ingest inside the caller's tenant transaction (one connection), for callers that must make the ingest atomic
+ * with their own checks and locks (M07 excerpt promotion). Denials propagate to the caller's tenantCommand.
+ */
+export async function ingestDocumentInTx(
+  c: Tx,
+  ctx: TenantContext,
+  store: ObjectStorePort,
+  raw: IngestDocumentInput,
+): Promise<IngestedDocument> {
+  return ingestParsedTx(c, ctx, store, parseIngest(raw));
 }
 
 async function withdrawTx(c: Tx, ctx: TenantContext, documentId: string, reasonCode: string): Promise<boolean> {

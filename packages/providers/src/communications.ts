@@ -15,7 +15,7 @@ import {
   type TenantContext,
   type Tx,
 } from '@uptimebuyer/data';
-import { ingestDocument, withdrawConsentedCommunicationsInTx, type ObjectStorePort } from '@uptimebuyer/evidence';
+import { ingestDocumentInTx, withdrawConsentedCommunicationsInTx, type ObjectStorePort } from '@uptimebuyer/evidence';
 import { z } from 'zod';
 import { emitProviderEvent } from './events.js';
 import { hold, invalid } from './errors.js';
@@ -146,11 +146,13 @@ export async function recordConsent(
 }
 
 /**
- * Serializes consent changes with excerpt promotion for one contact request (transaction-scoped here; promotion
- * holds the same key as a session lock across its check-and-ingest), so a withdrawal can never miss a promotion.
+ * Serializes consent changes with excerpt promotion for one contact request. Both take the same transaction-scoped
+ * advisory lock (bounded by lock_timeout) inside the transaction that does their work, so a withdrawal can never miss
+ * a promotion and no lock outlives its transaction.
  */
 const consentLockKey = (tenantId: string, requestId: string) => `provider-consent:${tenantId}:${requestId}`;
 async function lockConsent(c: Tx, tenantId: string, requestId: string) {
+  await c.query(`SET LOCAL lock_timeout = '10s'`);
   await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [consentLockKey(tenantId, requestId)]);
 }
 
@@ -421,14 +423,17 @@ async function excerptFor(
   communicationId: string,
   meta: { action: string; resourceType: string },
   authorizeSite: (siteId: string) => void,
+  lock = false,
 ) {
   // Load only the scope first and authorize; no consent, erasure or retention state is evaluated before that.
-  const scope = await c.query<{ site_id: string }>(
-    `SELECT site_id FROM provider_communications WHERE tenant_id = $1 AND id = $2`,
+  const scope = await c.query<{ site_id: string; contact_request_id: string }>(
+    `SELECT site_id, contact_request_id FROM provider_communications WHERE tenant_id = $1 AND id = $2`,
     [ctx.tenantId, communicationId],
   );
   if (!scope.rows[0]) throw unavailable({ ...meta, resourceId: communicationId });
   authorizeSite(scope.rows[0].site_id);
+  // Serialize with consent changes (transaction-scoped: released with this transaction, bounded wait).
+  if (lock) await lockConsent(c, ctx.tenantId, scope.rows[0].contact_request_id);
   const { rows } = await c.query(`${SELECT_COMM} WHERE m.tenant_id = $1 AND m.id = $2`, [
     ctx.tenantId,
     communicationId,
@@ -492,47 +497,42 @@ export async function promoteExcerptToEvidence(
     resourceType: 'provider_communication',
     resourceId: input?.communicationId,
   };
-  // Resolve the request id without revealing anything (scope is authorized inside excerptFor before any check).
-  const scope = await pool.query<{ contact_request_id: string }>(
-    `SELECT contact_request_id FROM provider_communications WHERE tenant_id = $1 AND id = $2`,
-    [ctx.tenantId, String(input?.communicationId)],
-  );
-  const lock = await pool.connect();
-  const key = consentLockKey(ctx.tenantId, scope.rows[0]?.contact_request_id ?? 'none');
-  try {
-    await lock.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [key]);
-    const prepared = await tenantCommand(pool, ctx, meta, async (c) => {
-      const { m, consentId } = await excerptFor(c, ctx, String(input.communicationId), meta, (siteId) =>
+  // One transaction on one connection: authorize, take the consent lock, re-check consent, ingest. The lock is
+  // released with the transaction, so no pooled client is ever held while waiting for another.
+  const doc = await tenantCommand(pool, ctx, meta, async (c) => {
+    const { m, consentId } = await excerptFor(
+      c,
+      ctx,
+      String(input.communicationId),
+      meta,
+      (siteId) =>
         authorizeScoped(ctx, 'provider.contact', siteId, { ...meta, resourceId: String(input.communicationId) }),
-      );
-      const req = (await loadRequest(c, ctx.tenantId, m.contact_request_id))!;
-      const asset = await c.query<{ manufacturer: string; model: string }>(
-        `SELECT manufacturer, model FROM asset_revisions WHERE tenant_id = $1 AND id = $2`,
-        [ctx.tenantId, req.asset_revision_id],
-      );
-      await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { excerptDigest: m.excerpt_digest } });
-      return { excerpt: m.minimum_excerpt as string, consentId, req, asset: asset.rows[0]! };
-    });
-    const doc = await ingestDocument(pool, ctx, store, {
+      true,
+    );
+    const req = (await loadRequest(c, ctx.tenantId, m.contact_request_id))!;
+    const asset = await c.query<{ manufacturer: string; model: string }>(
+      `SELECT manufacturer, model FROM asset_revisions WHERE tenant_id = $1 AND id = $2`,
+      [ctx.tenantId, req.asset_revision_id],
+    );
+    const ingested = await ingestDocumentInTx(c, ctx, store, {
       role: 'TRANSCRIPT',
       mediaType: 'text/plain',
-      bytes: Buffer.from(`${prepared.excerpt}\n`, 'utf8'),
+      bytes: Buffer.from(`${m.minimum_excerpt as string}\n`, 'utf8'),
       title: `Provider quote excerpt ${input.communicationId}`,
       documentRevision: String(input.communicationId),
       applicability: {
-        manufacturer: prepared.asset.manufacturer,
-        model: prepared.asset.model,
-        assetId: prepared.req.asset_id as never,
+        manufacturer: asset.rows[0]!.manufacturer,
+        model: asset.rows[0]!.model,
+        assetId: req.asset_id as never,
       },
       sourceKind: 'COMMUNICATION',
       sourceRef: `provider-communication:${input.communicationId}`,
-      communication: { consentRef: prepared.consentId, purposes: ['EVIDENCE_REASONING'] },
+      communication: { consentRef: consentId, purposes: ['EVIDENCE_REASONING'] },
     });
-    return { documentId: doc.documentId };
-  } finally {
-    await lock.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]).catch(() => {});
-    lock.release();
-  }
+    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { excerptDigest: m.excerpt_digest } });
+    return ingested;
+  });
+  return { documentId: doc.documentId };
 }
 
 /** Privacy erasure of raw content (admin); refused under an active legal hold. The redacted record remains. */

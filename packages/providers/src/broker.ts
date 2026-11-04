@@ -9,7 +9,7 @@ import {
   consumeOnce,
   recordAudit,
   unavailable,
-  withTenantTransaction,
+  assertTenantContext,
   type CommandMeta,
   type Db,
   type TenantContext,
@@ -82,11 +82,28 @@ export async function executePaidContact(
   broker: CommercialIntentBrokerPort,
 ): Promise<ExecuteContactResult> {
   // Serialize the handoff per contact request so concurrent retries submit exactly one broker-port request.
+  // One dedicated connection holds the per-request session lock AND does every database step of the hand-off, so the
+  // lock holder never waits for another pooled connection. Acquisition is a bounded try-lock poll; if the unlock
+  // fails the client is destroyed rather than returned to the pool still locked.
   const lock = await pool.connect();
   const lockKey = `provider-contact-paid:${ctx.tenantId}:${req.id}`;
+  let locked = false;
+  let unlockError: Error | undefined;
   try {
-    await lock.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [lockKey]);
-    const live = await withTenantTransaction(pool, ctx, async (c) => {
+    const deadline = Date.now() + HANDOFF_LOCK_WAIT_MS;
+    for (;;) {
+      const { rows } = await lock.query<{ ok: boolean }>('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS ok', [
+        lockKey,
+      ]);
+      if (rows[0]!.ok) break;
+      if (Date.now() >= deadline)
+        throw new DomainError('VERSION_CONFLICT', 'The resource changed; reload and retry.', {
+          reasonCode: 'CONTACT_HANDOFF_BUSY',
+        });
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    locked = true;
+    const live = await txOn(lock, ctx, async (c) => {
       const { rows } = await c.query<AttemptRow>(
         `SELECT * FROM provider_contact_attempts WHERE tenant_id = $1 AND contact_request_id = $2 AND NOT definite_no_effect`,
         [ctx.tenantId, req.id],
@@ -130,7 +147,7 @@ export async function executePaidContact(
         reasonCode: 'BROKER_RESULT_MISMATCH',
       });
 
-    const inserted = await withTenantTransaction(pool, ctx, async (c) => {
+    const inserted = await txOn(lock, ctx, async (c) => {
       const { rows } = await c.query<AttemptRow>(
         `INSERT INTO provider_contact_attempts (tenant_id, id, contact_request_id, attempt_number, provider_account_id,
            provider_account_revision_id, paid, commercial_intent_id, execution_authority_id, approval_id,
@@ -180,11 +197,11 @@ export async function executePaidContact(
       // One hand-off request; the broker owns reserve + SEND_STARTED + egress and all reconciliation.
       try {
         const run = await broker.execute(created.executionReference);
-        for (const event of run.events) await withTenantTransaction(pool, ctx, (c) => applyBrokerEvent(c, ctx, event));
+        for (const event of run.events) await txOn(lock, ctx, (c) => applyBrokerEvent(c, ctx, event));
       } catch (error) {
         const reason =
           error instanceof DomainError ? String(error.details.reasonCode ?? error.code) : 'BROKER_EXECUTE_ERROR';
-        await withTenantTransaction(pool, ctx, (c) =>
+        await txOn(lock, ctx, (c) =>
           appendAttemptEvent(c, ctx.tenantId, inserted.id, {
             kind: 'BROKER_SUBMITTED',
             transportState: inserted.transport_state,
@@ -196,7 +213,7 @@ export async function executePaidContact(
         );
       }
     }
-    const final = await withTenantTransaction(pool, ctx, async (c) => {
+    const final = await txOn(lock, ctx, async (c) => {
       const { rows } = await c.query<AttemptRow>(
         `SELECT * FROM provider_contact_attempts WHERE tenant_id = $1 AND commercial_intent_id = $2`,
         [ctx.tenantId, i.commercialIntentId],
@@ -210,8 +227,28 @@ export async function executePaidContact(
       attempt: toAttemptView(final),
     };
   } finally {
-    await lock.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [lockKey]).catch(() => {});
-    lock.release();
+    if (locked)
+      await lock.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [lockKey]).catch((e: Error) => {
+        unlockError = e;
+      });
+    lock.release(unlockError);
+  }
+}
+
+const HANDOFF_LOCK_WAIT_MS = 15_000;
+
+/** A tenant transaction on a specific (already checked-out) client. */
+async function txOn<T>(client: Tx, ctx: TenantContext, fn: (c: Tx) => Promise<T>): Promise<T> {
+  assertTenantContext(ctx);
+  await client.query('BEGIN');
+  try {
+    await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [ctx.tenantId]);
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
   }
 }
 
