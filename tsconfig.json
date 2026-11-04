@@ -41,6 +41,12 @@
       "path": "./packages/incidents/test"
     },
     {
+      "path": "./packages/evidence"
+    },
+    {
+      "path": "./packages/evidence/test"
+    },
+    {
       "path": "./apps/sensor-gateway"
     },
     {

@@ -65,6 +65,15 @@ export const ACTIONS = Object.freeze({
   /** Server-side incident engine: rule evaluation, system transitions, deadline sweep (M04). */
   'incident.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
   'evidence.submit': human(['operator'], 'OPTIONAL'),
+  /** Evidence revisions, retrieval, search and citation re-opening at the incident's site (M05); workers may read. */
+  'evidence.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Server-side evidence engine: automated evidence revisions and bounded reasoning runs (M05). */
+  'evidence.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
   'approval.plan_action': human(['maintenance_approver'], 'REQUIRED', {
     approvalKind: 'PLAN_ACTION',
     actionClasses: ['STANDARD', 'POLICY_OVERRIDE'],

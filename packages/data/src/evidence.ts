@@ -89,16 +89,20 @@ export interface EvidenceRevisionItemInput {
   sourceAt: UtcInstant | string;
 }
 
-/** Commit the next immutable evidence manifest for an incident, bound to an exact asset revision. */
-export async function commitEvidenceRevision(
-  pool: Db,
-  ctx: TenantContext,
-  input: {
-    incidentId: IncidentId | string;
-    assetRevisionId: AssetRevisionId;
-    items: readonly EvidenceRevisionItemInput[];
-  },
-): Promise<{ evidenceRevisionId: EvidenceRevisionId; revision: number; manifestSha256: string }> {
+export interface EvidenceRevisionCommitInput {
+  incidentId: IncidentId | string;
+  assetRevisionId: AssetRevisionId;
+  items: readonly EvidenceRevisionItemInput[];
+}
+
+export interface EvidenceRevisionCommitted {
+  evidenceRevisionId: EvidenceRevisionId;
+  revision: number;
+  manifestSha256: string;
+  previousRevisionId: EvidenceRevisionId | null;
+}
+
+function validateRevisionInput(input: EvidenceRevisionCommitInput): void {
   if (!IncidentIdSchema.safeParse(input.incidentId).success || input.items.length > 10_000)
     throw validation('INVALID_EVIDENCE_REVISION');
   for (const it of input.items)
@@ -108,6 +112,15 @@ export async function commitEvidenceRevision(
       Number.isNaN(Date.parse(String(it.sourceAt)))
     )
       throw validation('INVALID_EVIDENCE_ITEM');
+}
+
+/** Commit the next immutable evidence manifest for an incident, bound to an exact asset revision. */
+export async function commitEvidenceRevision(
+  pool: Db,
+  ctx: TenantContext,
+  input: EvidenceRevisionCommitInput,
+): Promise<{ evidenceRevisionId: EvidenceRevisionId; revision: number; manifestSha256: string }> {
+  validateRevisionInput(input);
   const meta = {
     action: 'evidence_revision.commit',
     resourceType: 'asset_revision',
@@ -121,79 +134,148 @@ export async function commitEvidenceRevision(
     );
     if (!ar.rows[0]) throw unavailable(meta);
     requireAuthorized(ctx, { action: 'evidence.submit', siteId: ar.rows[0].site_id });
-    await lockKey(c, `evidence-revision:${ctx.tenantId}:${input.incidentId}`);
-    const prev = await c.query<{ id: EvidenceRevisionId; revision: number }>(
-      `SELECT id, revision FROM evidence_revisions WHERE tenant_id = $1 AND incident_id = $2 ORDER BY revision DESC LIMIT 1`,
-      [ctx.tenantId, input.incidentId],
-    );
-    const revision = (prev.rows[0]?.revision ?? 0) + 1;
-    const evidenceRevisionId = newId('evidenceRevision');
-    const items = input.items.map((it, i) => ({
-      ordinal: i + 1,
-      blobId: it.blobId,
-      role: it.role,
-      locator: it.locator ?? null,
-      sourceAt: new Date(it.sourceAt).toISOString(),
-    }));
-    const manifestSha256 = sha256Digest(
-      canonicalize({
-        tenantId: ctx.tenantId,
-        evidenceRevisionId,
-        incidentId: input.incidentId,
-        assetRevisionId: input.assetRevisionId,
-        revision,
-        previousRevisionId: prev.rows[0]?.id ?? null,
-        items,
-      }),
-    );
-    const actor = actorOf(ctx);
+    const r = await insertEvidenceRevision(c, ctx, input);
+    return { evidenceRevisionId: r.evidenceRevisionId, revision: r.revision, manifestSha256: r.manifestSha256 };
+  });
+}
+
+/**
+ * The evidence-revision commit inside the caller's domain transaction (M05 commits the manifest atomically with its
+ * document set, conflicts, proposal supersession and invalidation events). A human needs `evidence.submit` at the
+ * incident's site; a server path needs `evidence.engine`. The caller has already resolved the incident and the
+ * asset revision in this tenant; the database additionally binds the asset revision to the incident's asset.
+ */
+export async function commitEvidenceRevisionInTx(
+  client: Tx,
+  ctx: TenantContext,
+  input: EvidenceRevisionCommitInput,
+  scope: { siteId: SiteId },
+): Promise<EvidenceRevisionCommitted> {
+  assertTenantContext(ctx);
+  validateRevisionInput(input);
+  const decision =
+    ctx.principal.kind === 'HUMAN'
+      ? authorize(ctx, { action: 'evidence.submit', siteId: scope.siteId })
+      : authorize(ctx, { action: 'evidence.engine' });
+  if (!decision.allowed) throw notPermitted(decision.reasonCode);
+  return insertEvidenceRevision(client, ctx, input);
+}
+
+async function insertEvidenceRevision(
+  c: Tx,
+  ctx: TenantContext,
+  input: EvidenceRevisionCommitInput,
+): Promise<EvidenceRevisionCommitted> {
+  await lockKey(c, `evidence-revision:${ctx.tenantId}:${input.incidentId}`);
+  const prev = await c.query<{ id: EvidenceRevisionId; revision: number }>(
+    `SELECT id, revision FROM evidence_revisions WHERE tenant_id = $1 AND incident_id = $2 ORDER BY revision DESC LIMIT 1`,
+    [ctx.tenantId, input.incidentId],
+  );
+  const revision = (prev.rows[0]?.revision ?? 0) + 1;
+  const previousRevisionId = prev.rows[0]?.id ?? null;
+  const evidenceRevisionId = newId('evidenceRevision');
+  const items = input.items.map((it, i) => ({
+    ordinal: i + 1,
+    blobId: it.blobId,
+    role: it.role,
+    locator: it.locator ?? null,
+    sourceAt: new Date(it.sourceAt).toISOString(),
+  }));
+  const manifestSha256 = evidenceManifestDigest({
+    tenantId: ctx.tenantId,
+    evidenceRevisionId,
+    incidentId: input.incidentId,
+    assetRevisionId: input.assetRevisionId,
+    revision,
+    previousRevisionId,
+    items,
+  });
+  const actor = actorOf(ctx);
+  await c.query(
+    `INSERT INTO evidence_revisions (tenant_id, id, incident_id, asset_revision_id, revision, previous_revision_id,
+                                     manifest_sha256, created_by_kind, created_by_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      ctx.tenantId,
+      evidenceRevisionId,
+      input.incidentId,
+      input.assetRevisionId,
+      revision,
+      previousRevisionId,
+      manifestSha256,
+      actor.kind,
+      actor.id,
+    ],
+  );
+  for (const it of items)
     await c.query(
-      `INSERT INTO evidence_revisions (tenant_id, id, incident_id, asset_revision_id, revision, previous_revision_id,
-                                       manifest_sha256, created_by_kind, created_by_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      `INSERT INTO evidence_revision_items (tenant_id, revision_id, ordinal, blob_id, role, locator, source_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         ctx.tenantId,
         evidenceRevisionId,
-        input.incidentId,
-        input.assetRevisionId,
-        revision,
-        prev.rows[0]?.id ?? null,
-        manifestSha256,
-        actor.kind,
-        actor.id,
+        it.ordinal,
+        it.blobId,
+        it.role,
+        it.locator === null ? null : JSON.stringify(it.locator),
+        it.sourceAt,
       ],
     );
-    for (const it of items)
-      await c.query(
-        `INSERT INTO evidence_revision_items (tenant_id, revision_id, ordinal, blob_id, role, locator, source_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          ctx.tenantId,
-          evidenceRevisionId,
-          it.ordinal,
-          it.blobId,
-          it.role,
-          it.locator === null ? null : JSON.stringify(it.locator),
-          it.sourceAt,
-        ],
-      );
-    await appendOutboxEvent(c, ctx, {
-      eventType: 'evidence.revision_committed.v1',
-      aggregateType: 'evidence_revision',
-      aggregateId: evidenceRevisionId,
-      aggregateVersion: 1,
-      payload: { evidenceRevisionId, incidentId: input.incidentId, revision, manifestSha256 },
-      correlationId: ctx.correlationId,
-      causationId: newId('command'),
-    });
-    await recordAudit(c, ctx, {
-      action: meta.action,
-      resourceType: 'evidence_revision',
-      resourceId: evidenceRevisionId,
-      result: 'SUCCEEDED',
-    });
-    return { evidenceRevisionId, revision, manifestSha256 };
+  await appendOutboxEvent(c, ctx, {
+    eventType: 'evidence.revision_committed.v1',
+    aggregateType: 'evidence_revision',
+    aggregateId: evidenceRevisionId,
+    aggregateVersion: 1,
+    payload: {
+      evidenceRevisionId,
+      incidentId: input.incidentId,
+      revision,
+      manifestSha256,
+      assetRevisionId: input.assetRevisionId,
+      previousRevisionId,
+    },
+    correlationId: ctx.correlationId,
+    causationId: newId('command'),
   });
+  await recordAudit(c, ctx, {
+    action: 'evidence_revision.commit',
+    resourceType: 'evidence_revision',
+    resourceId: evidenceRevisionId,
+    result: 'SUCCEEDED',
+  });
+  return { evidenceRevisionId, revision, manifestSha256, previousRevisionId };
+}
+
+/**
+ * The manifest digest of an evidence revision, recomputable from its stored rows (INV-10: historical revisions stay
+ * reproducible). `items[].sourceAt` is the ISO-8601 UTC instant with milliseconds.
+ */
+export function evidenceManifestDigest(m: {
+  tenantId: string;
+  evidenceRevisionId: string;
+  incidentId: string;
+  assetRevisionId: string;
+  revision: number;
+  previousRevisionId: string | null;
+  items: readonly { ordinal: number; blobId: string; role: string; locator: unknown; sourceAt: string }[];
+}): string {
+  return sha256Digest(
+    canonicalize({
+      tenantId: m.tenantId,
+      evidenceRevisionId: m.evidenceRevisionId,
+      incidentId: m.incidentId,
+      assetRevisionId: m.assetRevisionId,
+      revision: m.revision,
+      previousRevisionId: m.previousRevisionId,
+      items: m.items.map((it) => ({
+        ordinal: it.ordinal,
+        blobId: it.blobId,
+        role: it.role,
+        locator: it.locator ?? null,
+        sourceAt: it.sourceAt,
+      })),
+    }),
+  );
 }
 
 export interface LedgerEvidenceInput {

@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M05",
+  "status": "PASS",
+  "startingCommit": "8dac8c4",
+  "endingCommit": "41998e2",
+  "branch": "feat/m05-evidence-manual-reasoning",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "41998e2 docs(m05): ADR 0002 SERV Reasoning adapter and bounded reasoning boundary",
+    "485a4f7 fix(m05): inspect decoded model output strictly and fold metadata flags into review",
+    "e0bffa0 test(m05): decoded-output and metadata-flag regressions from the automated security review (red)",
+    "e0a2cb8 fix(m05): linear PDF scans, neutralized packet metadata, authorized evidence refresh",
+    "511559e test(m05): security-review regressions for parser scan cost, packet metadata, communications and refresh scope (red)",
+    "81eb458 test(m05): correct fixture defects found on first green run",
+    "280634e feat(m05): @uptimebuyer/evidence documents, retrieval, revisions and bounded SERV reasoning",
+    "15920e5 feat(m05): evidence/reasoning migration 0010 and data-layer hooks",
+    "67e8f8d test(m05): T-021..T-024 citation provenance, conflicts, injection isolation and revision invalidation (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-04", "FR-05"],
+    "nonfunctional": ["NFR-04", "NFR-10", "NFR-11"],
+    "invariants": ["INV-02", "INV-03", "INV-10", "INV-13"],
+    "tests": ["T-021", "T-022", "T-023", "T-024"]
+  },
+  "changedFiles": [
+    "packages/evidence/** (new package @uptimebuyer/evidence: package.json, tsconfig.json, src/{index,ids,limits,errors,object-store,pdf,parse,untrusted,scope,documents,revisions,retrieval,events}.ts, src/reasoning/{schema,port,tools,serv-adapter,contract-fake,run}.ts)",
+    "packages/evidence/test/** (helpers.ts, fixtures/{content,pdf-builder,generate}.ts and generated nwr-sm-48-rev-b.pdf, nwr-sm-48-rev-c.pdf, nwr-2d-48-bom-7.csv, nwr-2d-48-work-orders.csv, nwr-2d-48-work-orders-conflict.csv, sb-2025-14.txt; t021-document-parsing, t021-object-store, t023-untrusted-text, t023-serv-adapter unit tests; t010-evidence-cross-tenant, t021-citation-provenance, t022-conflicting-evidence, t023-malicious-document, t023-security-review, t024-revision-invalidation integration tests)",
+    "packages/data/migrations/0010_m05_evidence_reasoning.sql",
+    "packages/data/src/authz.ts (evidence.read, evidence.engine)",
+    "packages/data/src/evidence.ts (commitEvidenceRevisionInTx, evidenceManifestDigest, enriched evidence.revision_committed.v1 payload)",
+    "packages/data/test/t011-role-authority-denial.int.test.ts (matrix rows for the two new actions), packages/data/test/t009-migration-forward-fix.int.test.ts (migration list)",
+    "docs/adr/0002-serv-reasoning-adapter.md, tsconfig.json (references), pnpm-lock.yaml"
+  ],
+  "diffSummary": "New @uptimebuyer/evidence package. It adds a content-addressed local object store, bounded PDF/text/markdown/CSV parsing with span digests, and versioned document ingestion with exact applicability. It snapshots registry warranty and approved-vendor records as citable documents. Retrieval is revision-scoped with re-openable citations, and conflicts keep every source. Evidence revisions are immutable; each one supersedes stale proposals and emits plan.invalidated.v1. Bounded reasoning uses a redacted, neutralized packet, three allowlisted tools and a strict proposal schema with citation validation, and is recorded in reasoning_runs, reasoning_proposals and the ledger. The real SERV adapter is UNSUPPORTED without a key, and a CONTRACT_FAKE reasoner serves tests. Also: migration 0010 and the data-layer hooks.",
+  "configChanges": [
+    "Root tsconfig.json references packages/evidence and packages/evidence/test.",
+    "packages/evidence dependencies (workspace + exact): @uptimebuyer/contracts, data, domain, pg 8.23.1, zod 4.6.7; dev: @types/pg 8.23.1, @uptimebuyer/incidents, @uptimebuyer/sensor-gateway (test worlds). No new third-party dependency (the PDF parser is in-repo and bounded).",
+    "Runtime env read only by the SERV workload: SERV_API_KEY (alias OPENSERV_API_KEY), SERV_REASONING_MODEL (required), SERV_REASONING_EFFORT (optional). None is set here."
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run --project unit packages/evidence; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/evidence",
+      "cwd": "repo root",
+      "commitSha": "67e8f8d",
+      "exitCode": 1,
+      "testCounts": {
+        "unit": 0,
+        "integration": 0,
+        "failedFiles": 9
+      },
+      "resultSummary": "RED: 9 test files failed to load (packages/evidence/src/index.js absent); 0 tests executed"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "81eb458",
+      "exitCode": 1,
+      "testCounts": {
+        "unit": 576,
+        "integration": 157,
+        "failed": 1
+      },
+      "resultSummary": "Only failure: T-009 expected migration list lacked 0010 (registered in 15920e5 before commit); evidence suites green after the fixture corrections in 81eb458"
+    },
+    {
+      "command": "npx vitest run (parser + security-review files)",
+      "cwd": "repo root",
+      "commitSha": "511559e",
+      "exitCode": 1,
+      "testCounts": {
+        "failed": 3
+      },
+      "resultSummary": "RED (self security review): quadratic PDF scan 2.4 s > 750 ms; title/fact-value injection and canary reached model input; foreign-tenant refresh returned [] instead of RESOURCE_UNAVAILABLE"
+    },
+    {
+      "command": "npx vitest run (t023 untrusted/malicious/security-review)",
+      "cwd": "repo root",
+      "commitSha": "e0bffa0",
+      "exitCode": 1,
+      "testCounts": {
+        "failed": 5
+      },
+      "resultSummary": "RED (coordinator automated review): \\u-escaped URL/instruction/secret and duplicate-key payloads accepted on FINAL and submit_candidate_schema paths; title-only injection flags not folded into run flags/review"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "485a4f7",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 582,
+        "integration": 163,
+        "m05Unit": 34,
+        "m05Integration": 35,
+        "byFile": {
+          "packages/evidence/test/t021-document-parsing.test.ts": 12,
+          "packages/evidence/test/t021-object-store.test.ts": 6,
+          "packages/evidence/test/t023-untrusted-text.test.ts": 9,
+          "packages/evidence/test/t023-serv-adapter.test.ts": 7,
+          "packages/evidence/test/t010-evidence-cross-tenant.int.test.ts": 4,
+          "packages/evidence/test/t021-citation-provenance.int.test.ts": 4,
+          "packages/evidence/test/t022-conflicting-evidence.int.test.ts": 4,
+          "packages/evidence/test/t023-malicious-document.int.test.ts": 10,
+          "packages/evidence/test/t023-security-review.int.test.ts": 5,
+          "packages/evidence/test/t024-revision-invalidation.int.test.ts": 8
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17, throwaway databases), build, pack check and history secret scan all passed"
+    }
+  ],
+  "redEvidence": "The T-021..T-024 tests were committed first (67e8f8d) and failed: 9 files, 0 tests. The first green run then exposed three fixture defects, corrected in 81eb458 without loosening any assertion: a full revision record was passed to reviseAssetIdentity; the tamper probes needed a chmod because stored objects are read-only; and proposalFor needed looser override typing. It also exposed one implementation defect, fixed before commit: the PDF stream keyword was skipped at a newline. Two security-review red rounds followed: 511559e (my self review) and e0bffa0 (coordinator automated review). Each was fixed in the commit after it (e0a2cb8, 485a4f7).",
+  "evidence": [
+    "T-021: a 4-page generated PDF manual (Rev C) and a BOM-7 CSV are ingested.\n- Each document records its sha256 and its object key `tenants/<t>/evidence/<hex>`, and the stored bytes are byte-identical to the source.\n- Each document records source kind, source reference label, trust (OPERATOR_ATTESTED), extraction method (PDF_TEXT or STRUCTURED_IMPORT) and parser version.\n- The evidence revision binds the asset's current revision. It includes only matching documents (manual, BOM-7, the asset's work orders, warranty and vendor registry snapshots) and excludes the BOM-6 list and other-model documents.\n- Search returns CitationSchema-valid citations, for example PAGE 4 in the manual and RECORD BOM7-010. Citation ids are stable per revision and span.\n- reopenCitation re-reads the immutable object, re-parses it and verifies the quoted digest. A tampered object fails with OBJECT_INTEGRITY_FAILED.\n- Unauthorized uploaders get FORBIDDEN, and an empty PDF gets PDF_TEXT_UNAVAILABLE.",
+    "T-022: the manual revisions B and C, BOM-7 and a conflicting work order disagree on the evaporator fan motor part (5A1-0402 vs 5A1-0398).\n- The fact view shows CONFLICT, authority NONE, and both values with their sources (MANUAL:C + PARTS_LIST:BOM-7 vs MANUAL:B + WORK_ORDER). Every side re-opens.\n- No EXACT_MATCH or ALLOW appears anywhere.\n- A proposal that hides the conflict is stored as NEEDS_HUMAN_REVIEW, with UNREPORTED_CONFLICT, the server conflicts and a conflicted candidate.\n- compatibilityClaim EXACT_MATCH is rejected as SCHEMA_INVALID and no proposal is stored.",
+    "T-023: a service bulletin with embedded AI instructions is flagged in all 6 classes and stays citable.\n- Its sourceRef (169.254.169.254) is never fetched, and the global fetch spy records zero calls.\n- A model requesting kite_pay is rejected (UNEXPECTED_TOOL_REQUEST) with no change to policy, approval, provider-account or job counts.\n- Environment canaries and an in-document password canary never reach model input. Instruction lines are replaced by withheld markers.\n- URL or secret echoes are rejected, including \\u-escaped and duplicate-key forms, on both the FINAL and the tool-call path.\n- Smuggled tenantId or evidenceRevisionId tool arguments return TOOL_ARGUMENTS_REJECTED and force review.\n- Titles, revision labels and fact values are neutralized and redacted, and their flags are folded into the run.\n- Every run is a MODEL_PROPOSAL ledger entry with trust CONTRACT_FAKE.\n- Communication content without consent is refused. Consented excerpts are contact-redacted for people and for the model.\n- PDF JavaScript and OpenAction are dropped and recorded.\n- Without a SERV key the real adapter records NOT_RUN and capability UNSUPPORTED (SERV_API_KEY_ABSENT), with no network call.\n- Humans cannot run reasoning.\n- The SERV adapter unit tests check the exact URL, headers, body, tool names, strict json_schema, finish-reason and HTTP error mapping (no key echoed), the 1 MiB response bound and the timeout.",
+    "T-024: each change commits a new revision with a new manifest and content digest, stamps the current proposal SUPERSEDED (superseded_by_evidence_revision_id), and emits evidence.revision_committed.v1 (with assetRevisionId and previousRevisionId) and plan.invalidated.v1 (aggregate plan, id = incident, versions 1, 2, 3, ...).\n- The changes exercised are: adding work orders, withdrawing them, and an asset identity change (BOM-7 to BOM-8, via refreshEvidenceForAsset; the BOM-7 list no longer applies).\n- An unchanged commit is a no-op, and four concurrent commits produce one revision.\n- A proposal finished after its evidence moved on is recorded SUPERSEDED_BEFORE_RECORDING with no reasoning.completed.v1.\n- New proposals have new candidate and proposal digests. Revision 1, its proposal and its citations still resolve and verify after withdrawal and the asset change.\n- UPDATE and DELETE on revisions, proposals and spans fail with UB001.",
+    "T-010 re-run (M05 tables): every new table has a tenant-leading key and foreign keys. Eight read/write probes from another tenant return FORBIDDEN/RESOURCE_UNAVAILABLE, the same as for a nonexistent id. A viewer at another site is denied. Object keys of another tenant are refused."
+  ],
+  "verification": [
+    "pnpm verify exit 0 at 485a4f7 (unit 582, integration 163); ADR-only commit 41998e2 on top changes no code"
+  ],
+  "externalEvidence": {
+    "openServ": "NOT_RUN (no SERV_API_KEY; ServReasoningAdapter reports UNSUPPORTED/SERV_API_KEY_ABSENT and every proposal in tests is CONTRACT_FAKE)",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN",
+    "realManual": "NOT_RUN (fixtures are fictional Northwind documents generated in-repo; no OEM manual was ingested)",
+    "ocr": "UNSUPPORTED (image-only/scanned PDFs are rejected with PDF_TEXT_UNAVAILABLE)"
+  },
+  "schemaOrApiChanges": [
+    "Migration 0010_m05_evidence_reasoning.sql:\n- New append-only tables: evidence_documents, evidence_document_events, evidence_document_spans (generated tsvector + GIN), evidence_document_facts, evidence_revision_contents (1:1 with evidence_revisions), evidence_revision_documents, evidence_revision_conflicts, citations and reasoning_runs.\n- reasoning_proposals (authority CHECK = 'NONE') is append-only except for a one-shot superseded_at / superseded_by_evidence_revision_id stamp.\n- New trigger ub_evidence_revision_asset_guard (SQLSTATE UB051): an evidence revision must bind a revision of its incident's own asset.\n- New storage id prefixes: doc, dve, spn, efc, erd, ecf, rsn, rpr (EVIDENCE_ID_PREFIXES); citations use the contracts prefix cit.",
+    "@uptimebuyer/data:\n- New actions: evidence.read (human roles at the site, worker services, worker contexts) and evidence.engine (worker services, worker contexts).\n- New functions: commitEvidenceRevisionInTx(client, ctx, {incidentId, assetRevisionId, items}, {siteId}) and evidenceManifestDigest(...).\n- evidence.revision_committed.v1 payload now = {evidenceRevisionId, incidentId, revision, manifestSha256, assetRevisionId, previousRevisionId}.",
+    "Events, typed in @uptimebuyer/evidence:\n- EvidenceRevisionCommittedEventSchema.\n- PlanInvalidatedEventSchema: aggregate plan / incident id. Payload: incidentId, reasonCode EVIDENCE_REVISION_CHANGED|ASSET_REVISION_CHANGED, commitReasonCode, supersededEvidenceRevisionId, evidenceRevisionId, supersededAssetRevisionId, assetRevisionId, supersededProposalIds.\n- ReasoningCompletedEventSchema: aggregate reasoning_run. Payload: reasoningRunId, incidentId, evidenceRevisionId, proposalId, proposalDigest, disposition, resultOrigin, approved: false.",
+    "No HTTP endpoints were added. POST /v1/assets/{id}/documents, POST /v1/incidents/{id}/evidence-revisions and POST /v1/incidents/{id}/reasoning-runs are library calls for M13 to expose."
+  ],
+  "migrationOrRollback": [
+    "Forward-only. 0010 is a single transaction that only adds new tables, functions and a trigger.\n- Before any later module depends on it: revert the M05 commits on a database that never ran 0010.\n- Once 0010 has been applied: ship a forward fix. To disable the asset-binding trigger, DROP TRIGGER evidence_revisions_asset_guard in a new migration; never edit 0010.",
+    "Stored objects are content-addressed and immutable under EVIDENCE_OBJECT_ROOT (callers choose the root). Back them up together with PostgreSQL. A missing or tampered object fails closed with OBJECT_INTEGRITY_FAILED."
+  ],
+  "specAmbiguitiesResolved": [
+    "plan.invalidated.v1 has no plan rows before M08. M05 therefore emits it on the incident's plan scope: aggregate type plan, aggregate id = incident id, versions contiguous per incident, one event per superseded evidence revision. M08 may emit plan.invalidated.v1 for real pln_ ids under their own aggregate.",
+    "'New action digest' (T-024): M05 has no commercial fields (merchant, amount, provider account) to bind with computeActionDigest. Each proposal candidate instead gets a candidateDigest = canonicalDigest('candidate-action', v1, {tenant, incident, assetRevision, evidenceRevision, policyRevision, kind, component, partNumber, manufacturer}), and a proposalDigest. M08 binds the commercial fields into the real action digest.",
+    "Document applicability is exact string equality on manufacturer and model, plus BOM revision, serial or asset when the document is that specific. There is no fuzzy matching. Changing an asset's BOM revision therefore drops the old BOM parts list from new revisions.",
+    "Warranty and approved-vendor evidence comes from registry_revisions. It is materialized as deterministic CSV snapshot documents (source_kind REGISTRY_SNAPSHOT, trust OPERATOR_ATTESTED) so that it has record-level citations with blob digests. Snapshots cannot be withdrawn directly.",
+    "Trust levels: human uploads are OPERATOR_ATTESTED and service imports are PROVIDER_REPORTED. M05 never labels a document AUTHORITATIVE, so retrieval cannot feed an authoritative exact-match claim (INV-04 stays with M06).",
+    "Removing evidence is an append-only WITHDRAWN event. Replacing evidence is ingest with supersedesDocumentId (the old document is withdrawn in the same transaction).",
+    "Conflicts are deterministic. They cover only exact facts from dot-leader parts lines, whitelisted spec lines (refrigerant, charge, voltage, frequency, current) and CSV rows with a component column and a part-number column; prose never yields a fact. A fact key with several values is a CONFLICT that keeps every source.",
+    "Reasoning runs are written once, after the model call. No database transaction is held open across egress, and a crash mid-call records nothing; the model call has no economic effect. Runs that finish after a newer revision was committed are stored as SUPERSEDED_BEFORE_RECORDING.",
+    "SERV is reached through its documented OpenAI-compatible chat-completions endpoint, not the OpenServ agent SDK. Details and uncertainty are in ADR 0002.",
+    "The spec's OPENSERV_API_KEY name was kept as an alias of the documented SERV_API_KEY.",
+    "Instruction-like document lines are withheld from model excerpts but remain in stored spans and in human retrieval (they are evidence).\n- Output is rejected on URLs, secrets or tool/payment/policy/egress instruction text in any decoded string.\n- Duplicate JSON keys are rejected."
+  ],
+  "unresolvedRisks": [
+    "No real SERV run exists. The request shape is verified only against documentation and an injected fetch (ADR 0002 lists what is unverified: model/version echo, strict-schema enforcement, credit and rate-limit codes, the event requirement).",
+    "The PDF parser covers a documented subset: FlateDecode content, literal and hex strings, WinAnsi/UTF-16BE. Fonts with custom ToUnicode CMaps or Identity-H glyph ids extract nothing or garbage, and scanned PDFs are rejected because OCR is UNSUPPORTED. Real OEM manuals may need a hardened third-party parser in a sandboxed worker.",
+    "The parser runs in-process. Its size, page, object, inflate and time bounds are enforced and tested, but there is no OS-level sandbox (AI-SAFETY §5 item 3 asks for a resource-limited sandbox). M14 should run ingestion in a separate, memory-limited worker.",
+    "The local object store guards key grammar, symlinks (lstat per component, O_NOFOLLOW) and overwrites. A local attacker able to swap a directory between the check and the open (TOCTOU) is out of scope. S3 is not implemented.",
+    "Instruction detection is pattern-based and can have false positives (a legitimate line is withheld from the model, but stored and cited) and false negatives (novel phrasings). It is defence in depth behind the strict schema, tool allowlist and citation validation, not the boundary itself.",
+    "Search uses PostgreSQL 'simple' full-text OR matching. There is no stemming, synonyms or vector search, and ranking is lexical.",
+    "Evidence revisions are not committed automatically. No consumer wires reviseAssetIdentity or document ingestion to commitIncidentEvidence or refreshEvidenceForAsset yet. The existing plan.revalidate_for_asset_revision job (M08) or an M05 job handler must call refreshEvidenceForAsset. M05 also does not advance incidents (advanceIncident to AWAITING_EVIDENCE or PLANNING).",
+    "Reasoning has no job queue or HTTP request path. A worker or service calls runReasoning directly. There is no per-tenant concurrency limit or cost budget beyond the per-run turn, tool, token and time bounds.",
+    "Excerpts from consented communications are redacted for contacts and secrets. Role-scoped display and retention of transcripts beyond that belongs to M07."
+  ],
+  "nextModuleInputs": [
+    "Evidence reads (evidence.read at the incident's site; worker contexts and worker services allowed):\n- retrieveEvidence(pool, ctx, {evidenceRevisionId}) returns {evidenceRevisionId, revision, incidentId, current, assetRevision {assetRevisionId, manufacturer, model, serial, bomRevision, safetyClass, current}, documents[{documentId, role, title, documentRevision, trustLevel, sourceDigest, sourceKind, mediaType}], facts[{factKey 'part:<component>'|'spec:<key>', status SINGLE_SOURCE|CORROBORATED|CONFLICT, authority 'NONE', values[{value, sources[{documentId, role, title, documentRevision, trustLevel, citation}]}]}], conflicts}.\n- M06 must treat CONFLICT, SINGLE_SOURCE and every non-AUTHORITATIVE trust as non-exact (INV-04).",
+    "More evidence reads:\n- searchEvidence(pool, ctx, {evidenceRevisionId, query, roles?, limit<=20}) returns SearchHit[] {citation (contracts CitationSchema), documentId, role, title, documentRevision, trustLevel, locator, excerpt, injectionFlags, score}.\n- reopenCitation(pool, ctx, store, citationId) returns {citation, text, verified: true, ...}; it fails with DIGEST_MISMATCH OBJECT_INTEGRITY_FAILED or CITATION_REPARSE_MISMATCH.\n- getEvidenceRevision(pool, ctx, evr) returns the manifest view with documents, conflicts, current flag and verification {manifestDigestMatches, contentDigestMatches}.\n- getDocument(pool, ctx, documentId).",
+    "Evidence writes:\n- ingestDocument(pool, ctx, store, {role, mediaType application/pdf|text/plain|text/markdown|text/csv, bytes, title, documentRevision, applicability {manufacturer, model, bomRevision?, serial?, assetId?}, sourceKind, sourceRef?, communication? {consentRef, purposes ['EVIDENCE_REASONING']}, supersedesDocumentId?}).\n- withdrawDocument(pool, ctx, documentId, {reasonCode}).\n- commitIncidentEvidence(pool, ctx, store, {incidentId, reasonCode}) returns {changed, evidenceRevisionId, revision, previousRevisionId, manifestSha256, contentDigest, assetRevisionId, documentIds, conflictCount, supersededProposalIds}.\n- refreshEvidenceForAsset(pool, ctx, store, assetId, {reasonCode}).\n- Authorization: humans need evidence.submit at the site (tenant-wide for model-level documents); services need evidence.engine.",
+    "Reasoning (worker or service with evidence.engine only):\n- runReasoning(pool, ctx, {reasoner: ServReasoningAdapter.fromEnv() | ContractFakeReasoner, store, env?}, {incidentId}) returns {reasoningRunId, status NOT_RUN|COMPLETED|REJECTED|FAILED, disposition, capability, resultOrigin SERV_REASONING|CONTRACT_FAKE, proposalId, rejectionReasons, injectionFlags, failureReason, inputDigest, outputDigest, modelId}.\n- getReasoningRun(pool, ctx, rsn).\n- getProposal(pool, ctx, rpr) and listIncidentProposals(pool, ctx, incidentId) return ProposalView {authority 'NONE', label 'MODEL PROPOSAL', lifecycle CURRENT|SUPERSEDED, evidenceRevisionId, assetRevisionId, policyRevisionId, proposalDigest, proposal (ReasoningProposalSchema v1), serverConflicts, reviewReasons, candidates[{candidateDigest, conflicted, compatibilityClaim 'CANDIDATE_ONLY', kind, component, partNumber}], verification}.\n- M06/M08 may consume only CURRENT proposals, as candidates for deterministic evaluation, never as decisions.",
+    "Events to consume with consumeOnce:\n- plan.invalidated.v1 (PlanInvalidatedEventSchema): M06 supersedes compatibility decisions for supersededEvidenceRevisionId (T-028), M08 invalidates plans, and M09 invalidates unexecuted approvals bound to the superseded evidence or asset revision (T-037).\n- evidence.revision_committed.v1 (EvidenceRevisionCommittedEventSchema).\n- reasoning.completed.v1 (ReasoningCompletedEventSchema, approved always false).",
+    "Ports: ObjectStorePort and LocalFilesystemObjectStore(root); objectKeyFor(tenantId, kind, sha256). M14 picks the root, for example from an EVIDENCE_OBJECT_ROOT setting, and runs the SERV workload with only SERV_API_KEY and SERV_REASONING_MODEL."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M05 completed and locally verified (against a local PostgreSQL 17 container) the document ingestion, retrieval, citation, conflict, evidence-revision, invalidation-event and bounded-reasoning code, with every model result produced by a labelled CONTRACT_FAKE; no real SERV/OpenServ run, OEM manual, provider, Kite payment, deployment, sensor or recovery evidence exists and all of it remains NOT_RUN."
+}

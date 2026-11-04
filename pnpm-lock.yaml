@@ -107,6 +107,34 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
 
+  packages/evidence:
+    dependencies:
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@uptimebuyer/data':
+        specifier: workspace:*
+        version: link:../data
+      '@uptimebuyer/domain':
+        specifier: workspace:*
+        version: link:../domain
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      '@uptimebuyer/incidents':
+        specifier: workspace:*
+        version: link:../incidents
+      '@uptimebuyer/sensor-gateway':
+        specifier: workspace:*
+        version: link:../../apps/sensor-gateway
+
   packages/incidents:
     dependencies:
       '@uptimebuyer/contracts':

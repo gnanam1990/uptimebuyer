@@ -1,0 +1,22 @@
+{
+  "name": "@uptimebuyer/evidence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Evidence and manual reasoning (M05): content-addressed document store, bounded parsing, exact asset-revision retrieval with re-openable citations and conflicts, immutable evidence revisions with supersession events, and bounded SERV reasoning that only ever proposes.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/sensor-gateway": "workspace:*"
+  }
+}
