@@ -168,7 +168,7 @@ export function classifyIntervention(
 
 export interface EvaluationOptions {
   /** Display-only context; never part of the input digest. */
-  explanation?: Explanation;
+  explanation?: Explanation | undefined;
   /** The authority service's keyring. Without it no authority record can be verified or applied. */
   keyring?: AuthorityKeyring | null;
 }
