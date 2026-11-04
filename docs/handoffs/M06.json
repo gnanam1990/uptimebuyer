@@ -5,10 +5,13 @@
   "moduleId": "M06",
   "status": "PASS",
   "startingCommit": "c779a94",
-  "endingCommit": "324c1d8",
+  "endingCommit": "f8f5ed8",
   "branch": "feat/m06-compatibility-safety-policy",
   "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
   "localCommits": [
+    "f8f5ed8 fix(m06): escape the whitespace class in the claim fact comparison",
+    "52a83d0 fix(m06): bind candidate claims to exact M05-extracted facts",
+    "09f609d test(m06): candidate claims bind to exact extracted facts, not text containment (red)",
     "324c1d8 fix(m06): explanation option accepts an explicit undefined",
     "f371b9a feat(m06): @uptimebuyer/compatibility decisions, authority records, policy administration and invalidation",
     "a9f0419 test(m06): integration tests inject authority signing; fixture corrections",
@@ -33,7 +36,9 @@
     "packages/data/migrations/0011_m06_compatibility_policy.sql",
     "packages/data/src/authz.ts (6 actions; AuthorityPolicy.compatibility), packages/data/src/policy.ts (publish round-trip), packages/data/test/t009 (migration list), packages/data/test/t011 (matrix rows)",
     "packages/evidence/src/events.ts (plan.invalidated.v1 payload union with POLICY_REVISION_CHANGED)",
-    "tsconfig.json (references), pnpm-lock.yaml"
+    "tsconfig.json (references), pnpm-lock.yaml",
+    "packages/evidence/src/parse.ts (PARSER_VERSION uptimebuyer-parser.v2: one spec:certification-<code> fact per code on a Certification line)",
+    "packages/compatibility/test/t026-claim-binding.int.test.ts"
   ],
   "diffSummary": "Pure fail-closed compatibility evaluator in @uptimebuyer/domain (ALLOW/HOLD/REJECT with reason codes, missing/conflicting fields, recovery paths, exact input digest; safety classification; approval routing; HMAC authority verification) and a new @uptimebuyer/compatibility package persisting revision-bound candidates, one immutable decision per tuple with a CURRENT/SUPERSEDED lifecycle column, signed named-engineer/policy-approver authority records, versioned policy administration with activation, and invalidation on evidence or policy change.",
   "configChanges": [
@@ -64,28 +69,35 @@
       "resultSummary": "RED (coordinator security review 2): non-canonical component key 'compressor-' accepted"
     },
     {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/compatibility/test/t026-claim-binding.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "09f609d",
+      "exitCode": 1,
+      "resultSummary": "RED (coordinator security review 3): 3 of 6 cases failed - text containment produced CITED_EXACT_TEXT for a prefix code, a negated certification and suffix/cross-key spec values"
+    },
+    {
       "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
       "cwd": "repo root",
-      "commitSha": "324c1d8",
+      "commitSha": "f8f5ed8",
       "exitCode": 0,
       "testCounts": {
         "unit": 661,
-        "integration": 194,
+        "integration": 200,
         "m06DomainUnit": 79,
-        "m06Integration": 31
+        "m06Integration": 37
       },
       "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17, throwaway databases), build, pack check and history secret scan all passed"
     }
   ],
-  "redEvidence": "Tests were committed first (edea582) and failed as listed. First green run exposed fixture defects, corrected without loosening an invariant assertion: the T-026 property run asserted that any mutation combination containing a REJECT case is REJECT (mutations interact; the never-ALLOW assertion is unchanged); the idempotent re-registration pair used two different offer timestamps; a revoked authority's decision is superseded in the same transaction so the execution gate reports DECISION_NOT_CURRENT; the test policy had to name the evaporator fan motor STANDARD once unclassified components fail closed. Two coordinator security-review rounds were each committed red then fixed (61f454c -> f2def85, 1ae100f -> 286b48a).",
+  "redEvidence": "Tests were committed first (edea582) and failed as listed. First green run exposed fixture defects, corrected without loosening an invariant assertion: the T-026 property run asserted that any mutation combination containing a REJECT case is REJECT (mutations interact; the never-ALLOW assertion is unchanged); the idempotent re-registration pair used two different offer timestamps; a revoked authority's decision is superseded in the same transaction so the execution gate reports DECISION_NOT_CURRENT; the test policy had to name the evaporator fan motor STANDARD once unclassified components fail closed. Two coordinator security-review rounds were each committed red then fixed (61f454c -> f2def85, 1ae100f -> 286b48a). A third coordinator round (claims laundered by text containment) was committed red at 09f609d and fixed in 52a83d0/f8f5ed8.",
   "evidence": [
     "T-025: the exact Northwind 5A1-0402 candidate (manual + BOM + OEM data sheet with cited UL 471, approved vendor, warranty, fresh offer) evaluates to ALLOW with reasons APPROVED_VENDOR, ASSET_IDENTITY_RESOLVED, CERTIFICATION_SATISFIED, ELECTRICAL/MECHANICAL_CONSTRAINTS_SATISFIED, EXACT_OEM_MATCH, OFFER_FRESH, WARRANTY_COMPATIBLE; server-computed action digest equals computeActionDigest of the bound tuple; input digest reproducible; ledger POLICY_DECISION and compatibility.evaluated.v1 (approved:false); concurrent evaluations converge on one row; UPDATE/DELETE fail UB001; humans cannot run the engine. Model confidence/rank/seller text never change digest or decision.",
-    "T-026: 40-case table (missing, conflicting, seller-authored, semantic-only, model-extracted, provider-reported, future-dated, stale/missing/future offer, superseded revisions, unresolved identity, constraint missing/conflict/mismatch, certification missing/seller/absent, warranty, vendor, substitution, safety, prohibited, no rules, unclassified/non-canonical component) plus a 400-iteration seeded property run: never ALLOW. Persisted: missing MPN, seller 'compatible replacement', conflicting manual revisions B/C, stale/missing offer, unapproved/unknown vendor all HOLD; contradicting claim REJECT; claims outside the cited span, from another revision or with forged source attributes refused. Policy validation refuses seller/provider-reported authoritative sources, non-overridable reasons and catch-all STANDARD rules.",
+    "T-026: 40-case table (missing, conflicting, seller-authored, semantic-only, model-extracted, provider-reported, future-dated, stale/missing/future offer, superseded revisions, unresolved identity, constraint missing/conflict/mismatch, certification missing/seller/absent, warranty, vendor, substitution, safety, prohibited, no rules, unclassified/non-canonical component) plus a 400-iteration seeded property run: never ALLOW. Persisted: missing MPN, seller 'compatible replacement', conflicting manual revisions B/C, stale/missing offer, unapproved/unknown vendor all HOLD; contradicting claim REJECT; claims outside the cited span, from another revision or with forged source attributes refused. Policy validation refuses seller/provider-reported authoritative sources, non-overridable reasons and catch-all STANDARD rules. Claim binding: a claim is CITED_EXACT_TEXT only when the cited span carries an M05 fact with the same key and exactly equal normalized value; prefix code, negated certification, suffix and cross-key values are SEMANTIC_MATCH, a seller fact stays SELLER_TEXT; none ALLOW.",
     "T-027: substitute HOLD names ENGINEER_EXCEPTION; a named engineer at the site records an HMAC-signed record whose scope is copied from the held decision; the engine evaluates a new tuple (new ALLOW row), the HOLD row changes only its lifecycle columns. Wrong role, other site, other tenant (RESOURCE_UNAVAILABLE), service, expired, over-TTL, blank reason, client-supplied scope, unneeded, superseded-HOLD and concurrent duplicate authorities refused. Policy overrides route only to the approver role named by the policy's approval limits; in-warranty substitute needs both. Expiry, revocation, revoked engineer role and digest substitution make the ALLOW non-executable; forged/rogue-key rows inserted around the service are never applied; DB refuses a link for another tuple (UB061).",
     "T-028: an effective policy revision supersedes CURRENT decisions (POLICY_REVISION_CHANGED), invalidates authority records and unexecuted M02 approvals (approval_events INVALIDATED), emits plan.invalidated.v1 per incident; the old candidate's tuple is refused (CANDIDATE_TUPLE_STALE), a new candidate binds the new revision and action digest; the historical decision reproduces under its policy body; a future-dated revision changes nothing until effective but the stale decision is non-executable at once; activation is idempotent. M05's plan.invalidated.v1 / evidence.revision_committed.v1 consumer supersedes decisions and invalidates authority records (duplicate delivery DUPLICATE).",
     "T-010/T-011 re-run: every M06 table has tenant_id, a (tenant_id, id) key and tenant-leading keys/FKs; eight foreign-tenant probes and a foreign worker service get RESOURCE_UNAVAILABLE; other-site members are denied; T-011 matrix covers the six new actions."
   ],
-  "verification": ["pnpm verify exit 0 at 324c1d8 (unit 661, integration 194)"],
+  "verification": ["pnpm verify exit 0 at f8f5ed8 (unit 661, integration 200)"],
   "externalEvidence": {
     "openServ": "NOT_RUN",
     "kitePayment": "NOT_RUN",
@@ -98,7 +110,8 @@
     "Migration 0011_m06_compatibility_policy.sql: candidate_actions, compatibility_decisions (lifecycle guard UB001, deferred superseded_by FK, partial unique one CURRENT per (tenant, incident, candidate_key)), compatibility_authority_records (signature_algorithm/key_id/value), compatibility_authority_events, compatibility_decision_authorities (UB061 guard + deferred cover check), compatibility_policy_activations. New SQLSTATEs UB061, UB062. ID prefixes cand, cmp (contracts), cau, cae, cda, cpa.",
     "@uptimebuyer/data: actions compatibility.register, compatibility.read, compatibility.engine, compatibility.engineer_exception, compatibility.policy_approval, policy.history; AuthorityPolicySchema gains optional `compatibility` (domain CompatibilityPolicySchema); publishPolicyRevision validates by round-trip.",
     "@uptimebuyer/evidence: PlanInvalidatedPayloadSchema is a discriminated union (evidence variant unchanged; POLICY_REVISION_CHANGED variant {incidentId, supersededPolicyRevisionId, policyRevisionId, supersededDecisionIds, invalidatedAuthorityIds, invalidatedApprovalIds}).",
-    "Event compatibility.evaluated.v1 (CompatibilityEvaluatedEventSchema in @uptimebuyer/compatibility). No HTTP endpoints; library calls for M13."
+    "Event compatibility.evaluated.v1 (CompatibilityEvaluatedEventSchema in @uptimebuyer/compatibility). No HTTP endpoints; library calls for M13.",
+    "@uptimebuyer/evidence PARSER_VERSION uptimebuyer-parser.v2 (certification facts)."
   ],
   "migrationOrRollback": [
     "Forward-only, additive (new tables, functions, triggers). Before dependants exist: revert the M06 commits on a database that never ran 0011. After: forward-fix migration; never edit 0011."
@@ -110,7 +123,9 @@
     "Engineer exceptions cover part identity (SUBSTITUTE/NON_EXACT_MATCH) and unverified candidate-side constraints, and SAFETY_CRITICAL/COMPONENT_UNCLASSIFIED; known incompatibility, conflicts, missing evidence, certification and stale offers are never coverable. Only VENDOR_* and WARRANTY_* reasons are policy-overridable.",
     "Evaluation is engine-only (service/worker); humans register candidates and record authority. A stale candidate tuple is refused (CANDIDATE_TUPLE_STALE) rather than persisted.",
     "Evidence and policy changes also invalidate unexecuted M02 approvals (single INVALIDATED event, untouched if an event such as M09's CONSUMED exists); the SEND_STARTED race is M09/T-040.",
-    "Safety class: asset floor (STANDARD or SAFETY_CRITICAL) raised by matching rules; a component is classified only by a rule naming it; component keys must already be canonical (refused otherwise at evaluation and publication)."
+    "Safety class: asset floor (STANDARD or SAFETY_CRITICAL) raised by matching rules; a component is classified only by a rule naming it; component keys must already be canonical (refused otherwise at evaluation and publication).",
+    "Security reviews (coordinator): (1) authority signatures are HMAC-SHA256 under a server-held master key derived per tenant, the actor's role is resolved from role_assignments at evaluation and execution time, no fixture signer ships in the production index; (2) unclassified components fail closed (COMPONENT_UNCLASSIFIED, SAFETY_CRITICAL) and catch-all STANDARD rules are refused; (3) one canonical component key everywhere (non-canonical input/policy keys refused); (4) claims bind to exact M05-extracted facts, containment is SEMANTIC_MATCH only.",
+    "Cross-module change: M05's parser is bumped to uptimebuyer-parser.v2 to emit spec:certification-<code> facts (the M05 fact_key CHECK allows only part:/spec:). Documents parsed by v1 carry no certification facts, so certification claims citing them fail closed until re-ingested."
   ],
   "unresolvedRisks": [
     "HMAC key management: single env-provided key per workload (retired keys must be kept in the keyring for verification/reproduction); no KMS, rotation tooling or asymmetric signatures.",
