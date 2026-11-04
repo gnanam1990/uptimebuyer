@@ -49,6 +49,9 @@ export class RecordedContractAdapter implements PaidAdapter {
   lookupMode: 'NORMAL' | 'UNAVAILABLE' | 'UNSUPPORTED' = 'NORMAL';
   /** Resolves a HANG execution (tests release it). */
   private hanging: (() => void)[] = [];
+  /** Every intent and session scope the broker authorized (inspection only). */
+  readonly assessed: AuthorizedIntent[] = [];
+  readonly sessionScopes: AuthorizedSessionScope[] = [];
   /** When set, a settled payment captures this instead of the requested amount (over-capture probes). */
   captureOverride: bigint | null = null;
 
@@ -60,12 +63,14 @@ export class RecordedContractAdapter implements PaidAdapter {
     for (const r of this.hanging.splice(0)) r();
   }
 
-  assess(_intent: AuthorizedIntent): CapabilityAssessment {
+  assess(intent: AuthorizedIntent): CapabilityAssessment {
+    this.assessed.push(intent);
     return this.capability.lookupByClientOperation || this.capability.sameKeyReplay
       ? { kind: 'ELIGIBLE' }
       : { kind: 'UNSUPPORTED', reasonCode: 'NO_AUTHORITATIVE_RECONCILIATION' };
   }
-  assessSession(_scope: AuthorizedSessionScope): CapabilityAssessment {
+  assessSession(scope: AuthorizedSessionScope): CapabilityAssessment {
+    this.sessionScopes.push(scope);
     return { kind: 'ELIGIBLE' };
   }
 

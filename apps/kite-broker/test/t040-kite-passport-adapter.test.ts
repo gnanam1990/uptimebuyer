@@ -40,6 +40,7 @@ const scope = {
   baseLimitMinor: 20_000n,
   currency: 'USD',
   expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+  remainingSeconds: 3_600,
   providerAccountRevisionId: 'par_t040-kite',
 };
 const intent = {
@@ -52,6 +53,7 @@ const intent = {
   amountMinor: 120n,
   currency: 'USD',
   providerAccountRevisionId: 'par_t040-kite',
+  providerSessionRef: 'req_authorityA',
 };
 const op = {
   clientOperationId: 'op_t040-kite-1',
@@ -182,5 +184,68 @@ process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 20
     expect(call.args.slice(0, 2)).toEqual(['session', 'execute']);
     expect(call.args[call.args.indexOf('--idempotency-key') + 1]).toBe(op.idempotencyKey);
     expect(call.args[call.args.indexOf('--url') + 1]).toBe('https://x402.dev.gokite.ai/api/weather');
+  });
+
+  it('finding 2: execution selects the authority’s own confirmed session with --session-id; another session is never used', async () => {
+    const k = fakeKpass(`
+if (args[0] === 'session' && args[1] === 'status') {
+  const req = args[args.indexOf('--request-id') + 1];
+  const map = { req_authorityA: ['ses_A', 'active'], req_authorityB: ['ses_B', 'active'], req_inactive: ['ses_C', 'expired'] };
+  const [id, status] = map[req] ?? [null, 'unknown'];
+  process.stdout.write(JSON.stringify({ status: 'success', session_id: id, session: { id, status } }));
+} else process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 200 }, payment_requirement: { amount: '120' } }));
+`);
+    const adapter = new KitePassportAdapter({
+      kpassBinary: k.bin,
+      stateRoot: k.dir,
+      timeoutMs: 5_000,
+      sameKeyReplayVerified: true,
+      merchantEndpoints: { 'mer_weather-0001': { url: 'https://x402.dev.gokite.ai/api/weather', method: 'GET' } },
+    });
+    expect(adapter.assess({ ...intent, providerSessionRef: null })).toEqual({
+      kind: 'UNSUPPORTED',
+      reasonCode: 'KITE_SESSION_NOT_BOUND',
+    });
+    const prepared = adapter.prepare(intent);
+    expect((await adapter.execute(prepared, op, { onHandoff: () => {} })).kind).toBe('CONFIRMED');
+    const exec = k.calls().find((c) => c.args[1] === 'execute')!;
+    expect(exec.args[exec.args.indexOf('--session-id') + 1]).toBe('ses_A');
+    expect(k.calls().some((c) => c.args.includes('ses_B') || c.args.includes('req_authorityB'))).toBe(false);
+    // A bound session that is no longer active refuses before any payment command (definite no effect).
+    let handed = 0;
+    const refused = await adapter.execute(
+      adapter.prepare({ ...intent, providerSessionRef: 'req_inactive' }),
+      { ...op, idempotencyKey: 'cin-op.t040-inactive' },
+      { onHandoff: () => handed++ },
+    );
+    expect(refused).toMatchObject({ kind: 'FAILED', reasonCode: 'KITE_BOUND_SESSION_NOT_ACTIVE' });
+    expect(handed).toBe(0);
+    expect(k.calls().filter((c) => c.args[1] === 'execute')).toHaveLength(1);
+  });
+
+  it('finding 3: refuses a session whose remaining authority lifetime is below the minimum and never exceeds it', async () => {
+    const k = fakeKpass(
+      `process.stdout.write(JSON.stringify({ status: 'human_action_required', request_id: 'req_ttl' }));`,
+    );
+    const adapter = new KitePassportAdapter({
+      kpassBinary: k.bin,
+      stateRoot: k.dir,
+      timeoutMs: 5_000,
+      merchantEndpoints: {},
+    });
+    expect(adapter.assessSession({ ...scope, remainingSeconds: 59 })).toEqual({
+      kind: 'UNSUPPORTED',
+      reasonCode: 'AUTHORITY_LIFETIME_TOO_SHORT',
+    });
+    expect(adapter.assessSession({ ...scope, remainingSeconds: 120 })).toEqual({ kind: 'ELIGIBLE' });
+    await adapter.activateSession(
+      { ...scope, remainingSeconds: 120, expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+      op,
+      { onHandoff: () => {} },
+    );
+    const create = k.calls().at(-1)!;
+    const ttl = JSON.parse(create.args[create.args.indexOf('--delegation') + 1]!).payment_policy.ttl_seconds;
+    expect(ttl).toBeLessThanOrEqual(120);
+    expect(ttl).toBe(120);
   });
 });
