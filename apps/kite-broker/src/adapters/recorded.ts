@@ -46,7 +46,7 @@ export class RecordedContractAdapter implements PaidAdapter {
   executeCalls = 0;
   lookupCalls = 0;
   nextModes: RecordedMode[] = [];
-  sessionModes: ('CONFIRM' | 'PENDING' | 'DROP_RESPONSE' | 'DECLINE')[] = [];
+  sessionModes: ('CONFIRM' | 'PENDING' | 'DROP_RESPONSE' | 'DECLINE' | 'REFUSE_NOT_SENT')[] = [];
   lookupMode: 'NORMAL' | 'UNAVAILABLE' | 'UNSUPPORTED' = 'NORMAL';
   /** Resolves a HANG execution (tests release it). */
   private hanging: (() => void)[] = [];
@@ -92,6 +92,8 @@ export class RecordedContractAdapter implements PaidAdapter {
     if (mode === 'REFUSE_NOT_SENT')
       return { ...this.failed('BOUND_SESSION_NOT_ACTIVE'), notSent: true } as AdapterOutcome;
     hooks.onHandoff();
+    if (mode === 'REFUSE_AFTER_HANDOFF')
+      return { ...this.failed('BOUND_SESSION_NOT_ACTIVE'), notSent: true } as AdapterOutcome;
     this.executeCalls++;
     if (this.fenced.has(op.idempotencyKey)) return this.failed('KEY_FENCED_NO_EFFECT');
     const existing = this.effects.get(op.idempotencyKey);
@@ -137,6 +139,8 @@ export class RecordedContractAdapter implements PaidAdapter {
     hooks: SendHooks,
   ): Promise<AdapterOutcome> {
     const mode = this.sessionModes.shift() ?? 'CONFIRM';
+    if (mode === 'REFUSE_NOT_SENT')
+      return { ...this.failed('SESSION_REFUSED_LOCALLY'), notSent: true } as AdapterOutcome;
     hooks.onHandoff();
     if (mode === 'DECLINE') return this.failed('SESSION_DECLINED');
     const ref = `recsess_${op.clientOperationId.slice(3, 15)}`;

@@ -41,7 +41,7 @@ export interface BrokerWorld extends PlanningWorld {
   close(): Promise<void>;
 }
 
-export async function createBrokerWorld(label: string): Promise<BrokerWorld> {
+export async function createBrokerWorld(label: string, opts: { maxOfferAgeMs?: number } = {}): Promise<BrokerWorld> {
   const w = await createPlanningWorld(label);
   await publishCompatibilityPolicy(w.db.pool, w.admin, {
     body: {
@@ -56,7 +56,9 @@ export async function createBrokerWorld(label: string): Promise<BrokerWorld> {
           siteIds: null,
         },
       ],
-      compatibility: compatibilityPolicy(),
+      compatibility: opts.maxOfferAgeMs
+        ? compatibilityPolicy({ freshness: { maxOfferAgeMs: opts.maxOfferAgeMs } } as never)
+        : compatibilityPolicy(),
     },
     source: 'API',
   });
