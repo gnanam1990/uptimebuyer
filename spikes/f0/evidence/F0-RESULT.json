@@ -1,0 +1,2196 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "F0_FEASIBILITY_RESULT",
+  "statement": "F0 is feasibility evidence, not canonical module or product implementation evidence.",
+  "run": {
+    "startedAt": "2026-11-04T16:33:26.476Z",
+    "finishedAt": "2026-11-04T16:33:48.768Z",
+    "command": "node spikes/f0/run.mjs",
+    "exitCode": 0,
+    "environment": {
+      "platform": "darwin",
+      "osRelease": "27.2.0",
+      "arch": "arm64",
+      "uid": 501
+    },
+    "tools": {
+      "node": "v22.23.1",
+      "openssl": "OpenSSL 3.6.3 9 Jun 2026 (Library: OpenSSL 3.6.3 9 Jun 2026)",
+      "curl": "curl 8.7.1 (x86_64-apple-darwin26.0) libcurl/8.7.1 (SecureTransport) LibreSSL/3.3.6 zlib/1.2.12 nghttp2/1.69.0",
+      "sandboxExec": "present (deprecated macOS API)"
+    },
+    "repository": {
+      "branch": "spike/f0-feasibility",
+      "head": "a60aee0316d4c035baa5a5310fc7bd1fcfc7d279",
+      "dirtyPaths": 0
+    }
+  },
+  "secretMetadata": {
+    "kind": "SYNTHETIC_RUNTIME_ONLY (not a Kite credential)",
+    "components": [
+      "mTLS client key+certificate for CN=f0-kite-broker",
+      "32-byte bearer capability"
+    ],
+    "capabilityFingerprint": "e096fad34cdf6bda",
+    "brokerClientCertFingerprint256": "B8:CE:EC:8D:86:C4:1F:1B:25:04:23:30:2C:7E:D3:63:43:81:05:42:F6:86:55:6E:4B:A3:00:B2:D6:DA:6A:DB",
+    "holder": "f0-kite-broker only",
+    "delivery": "launcher -> broker fd 3 pipe; never env, argv, file, log or repository"
+  },
+  "externalEffects": {
+    "realCall": false,
+    "realEmail": false,
+    "realPayment": false,
+    "purchase": false,
+    "physicalAction": false,
+    "networkBeyondLoopback": false
+  },
+  "amounts": {
+    "approvedMaximum": "100 XTS minor units per intent (XTS = ISO 4217 testing code)",
+    "actual": "LOCAL_STAND_IN only; no real value moved"
+  },
+  "checks": [
+    {
+      "id": "adapter-preflight",
+      "gate": "F0-A(local analogue)",
+      "pass": true,
+      "evidence": "stand-in capabilities {\"label\":\"LOCAL_STAND_IN\",\"lookupByIdempotencyKey\":true,\"sameKeyIdempotentExecute\":true,\"refunds\":false}"
+    },
+    {
+      "id": "execute-confirmed",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "state=CONFIRMED effect=sfx_80d96c5c7955ad73"
+    },
+    {
+      "id": "duplicate-submission-same-effect",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "second submit decision=RETURN_STORED egress=false; provider executeCalls=1"
+    },
+    {
+      "id": "tamper-post-signature-rejected",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "incidentId:SIGNATURE_INVALID purpose:SIGNATURE_INVALID providerId:SIGNATURE_INVALID amountMinor:SIGNATURE_INVALID currency:SIGNATURE_INVALID expiresAt:SIGNATURE_INVALID idempotencyKey:SIGNATURE_INVALID"
+    },
+    {
+      "id": "tamper-resigned-out-of-authority-rejected",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "incidentId:AUTHORITY_MISMATCH_incidentId purpose:AUTHORITY_MISMATCH_purpose providerId:AUTHORITY_MISMATCH_providerId amountMinor:AMOUNT_EXCEEDS_APPROVAL currency:AUTHORITY_MISMATCH_currency expiresAt:AUTHORITY_MISMATCH_expiresAt idempotencyKey:AUTHORITY_MISMATCH_idempotencyKey"
+    },
+    {
+      "id": "tamper-no-egress",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "provider ledger has no entry for the tampered intent or the attacker-chosen key"
+    },
+    {
+      "id": "tamper-control-untampered-accepted",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "untampered envelope state=CONFIRMED"
+    },
+    {
+      "id": "expired-authority-rejected",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "code=EXPIRED"
+    },
+    {
+      "id": "non-allowlisted-provider-rejected",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "code=PROVIDER_NOT_ALLOWLISTED"
+    },
+    {
+      "id": "dropped-response-unknown",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "first outcome state=UNKNOWN reason=TRANSPORT_LOST"
+    },
+    {
+      "id": "unknown-not-retried",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "resubmit decision=RETURN_UNKNOWN_NO_RETRY"
+    },
+    {
+      "id": "lookup-reconciles-unknown",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "reconcile state=CONFIRMED; provider executeCalls=1"
+    },
+    {
+      "id": "inconclusive-lookup-stays-unknown",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "reconcile state=UNKNOWN reason=LOOKUP_INCONCLUSIVE; provider executeCalls=1"
+    },
+    {
+      "id": "crash-after-send-started-converges",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "broker exit=137; journal before restart=SEND_STARTED; after restart+lookup state=CONFIRMED; provider executeCalls=1"
+    },
+    {
+      "id": "control-ps-env-reads-other-process-env",
+      "gate": "F0-B(control)",
+      "pass": true,
+      "evidence": "same-UID ps -E exposes a canary placed in an ordinary process env"
+    },
+    {
+      "id": "control-sigusr1-opens-inspector",
+      "gate": "F0-B(control)",
+      "pass": true,
+      "evidence": "SIGUSR1 opens the inspector of an ordinary Node process (why the broker runs with --disable-sigusr1)"
+    },
+    {
+      "id": "ordinary-work-runs-sandboxed",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "general endpoint HTTP 200"
+    },
+    {
+      "id": "ordinary-work-runs",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "general endpoint HTTP 200"
+    },
+    {
+      "id": "no-secret-read-outside-broker",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "150 probe results scanned for capability and key material: none found"
+    },
+    {
+      "id": "every-bypass-attempt-denied",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "102 network/broker/debugger attempts denied across 3 roles x 2 layers"
+    },
+    {
+      "id": "credential-layer-alone-holds",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "without the sandbox profile every direct, alternate-client, redirect and proxy attempt still fails (mTLS + capability)"
+    },
+    {
+      "id": "probe-sensitivity-unsandboxed",
+      "gate": "F0-B(control)",
+      "pass": true,
+      "evidence": "unsandboxed roles CAN read another process env (decoy canary), so a clean broker env is load-bearing"
+    },
+    {
+      "id": "sandbox-layer-denies-network-and-state",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "sandbox-exec profile denies TCP to the stand-in port, reads of the broker state dir and process-info of other processes"
+    },
+    {
+      "id": "no-provider-effect-from-attackers",
+      "gate": "F0-B",
+      "pass": true,
+      "evidence": "provider executeCalls 5->5; authorized requests 10->10; TLS handshake rejections 0->30; unauthorized HTTP 0->0"
+    },
+    {
+      "id": "provider-duplicate-key-same-effect",
+      "gate": "F0-C(local)",
+      "pass": true,
+      "evidence": "journal lost, same key re-sent: replayed=true same effect=true; provider executeCalls=2 effectsCreated=1"
+    },
+    {
+      "id": "sensor-sim-classification",
+      "gate": "F0-D(local)",
+      "pass": true,
+      "evidence": "{\"normal\":\"FRESH_IN_RANGE\",\"controlled_breach_simulated\":\"BREACH\",\"stale_in_range\":\"STALE\",\"replayed_sequence\":\"OUT_OF_ORDER_OR_REPLAY\",\"restored\":\"FRESH_IN_RANGE\"}"
+    },
+    {
+      "id": "stale-never-healthy",
+      "gate": "F0-D(local)",
+      "pass": true,
+      "evidence": "stale in-range reading is STALE and not healthy, even when relabelled LIVE_AUTHENTICATED in a logic-only check"
+    },
+    {
+      "id": "simulated-never-healthy",
+      "gate": "F0-D(local)",
+      "pass": true,
+      "evidence": "restored SIMULATED_INPUT reading is in range but healthyClaimAllowed=false"
+    },
+    {
+      "id": "ambiguous-part-held",
+      "gate": "F0-D(local)",
+      "pass": true,
+      "evidence": "exact:EXACT_MATCH_FIXTURE_ONLY/MANUFACTURER_AND_MPN_EQUAL similarSuffix:HELD/MPN_DIFFERS otherManufacturer:HELD/MANUFACTURER_DIFFERS missingMpn:HELD/MISSING_IDENTIFIER"
+    },
+    {
+      "id": "deadline-from-sop-only",
+      "gate": "F0-D(local)",
+      "pass": true,
+      "evidence": "with SOP: demo-sop-cold-holding@v1-fixture 120min; without SOP: HELD (estimate ignored)"
+    },
+    {
+      "id": "provider-completed-plus-receipt-insufficient",
+      "gate": "F0-E",
+      "pass": true,
+      "evidence": "INSUFFICIENT_FOR_RECOVERY NO_SIGNOFF,NO_SENSOR_WINDOW"
+    },
+    {
+      "id": "plus-signoff-still-insufficient",
+      "gate": "F0-E",
+      "pass": true,
+      "evidence": "INSUFFICIENT_FOR_RECOVERY NO_SENSOR_WINDOW"
+    },
+    {
+      "id": "simulated-window-not-recovery",
+      "gate": "F0-E",
+      "pass": true,
+      "evidence": "CONDITION_IN_RANGE_SIMULATED_NOT_RECOVERY SENSOR_WINDOW_SIMULATED_ONLY"
+    },
+    {
+      "id": "collapsed-completed-badge-ignored",
+      "gate": "F0-E",
+      "pass": true,
+      "evidence": "INSUFFICIENT_FOR_RECOVERY UNKNOWN_EVIDENCE_KIND_IGNORED,NO_SIGNOFF,NO_SENSOR_WINDOW"
+    },
+    {
+      "id": "records-stay-separate",
+      "gate": "F0-E",
+      "pass": true,
+      "evidence": "five evidence kinds, five distinct records and digests"
+    }
+  ],
+  "probes": [
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-own-env",
+      "layer": "secret",
+      "denied": true,
+      "observed": "14 vars harvested for launcher scan",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-ps-env-broker",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ps failed: EPERM spawn refused: EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "control-ps-env-decoy",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ps failed: EPERM spawn refused: EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-lsof-broker",
+      "layer": "secret",
+      "denied": true,
+      "observed": "lsof failed: 1",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-fs-broker-state-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-fs-launcher-keygen-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ENOENT",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-fs-spike-tree",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 88542 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "secret-fs-tmp-scan",
+      "layer": "secret",
+      "denied": false,
+      "observed": "1 f0-* dirs, 0 bytes readable (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "inspector-sigusr1-attach",
+      "layer": "debugger",
+      "denied": true,
+      "observed": "ECONNREFUSED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "direct-tls-no-client-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "direct-tls-attacker-minted-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "direct-plain-http",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "direct-raw-tcp",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "alt-client-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 7 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "alt-client-fetch-undici",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "redirect-curl-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 7 final http 307",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "redirect-fetch-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "proxy-env-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "proxy-env-node-fetch",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR 0",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "broker-as-connect-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 405 Method Not Allowed",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "broker-as-forward-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 400 Bad Request",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "broker-forged-signature",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "broker-unsigned",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "broker-embedded-endpoint-or-credential",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SHAPE_UNEXPECTED_ENVELOPE_FIELDS\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": true,
+      "id": "broker-replay-captured-envelope",
+      "layer": "broker",
+      "denied": true,
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-own-env",
+      "layer": "secret",
+      "denied": true,
+      "observed": "14 vars harvested for launcher scan",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-ps-env-broker",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ps failed: EPERM spawn refused: EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "control-ps-env-decoy",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ps failed: EPERM spawn refused: EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-lsof-broker",
+      "layer": "secret",
+      "denied": true,
+      "observed": "lsof failed: 1",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-fs-broker-state-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-fs-launcher-keygen-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ENOENT",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-fs-spike-tree",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 88542 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "secret-fs-tmp-scan",
+      "layer": "secret",
+      "denied": false,
+      "observed": "1 f0-* dirs, 0 bytes readable (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "inspector-sigusr1-attach",
+      "layer": "debugger",
+      "denied": true,
+      "observed": "ECONNREFUSED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "direct-tls-no-client-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "direct-tls-attacker-minted-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "direct-plain-http",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "direct-raw-tcp",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "alt-client-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 7 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "alt-client-fetch-undici",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "redirect-curl-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 7 final http 307",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "redirect-fetch-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "proxy-env-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "proxy-env-node-fetch",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR 0",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "broker-as-connect-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 405 Method Not Allowed",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "broker-as-forward-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 400 Bad Request",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "broker-forged-signature",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "broker-unsigned",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "broker-embedded-endpoint-or-credential",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SHAPE_UNEXPECTED_ENVELOPE_FIELDS\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": true,
+      "id": "broker-replay-captured-envelope",
+      "layer": "broker",
+      "denied": true,
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-own-env",
+      "layer": "secret",
+      "denied": true,
+      "observed": "14 vars harvested for launcher scan",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-ps-env-broker",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ps failed: EPERM spawn refused: EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "control-ps-env-decoy",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ps failed: EPERM spawn refused: EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-lsof-broker",
+      "layer": "secret",
+      "denied": true,
+      "observed": "lsof failed: 1",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-fs-broker-state-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-fs-launcher-keygen-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ENOENT",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-fs-spike-tree",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 88542 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "secret-fs-tmp-scan",
+      "layer": "secret",
+      "denied": false,
+      "observed": "1 f0-* dirs, 0 bytes readable (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "inspector-sigusr1-attach",
+      "layer": "debugger",
+      "denied": true,
+      "observed": "ECONNREFUSED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "direct-tls-no-client-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "direct-tls-attacker-minted-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "direct-plain-http",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "direct-raw-tcp",
+      "layer": "network",
+      "denied": true,
+      "observed": "EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "alt-client-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 7 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "alt-client-fetch-undici",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "redirect-curl-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 7 final http 307",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "redirect-fetch-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR EPERM",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "proxy-env-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "proxy-env-node-fetch",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR 0",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "broker-as-connect-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 405 Method Not Allowed",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "broker-as-forward-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 400 Bad Request",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "broker-forged-signature",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "broker-unsigned",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "broker-embedded-endpoint-or-credential",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SHAPE_UNEXPECTED_ENVELOPE_FIELDS\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": true,
+      "id": "broker-replay-captured-envelope",
+      "layer": "broker",
+      "denied": true,
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-own-env",
+      "layer": "secret",
+      "denied": true,
+      "observed": "14 vars harvested for launcher scan",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-ps-env-broker",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 1406 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "control-ps-env-decoy",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 1426 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": true
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-lsof-broker",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 19 lines",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-fs-broker-state-dir",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 5473 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-fs-launcher-keygen-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ENOENT",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-fs-spike-tree",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 88542 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "secret-fs-tmp-scan",
+      "layer": "secret",
+      "denied": false,
+      "observed": "1 f0-* dirs, 5473 bytes readable (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "inspector-sigusr1-attach",
+      "layer": "debugger",
+      "denied": true,
+      "observed": "ECONNREFUSED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "direct-tls-no-client-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "direct-tls-attacker-minted-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "ECONNRESET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "direct-plain-http",
+      "layer": "network",
+      "denied": true,
+      "observed": "ECONNRESET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "direct-raw-tcp",
+      "layer": "network",
+      "denied": true,
+      "observed": "reply \"\"",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "alt-client-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "alt-client-fetch-undici",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "redirect-curl-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 final http 307",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "redirect-fetch-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "proxy-env-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "proxy-env-node-fetch",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "broker-as-connect-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 405 Method Not Allowed",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "broker-as-forward-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 400 Bad Request",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "broker-forged-signature",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "broker-unsigned",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "broker-embedded-endpoint-or-credential",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SHAPE_UNEXPECTED_ENVELOPE_FIELDS\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-general-worker",
+      "sandboxed": false,
+      "id": "broker-replay-captured-envelope",
+      "layer": "broker",
+      "denied": true,
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-own-env",
+      "layer": "secret",
+      "denied": true,
+      "observed": "14 vars harvested for launcher scan",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-ps-env-broker",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 1406 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "control-ps-env-decoy",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 1426 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": true
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-lsof-broker",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 19 lines",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-fs-broker-state-dir",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 5806 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-fs-launcher-keygen-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ENOENT",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-fs-spike-tree",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 88542 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "secret-fs-tmp-scan",
+      "layer": "secret",
+      "denied": false,
+      "observed": "1 f0-* dirs, 5806 bytes readable (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "inspector-sigusr1-attach",
+      "layer": "debugger",
+      "denied": true,
+      "observed": "ECONNREFUSED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "direct-tls-no-client-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "direct-tls-attacker-minted-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "ECONNRESET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "direct-plain-http",
+      "layer": "network",
+      "denied": true,
+      "observed": "ECONNRESET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "direct-raw-tcp",
+      "layer": "network",
+      "denied": true,
+      "observed": "reply \"\"",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "alt-client-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "alt-client-fetch-undici",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "redirect-curl-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 final http 307",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "redirect-fetch-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "proxy-env-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "proxy-env-node-fetch",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "broker-as-connect-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 405 Method Not Allowed",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "broker-as-forward-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 400 Bad Request",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "broker-forged-signature",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "broker-unsigned",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "broker-embedded-endpoint-or-credential",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SHAPE_UNEXPECTED_ENVELOPE_FIELDS\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-serv",
+      "sandboxed": false,
+      "id": "broker-replay-captured-envelope",
+      "layer": "broker",
+      "denied": true,
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-own-env",
+      "layer": "secret",
+      "denied": true,
+      "observed": "14 vars harvested for launcher scan",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-ps-env-broker",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 1406 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "control-ps-env-decoy",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 1426 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": true
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-lsof-broker",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 19 lines",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-fs-broker-state-dir",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 6139 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-fs-launcher-keygen-dir",
+      "layer": "secret",
+      "denied": true,
+      "observed": "ENOENT",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-fs-spike-tree",
+      "layer": "secret",
+      "denied": false,
+      "observed": "read 88542 bytes (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "secret-fs-tmp-scan",
+      "layer": "secret",
+      "denied": false,
+      "observed": "1 f0-* dirs, 6139 bytes readable (launcher scans)",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "inspector-sigusr1-attach",
+      "layer": "debugger",
+      "denied": true,
+      "observed": "ECONNREFUSED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "direct-tls-no-client-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "direct-tls-attacker-minted-cert",
+      "layer": "network",
+      "denied": true,
+      "observed": "ECONNRESET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "direct-plain-http",
+      "layer": "network",
+      "denied": true,
+      "observed": "ECONNRESET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "direct-raw-tcp",
+      "layer": "network",
+      "denied": true,
+      "observed": "reply \"\"",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "alt-client-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "alt-client-fetch-undici",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "redirect-curl-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 final http 307",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "redirect-fetch-follow",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "proxy-env-curl",
+      "layer": "network",
+      "denied": true,
+      "observed": "curl exit 56 http 000",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "proxy-env-node-fetch",
+      "layer": "network",
+      "denied": true,
+      "observed": "ERR UND_ERR_SOCKET",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "broker-as-connect-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 405 Method Not Allowed",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "broker-as-forward-proxy",
+      "layer": "broker",
+      "denied": true,
+      "observed": "HTTP/1.1 400 Bad Request",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "broker-forged-signature",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "broker-unsigned",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SIGNATURE_INVALID\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "broker-embedded-endpoint-or-credential",
+      "layer": "broker",
+      "denied": true,
+      "observed": "403 {\"state\":\"REJECTED\",\"code\":\"SHAPE_UNEXPECTED_ENVELOPE_FIELDS\"}",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    },
+    {
+      "role": "f0-client",
+      "sandboxed": false,
+      "id": "broker-replay-captured-envelope",
+      "layer": "broker",
+      "denied": true,
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "secretMarkersFound": [],
+      "controlCanaryFound": false
+    }
+  ],
+  "tamper": [
+    {
+      "field": "incidentId",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "incidentId",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AUTHORITY_MISMATCH_incidentId"
+    },
+    {
+      "field": "purpose",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "purpose",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AUTHORITY_MISMATCH_purpose"
+    },
+    {
+      "field": "providerId",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "providerId",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AUTHORITY_MISMATCH_providerId"
+    },
+    {
+      "field": "amountMinor",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "amountMinor",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AMOUNT_EXCEEDS_APPROVAL"
+    },
+    {
+      "field": "currency",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "currency",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AUTHORITY_MISMATCH_currency"
+    },
+    {
+      "field": "expiresAt",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "expiresAt",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AUTHORITY_MISMATCH_expiresAt"
+    },
+    {
+      "field": "idempotencyKey",
+      "mode": "mutated-after-signature",
+      "status": 403,
+      "code": "SIGNATURE_INVALID"
+    },
+    {
+      "field": "idempotencyKey",
+      "mode": "resigned-by-client-key",
+      "status": 403,
+      "code": "AUTHORITY_MISMATCH_idempotencyKey"
+    }
+  ],
+  "reconciliation": {
+    "happyPath": {
+      "first": {
+        "state": "CONFIRMED",
+        "effectId": "sfx_80d96c5c7955ad73",
+        "egress": true,
+        "replayed": false
+      },
+      "duplicate": {
+        "state": "CONFIRMED",
+        "effectId": "sfx_80d96c5c7955ad73",
+        "egress": false,
+        "decision": "RETURN_STORED"
+      },
+      "provider": {
+        "effectId": "sfx_80d96c5c7955ad73",
+        "executeCalls": 1,
+        "effectsCreated": 1
+      }
+    },
+    "dropped": {
+      "first": {
+        "state": "UNKNOWN",
+        "reason": "TRANSPORT_LOST",
+        "egress": true,
+        "replayed": null
+      },
+      "resubmit": {
+        "state": "UNKNOWN",
+        "effectId": null,
+        "egress": false,
+        "decision": "RETURN_UNKNOWN_NO_RETRY"
+      },
+      "reconcile": {
+        "state": "CONFIRMED",
+        "effectId": "sfx_090237640081bca9",
+        "lookup": true
+      },
+      "provider": {
+        "effectId": "sfx_090237640081bca9",
+        "executeCalls": 1,
+        "effectsCreated": 1
+      }
+    },
+    "lookupUnavailable": {
+      "first": {
+        "state": "UNKNOWN",
+        "reason": "TRANSPORT_LOST",
+        "egress": true,
+        "replayed": null
+      },
+      "reconcile": {
+        "state": "UNKNOWN",
+        "reason": "LOOKUP_INCONCLUSIVE",
+        "lookup": true
+      },
+      "resubmit": {
+        "state": "UNKNOWN",
+        "effectId": null,
+        "egress": false,
+        "decision": "RETURN_UNKNOWN_NO_RETRY"
+      },
+      "provider": {
+        "effectId": "sfx_6e53e3b974e44cd0",
+        "executeCalls": 1,
+        "effectsCreated": 1
+      }
+    },
+    "crashAfterSendStarted": {
+      "clientReply": "ECONNRESET",
+      "brokerExit": {
+        "code": 137,
+        "signal": null
+      },
+      "reconcile": {
+        "state": "CONFIRMED",
+        "effectId": "sfx_953ba32e238e5c70",
+        "lookup": true
+      },
+      "provider": {
+        "effectId": "sfx_953ba32e238e5c70",
+        "executeCalls": 1,
+        "effectsCreated": 1
+      }
+    },
+    "journalLoss": {
+      "first": {
+        "state": "CONFIRMED",
+        "effectId": "sfx_0dec0e1699f474bb",
+        "egress": true,
+        "replayed": false
+      },
+      "afterLoss": {
+        "state": "CONFIRMED",
+        "effectId": "sfx_0dec0e1699f474bb",
+        "egress": true,
+        "replayed": true
+      },
+      "provider": {
+        "effectId": "sfx_0dec0e1699f474bb",
+        "executeCalls": 2,
+        "effectsCreated": 1
+      }
+    }
+  },
+  "standinCounters": {
+    "tlsClientErrors": 30,
+    "wrongClientCert": 0,
+    "badCapability": 0,
+    "authorizedRequests": 10,
+    "executeRequests": 5,
+    "lookupRequests": 3
+  },
+  "sensor": {
+    "label": "SIMULATED_INPUT",
+    "policy": {
+      "maxAgeMs": 300000,
+      "maxClockSkewMs": 30000,
+      "minMilliC": 0,
+      "maxMilliC": 5000
+    },
+    "classification": {
+      "normal": "FRESH_IN_RANGE",
+      "controlled_breach_simulated": "BREACH",
+      "stale_in_range": "STALE",
+      "replayed_sequence": "OUT_OF_ORDER_OR_REPLAY",
+      "restored": "FRESH_IN_RANGE"
+    },
+    "finalAssessment": {
+      "conditionStatus": "FRESH_IN_RANGE",
+      "healthyClaimAllowed": false
+    }
+  },
+  "parts": {
+    "label": "FIXTURE_NOT_A_REAL_MANUAL",
+    "cited": {
+      "manufacturer": "FixtureCo",
+      "mpn": "FX-EVAP-FAN-120-A",
+      "citation": {
+        "docDigest": "f9257b71d7433ac98ac45e8739c1fe92d37d862f75fa3976dac4b9b34cdb7955",
+        "page": 14
+      },
+      "isFixture": true
+    },
+    "decisions": {
+      "exact": {
+        "decision": "EXACT_MATCH_FIXTURE_ONLY",
+        "reason": "MANUFACTURER_AND_MPN_EQUAL"
+      },
+      "similarSuffix": {
+        "decision": "HELD",
+        "reason": "MPN_DIFFERS"
+      },
+      "otherManufacturer": {
+        "decision": "HELD",
+        "reason": "MANUFACTURER_DIFFERS"
+      },
+      "missingMpn": {
+        "decision": "HELD",
+        "reason": "MISSING_IDENTIFIER"
+      }
+    }
+  },
+  "sop": {
+    "sop": {
+      "sopId": "demo-sop-cold-holding",
+      "version": "v1-fixture",
+      "containmentDeadlineMinutes": 120
+    },
+    "spoilage": {
+      "label": "NON_AUTHORITATIVE_ESTIMATE",
+      "minutes": 600
+    },
+    "withSop": {
+      "decision": "DEADLINE_FROM_SOP",
+      "sopRef": "demo-sop-cold-holding@v1-fixture",
+      "minutes": 120
+    },
+    "withoutSop": {
+      "decision": "HELD",
+      "reason": "NO_VERSIONED_SOP"
+    }
+  },
+  "evidenceRecords": {
+    "payment": {
+      "kind": "PAYMENT_OBSERVATION",
+      "source": "LOCAL_STAND_IN",
+      "effectId": "sfx_80d96c5c7955ad73",
+      "amountMinor": "100",
+      "currency": "XTS",
+      "digest": "1f4a5aeb667fd0587644a2adacc95125164aff0cb26a424b5674d275fdeb993c"
+    },
+    "acceptance": {
+      "kind": "PROVIDER_ACCEPTANCE",
+      "source": "LOCAL_STAND_IN",
+      "effectId": "sfx_80d96c5c7955ad73",
+      "digest": "8a3a91377fc0a2a6c7a2e4f1ffb08f06b968a4b6bf005b9d8b1023f755de06f5"
+    },
+    "work": {
+      "kind": "WORK_REPORT",
+      "source": "FIXTURE",
+      "status": "PROVIDER_REPORTED_COMPLETED",
+      "reportedAtMs": 1793810023730,
+      "digest": "bce121581bc01f1051738b459ed6d132d09326bed6f7f2d34e602d5d828f60f1"
+    },
+    "signoff": {
+      "kind": "SIGNOFF",
+      "source": "FIXTURE",
+      "role": "maintenance_approver",
+      "digest": "0aae3da972dfd50af5948cc7931ac14300ea95550783cbcbd8c919d34b7853d3"
+    },
+    "simWindow": {
+      "kind": "SENSOR_WINDOW",
+      "source": "SIMULATED_INPUT",
+      "startMs": 1793810025730,
+      "samples": 1,
+      "allFreshInRange": true,
+      "digest": "6f356af787f4f115e06f4f3b27b9040535e33bc7ee4d4250663e4f6673488efe"
+    }
+  },
+  "recovery": {
+    "paymentAcceptanceWork": {
+      "result": "INSUFFICIENT_FOR_RECOVERY",
+      "reasons": [
+        "NO_SIGNOFF",
+        "NO_SENSOR_WINDOW"
+      ]
+    },
+    "plusSignoff": {
+      "result": "INSUFFICIENT_FOR_RECOVERY",
+      "reasons": [
+        "NO_SENSOR_WINDOW"
+      ]
+    },
+    "plusSimulatedWindow": {
+      "result": "CONDITION_IN_RANGE_SIMULATED_NOT_RECOVERY",
+      "reasons": [
+        "SENSOR_WINDOW_SIMULATED_ONLY"
+      ]
+    },
+    "collapsedBadge": {
+      "result": "INSUFFICIENT_FOR_RECOVERY",
+      "reasons": [
+        "UNKNOWN_EVIDENCE_KIND_IGNORED",
+        "NO_SIGNOFF",
+        "NO_SENSOR_WINDOW"
+      ]
+    }
+  },
+  "processes": {
+    "brokerLaunches": [
+      {
+        "pid": 54324,
+        "stateDir": "state-1",
+        "crashFaultArmed": true
+      },
+      {
+        "pid": 54353,
+        "stateDir": "state-1",
+        "crashFaultArmed": false
+      },
+      {
+        "pid": 56172,
+        "stateDir": "state-2",
+        "crashFaultArmed": false
+      }
+    ],
+    "f0-general-worker+sandbox": {
+      "pid": 54408,
+      "uid": 501,
+      "sandboxed": true
+    },
+    "f0-serv+sandbox": {
+      "pid": 54719,
+      "uid": 501,
+      "sandboxed": true,
+      "openServKey": {
+        "present": false,
+        "reason": "NO_OPENSERV_ACCOUNT_OR_API_KEY"
+      }
+    },
+    "f0-client+sandbox": {
+      "pid": 55059,
+      "uid": 501,
+      "sandboxed": true
+    },
+    "f0-general-worker": {
+      "pid": 55317,
+      "uid": 501,
+      "sandboxed": false
+    },
+    "f0-serv": {
+      "pid": 55660,
+      "uid": 501,
+      "sandboxed": false,
+      "openServKey": {
+        "present": false,
+        "reason": "NO_OPENSERV_ACCOUNT_OR_API_KEY"
+      }
+    },
+    "f0-client": {
+      "pid": 55918,
+      "uid": 501,
+      "sandboxed": false
+    },
+    "broker": {
+      "pid": 56172,
+      "uid": 501,
+      "nodeArgs": [
+        "--disable-sigusr1"
+      ],
+      "credentialChannel": "fd 3 pipe (not env, argv or file)",
+      "ingress": "unix socket 0600 in 0700 dir"
+    },
+    "standin": {
+      "pid": 54323,
+      "uid": 501,
+      "label": "LOCAL_STAND_IN",
+      "holds": "server key + SHA-256 of capability (not the capability)"
+    }
+  },
+  "feasibility": {
+    "reportPath": "spikes/f0/F0-REPORT.md",
+    "status": "RUN_LOCAL_ONLY",
+    "subGates": {
+      "F0-A": "BLOCKED",
+      "F0-B": "PASS",
+      "F0-C": "BLOCKED",
+      "F0-D": "UNKNOWN",
+      "F0-E": "PASS",
+      "F0-F": "BLOCKED",
+      "F0-G": "BLOCKED"
+    },
+    "scope": {
+      "F0-A": "no Kite credential or authorization; live catalog not re-queried; only a LOCAL_STAND_IN capability preflight ran",
+      "F0-B": "PASS for the local process-level spike boundary only (same UID, loopback, synthetic credential); production isolation NOT_RUN",
+      "F0-C": "real low-value paid action not authorized; reconciliation STATE logic passed against LOCAL_STAND_IN only",
+      "F0-D": "SIMULATED_INPUT only (cannot pass); no physical sensor or real manual; stale/ambiguous/SOP logic passed locally",
+      "F0-E": "separation logic passed with stand-in and fixture records; final recovery policy NOT_RUN (M11)",
+      "F0-F": "no interview records and no authorization to contact operators",
+      "F0-G": "no OpenServ account or API key; event submission blocked until a real SERV run is recorded"
+    },
+    "recommendation": "NARROW",
+    "userDecisionReference": null
+  }
+}
