@@ -110,6 +110,12 @@ interface Prepared {
   excerptFlags: InjectionFlag[];
 }
 
+/** Document metadata and fact values are as untrusted as document text: redact, neutralize, scrub. */
+function safeMeta(text: string | null, secrets: readonly string[]): string {
+  if (text === null) return '';
+  return scrubValues(neutralizeUntrustedText(redactSecrets(text).text).text, secrets);
+}
+
 function excerptOf(span: SpanRow, citation: Citation, secrets: readonly string[]): PacketExcerpt {
   let text = span.role === 'TRANSCRIPT' ? redactContacts(span.text).text : span.text;
   text = redactSecrets(text).text;
@@ -120,8 +126,8 @@ function excerptOf(span: SpanRow, citation: Citation, secrets: readonly string[]
     citationId: citation.citationId,
     documentRef: span.document_id,
     role: span.role,
-    title: span.title,
-    documentRevision: span.document_revision,
+    title: safeMeta(span.title, secrets),
+    documentRevision: safeMeta(span.document_revision, secrets),
     trustLevel: span.trust_level,
     locator: citation.locator,
     sourceDigest: citation.sourceDigest,
@@ -171,7 +177,7 @@ async function prepare(c: Tx, ctx: TenantContext, incidentId: string, secrets: r
   const excerpts = selected.map((s) => excerptOf(s, cites.get(s.span_id)!, secrets));
   const factValues = (values: (typeof view.facts)[number]['values']) =>
     values.map((v) => ({
-      value: v.value,
+      value: safeMeta(v.value, secrets),
       citationIds: v.sources.filter((s) => eligible(spanOf(s.citation))).map((s) => s.citation.citationId),
     }));
   const asset = view.assetRevision;
@@ -191,10 +197,10 @@ async function prepare(c: Tx, ctx: TenantContext, incidentId: string, secrets: r
       policyRevisionId: incident.policy_revision_id,
     },
     asset: {
-      manufacturer: asset.manufacturer,
-      model: asset.model,
-      serial: asset.serial,
-      bomRevision: asset.bomRevision,
+      manufacturer: safeMeta(asset.manufacturer, secrets),
+      model: safeMeta(asset.model, secrets),
+      serial: asset.serial === null ? null : safeMeta(asset.serial, secrets),
+      bomRevision: safeMeta(asset.bomRevision, secrets),
       safetyClass: asset.safetyClass,
     },
     documents: view.documents
@@ -202,8 +208,8 @@ async function prepare(c: Tx, ctx: TenantContext, incidentId: string, secrets: r
       .map((d) => ({
         documentRef: d.documentId,
         role: d.role,
-        title: d.title,
-        documentRevision: d.documentRevision,
+        title: safeMeta(d.title, secrets),
+        documentRevision: safeMeta(d.documentRevision, secrets),
         trustLevel: d.trustLevel,
         sourceDigest: d.sourceDigest,
       })),

@@ -360,7 +360,10 @@ export async function commitIncidentEvidence(
   });
 }
 
-/** Re-commit evidence for every non-recovered incident of an asset (e.g. after its identity revision changed). */
+/**
+ * Re-commit evidence for every non-recovered incident of an asset (e.g. after its identity revision changed). The asset
+ * is resolved in the caller's tenant and the caller must hold evidence write authority at its site first.
+ */
 export async function refreshEvidenceForAsset(
   pool: Db,
   ctx: TenantContext,
@@ -368,12 +371,25 @@ export async function refreshEvidenceForAsset(
   assetId: AssetId | string,
   input: { reasonCode: string },
 ): Promise<EvidenceCommitResult[]> {
-  const { rows } = await pool.query<{ id: string }>(
-    `SELECT id FROM incidents WHERE tenant_id = $1 AND asset_id = $2 AND state <> 'RECOVERED' ORDER BY opened_at, id LIMIT 100`,
-    [ctx.tenantId, assetId],
-  );
+  const meta = { action: 'evidence_revision.refresh', resourceType: 'asset', resourceId: assetId };
+  const incidents = await tenantCommand(pool, ctx, meta, async (c) => {
+    if (!/^ast_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/.test(String(assetId))) throw unavailable(meta);
+    const a = await c.query<{ site_id: SiteId }>(`SELECT site_id FROM assets WHERE tenant_id = $1 AND id = $2`, [
+      ctx.tenantId,
+      assetId,
+    ]);
+    if (!a.rows[0]) throw unavailable(meta);
+    requireEvidenceWrite(ctx, a.rows[0].site_id, { type: 'asset', id: String(assetId) });
+    const { rows } = await c.query<{ id: string }>(
+      `SELECT id FROM incidents WHERE tenant_id = $1 AND asset_id = $2 AND state <> 'RECOVERED'
+        ORDER BY opened_at, id LIMIT 100`,
+      [ctx.tenantId, assetId],
+    );
+    return rows.map((r) => r.id);
+  });
   const out: EvidenceCommitResult[] = [];
-  for (const r of rows) out.push(await commitIncidentEvidence(pool, ctx, store, { incidentId: r.id, reasonCode: input.reasonCode }));
+  for (const id of incidents)
+    out.push(await commitIncidentEvidence(pool, ctx, store, { incidentId: id, reasonCode: input.reasonCode }));
   return out;
 }
 

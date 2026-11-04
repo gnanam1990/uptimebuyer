@@ -75,8 +75,7 @@ function skipDict(s: string, i: number): number {
       if (end < 0) throw malformed();
       i = end + 1;
     } else if (c === '%') {
-      const nl = s.slice(i).search(/[\r\n]/);
-      i = nl < 0 ? s.length : i + nl;
+      while (i < s.length && s[i] !== '\n' && s[i] !== '\r') i++;
     } else i += 1;
     if (depth > 64) throw malformed();
   }
@@ -99,9 +98,23 @@ function skipLiteral(s: string, i: number): number {
 
 const OBJ = /(\d{1,10})\s+(\d{1,5})\s+obj\b/g;
 
+/** Forward-only keyword search that never rescans: once a keyword is absent after a position, it stays absent. */
+class Finder {
+  private readonly last = new Map<string, number>();
+  constructor(private readonly s: string) {}
+  next(word: string, from: number): number {
+    const cached = this.last.get(word);
+    if (cached !== undefined && (cached === -1 || cached >= from)) return cached === -1 ? -1 : cached;
+    const at = this.s.indexOf(word, from);
+    this.last.set(word, at);
+    return at;
+  }
+}
+
 function scanObjects(buf: Buffer, s: string, limits: Limits, inflater: Inflater): Map<number, PdfObj> {
   const objects = new Map<number, PdfObj>();
   const streams: PdfObj[] = [];
+  const find = new Finder(s);
   let count = 0;
   OBJ.lastIndex = 0;
   for (let m = OBJ.exec(s); m !== null; m = OBJ.exec(s)) {
@@ -129,18 +142,18 @@ function scanObjects(buf: Buffer, s: string, limits: Limits, inflater: Inflater)
           if (candidate <= s.length && /^\s*endstream/.test(tail)) dataEnd = candidate;
         }
         if (dataEnd < 0) {
-          const es = s.indexOf('endstream', start);
+          const es = find.next('endstream', start);
           if (es < 0) throw malformed();
           dataEnd = es;
           if (s[dataEnd - 1] === '\n') dataEnd--;
           if (s[dataEnd - 1] === '\r') dataEnd--;
         }
         stream = buf.subarray(start, dataEnd);
-        const es = s.indexOf('endstream', dataEnd);
+        const es = find.next('endstream', dataEnd);
         OBJ.lastIndex = es < 0 ? dataEnd : es + 9;
       } else OBJ.lastIndex = end;
     } else {
-      const end = s.indexOf('endobj', i);
+      const end = find.next('endobj', i);
       body = s.slice(i, end < 0 ? Math.min(s.length, i + 4096) : end);
       OBJ.lastIndex = end < 0 ? i : end + 6;
     }
@@ -230,6 +243,8 @@ function decodePdfBytes(bytes: number[]): string {
   for (const b of bytes) out += WIN_ANSI[b] ?? (b < 0x20 && b !== 0x09 ? ' ' : String.fromCharCode(b));
   return out;
 }
+
+const EI = /\sEI(\s|$)/g;
 
 /** Extract text from one decoded content stream. */
 function contentText(src: string, budget: { chars: number }): string {
@@ -362,8 +377,9 @@ function contentText(src: string, budget: { chars: number }): string {
           break;
         case 'ID': {
           // Inline image data: skip binary until EI.
-          const ei = src.slice(i).search(/\sEI(\s|$)/);
-          i = ei < 0 ? src.length : i + ei + 3;
+          EI.lastIndex = i;
+          const ei = EI.exec(src);
+          i = ei ? ei.index + 3 : src.length;
           break;
         }
         default:
