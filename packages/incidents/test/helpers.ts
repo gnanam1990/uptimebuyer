@@ -211,7 +211,7 @@ export const isoAt = (ms: number) => new Date(ms).toISOString();
 
 export async function rejection(
   p: Promise<unknown>,
-): Promise<{ code?: string; reasonCode?: string; message?: string }> {
+): Promise<{ code: string | undefined; reasonCode: string | undefined; message: string | undefined }> {
   try {
     await p;
   } catch (e) {

@@ -66,8 +66,8 @@ describe('T-017 rule window evaluation', () => {
   });
 
   it('BELOW rules mirror the threshold and hysteresis', () => {
-    const below: RuleWindowSpec = { ...spec, comparator: 'BELOW', thresholdInt: -15_000 };
-    const run = [s(0, -14_000), s(30, -14_400), s(60, -14_000), s(90, -14_000), s(120, -13_000)];
+    const below: RuleWindowSpec = { ...spec, comparator: 'BELOW', thresholdInt: 2_000 };
+    const run = [s(0, 1_500), s(30, 2_400), s(60, 1_800), s(90, 1_900), s(120, 2_300)];
     expect(evaluateRuleWindow(below, run, at(121)).qualified).toBe(true);
     expect(evaluateRuleWindow(below, run.slice(1), at(121)).qualified).toBe(false);
   });

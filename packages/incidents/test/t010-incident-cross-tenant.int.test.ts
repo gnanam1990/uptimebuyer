@@ -99,7 +99,7 @@ describe('T-010 incident cross-tenant access denial', () => {
   it('every incident table is keyed by (tenant_id, id) or a tenant-leading key, with tenant-leading foreign keys', async () => {
     for (const table of INCIDENT_TABLES) {
       const pk = await w.db.admin(
-        `SELECT array_agg(a.attname ORDER BY k.ord) AS cols FROM pg_index i
+        `SELECT array_agg(a.attname::text ORDER BY k.ord) AS cols FROM pg_index i
            CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord)
            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
           WHERE i.indrelid = $1::regclass AND i.indisprimary`,
@@ -107,7 +107,7 @@ describe('T-010 incident cross-tenant access denial', () => {
       );
       expect(pk.rows[0].cols[0], table).toBe('tenant_id');
       const fks = await w.db.admin(
-        `SELECT conname, (SELECT attname FROM pg_attribute WHERE attrelid = c.conrelid AND attnum = c.conkey[1]) AS first
+        `SELECT conname, (SELECT attname::text FROM pg_attribute WHERE attrelid = c.conrelid AND attnum = c.conkey[1]) AS first
            FROM pg_constraint c WHERE c.conrelid = $1::regclass AND c.contype = 'f'`,
         [table],
       );

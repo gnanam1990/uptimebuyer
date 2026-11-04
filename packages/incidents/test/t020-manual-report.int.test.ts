@@ -12,15 +12,19 @@ import {
   freshAsset,
   isoAt,
   liveRun,
+  person,
   rejection,
   type IncidentWorld,
+  type Person,
 } from './helpers.js';
 
 let w: IncidentWorld;
+let uploader: Person;
 
+// M02 blob registration needs a tenant-wide evidence.submit grant; the reporting operators are site-scoped.
 async function blob(label: string) {
   return (
-    await registerEvidenceBlob(w.db.pool, w.people.operator!.ctx, {
+    await registerEvidenceBlob(w.db.pool, uploader.ctx, {
       sha256: sha(`t020-${label}`),
       mediaType: 'image/jpeg',
       sizeBytes: 2048,
@@ -32,6 +36,7 @@ async function blob(label: string) {
 describe('T-020 manual report audit linkage', () => {
   beforeAll(async () => {
     w = await createIncidentWorld('t020');
+    uploader = await person(w, 'uploader', ['operator'], null);
   });
   afterAll(async () => {
     await w?.close();
@@ -258,7 +263,8 @@ describe('T-020 manual report audit linkage', () => {
       ),
     ).toMatchObject({ code: 'FORBIDDEN', reasonCode: 'RESOURCE_UNAVAILABLE' });
     const other = await seedTenant(w.db.pool, w.idp, 't020-other');
-    const foreignBlob = await registerEvidenceBlob(w.db.pool, other.admin, {
+    const otherUploader = await person(w, 'other-uploader', ['operator'], null, other.admin);
+    const foreignBlob = await registerEvidenceBlob(w.db.pool, otherUploader.ctx, {
       sha256: sha('t020-foreign'),
       mediaType: 'image/jpeg',
       sizeBytes: 1,

@@ -10,13 +10,12 @@ import {
   getIncident,
   getIncidentTimeline,
   submitManualReport,
-  type IncidentState,
 } from '../src/index.js';
 import { HIGH_TEMP_RULE, createIncidentWorld, freshAsset, isoAt, liveRun, type IncidentWorld } from './helpers.js';
 
 let w: IncidentWorld;
 const HOT = [9_000, 9_200, 9_400, 9_600, 9_800];
-const MAIN_PATH: IncidentState[] = ['PLANNING', 'AWAITING_APPROVAL', 'EXECUTING', 'VERIFYING', 'RECOVERED'];
+const MAIN_PATH = ['PLANNING', 'AWAITING_APPROVAL', 'EXECUTING', 'VERIFYING', 'RECOVERED'] as const;
 
 async function driveToRecovered(incidentId: string): Promise<void> {
   for (const to of MAIN_PATH) {
