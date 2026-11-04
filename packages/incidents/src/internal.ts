@@ -335,6 +335,15 @@ export interface ReceiptScope {
  * stored result for an identical request by the same principal, refuse reuse with a different request, else run
  * `fn` and store its result. The request digest includes the principal, so a key cannot replay another's result.
  */
+/** Serialize on an Idempotency-Key (transaction-scoped, re-entrant). Always taken before any incident row lock. */
+export async function lockReceiptKey(c: Tx, ctx: TenantContext, idempotencyKey: unknown): Promise<void> {
+  const key = IdempotencyKeySchema.safeParse(idempotencyKey);
+  if (!key.success) throw validation('IDEMPOTENCY_KEY_INVALID');
+  await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `incident-receipt:${ctx.tenantId}:${key.data}`,
+  ]);
+}
+
 export async function withReceipt<T extends Record<string, unknown>>(
   c: Tx,
   ctx: TenantContext,
@@ -348,9 +357,7 @@ export async function withReceipt<T extends Record<string, unknown>>(
   // JSON round-trip drops absent optional fields so the digest is defined for every valid request.
   const request = JSON.parse(JSON.stringify(scope.request)) as Record<string, unknown>;
   const digest = sha256Digest(canonicalize({ commandType: scope.commandType, actor, request }));
-  await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-    `incident-receipt:${ctx.tenantId}:${key.data}`,
-  ]);
+  await lockReceiptKey(c, ctx, key.data);
   const prior = await c.query<{ request_digest: string; result: T }>(
     `SELECT request_digest, result FROM incident_command_receipts WHERE tenant_id = $1 AND idempotency_key = $2`,
     [ctx.tenantId, key.data],

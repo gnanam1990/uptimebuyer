@@ -28,6 +28,7 @@ import {
   holdsRoleAt,
   isoOf,
   loadIncident,
+  lockReceiptKey,
   ms,
   newIncidentDataId,
   ownerEligibility,
@@ -43,7 +44,8 @@ import {
 
 const Version = z.int().min(1);
 const Code = z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/);
-const base = { expectedVersion: Version, idempotencyKey: z.string() };
+const Opaque = z.string().max(128);
+const base = { expectedVersion: Version, idempotencyKey: Opaque };
 
 interface AssignmentRow {
   id: string;
@@ -97,6 +99,9 @@ async function command(
   };
   return tenantCommand(pool, ctx, meta, async (c) => {
     if (spec.authorize === 'incident.engine') requireAt(ctx, meta, 'incident.engine', null);
+    // Lock order everywhere: Idempotency-Key first, then incident rows (a manual report sharing the key would
+    // otherwise hold the key and wait for the row while this command holds the row and waits for the key).
+    await lockReceiptKey(c, ctx, input.idempotencyKey);
     const row = await loadIncident(c, ctx, meta, incidentId, {
       action: spec.authorize === 'incident.engine' ? null : spec.authorize,
       lock: 'UPDATE',
@@ -159,7 +164,7 @@ export async function acknowledgeIncident(
 
 const AssignSchema = z.strictObject({
   ...base,
-  assigneeUserId: z.string(),
+  assigneeUserId: Opaque,
   reasonCode: Code,
   nextActionDueAt: UtcInstantSchema.optional(),
 });
@@ -177,6 +182,8 @@ async function supersedeAndAssign(
     handoffFrom: AssignmentRow | null;
   },
 ): Promise<IncidentCommandResult> {
+  if (input.nextActionDueAt !== null && ms(input.nextActionDueAt) <= ms(await dbNow(c)))
+    throw validation('NEXT_ACTION_DUE_IN_PAST');
   const eligible = await ownerEligibility(c, ctx.tenantId, input.assigneeUserId, row.site_id);
   if (eligible === 'NOT_MEMBER') throw unavailable({ ...meta, resourceId: row.id }, input.assigneeUserId, 'user');
   if (eligible === 'NO_ROLE') throw deny(meta, 'ASSIGNEE_NOT_ELIGIBLE', row.id);
@@ -318,7 +325,7 @@ export async function acceptAssignment(
 
 const HandoffSchema = z.strictObject({
   ...base,
-  nextOwnerUserId: z.string(),
+  nextOwnerUserId: Opaque,
   reasonCode: Code,
   nextActionDueAt: UtcInstantSchema,
 });

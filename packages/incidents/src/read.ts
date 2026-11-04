@@ -159,6 +159,8 @@ export interface IncidentTimeline {
 
 /** Bound on every timeline list (NFR-04); a timeline longer than this is truncated to its newest entries. */
 const TIMELINE_LIMIT = 1_000;
+/** Bound on linked samples returned with a timeline (each signal links at most 500, linking is incremental). */
+const TIMELINE_SAMPLE_LIMIT = 20_000;
 
 function toAssignment(r: Record<string, unknown>): AssignmentView {
   return {
@@ -241,15 +243,15 @@ export async function getIncident(pool: Db, ctx: TenantContext, incidentId: stri
 }
 
 const ListSchema = z.strictObject({
-  siteId: z.string().optional(),
-  assetId: z.string().optional(),
+  siteId: z.string().max(128).optional(),
+  assetId: z.string().max(128).optional(),
   states: z
     .array(z.string().regex(/^[A-Z_]{1,32}$/))
     .max(11)
     .optional(),
   activeOnly: z.boolean().optional(),
   limit: z.int().min(1).max(500).optional(),
-  after: z.strictObject({ openedAt: UtcInstantSchema, incidentId: z.string() }).optional(),
+  after: z.strictObject({ openedAt: UtcInstantSchema, incidentId: z.string().max(128) }).optional(),
 });
 
 /** Incidents visible to the caller, newest first, keyset-paginated by (opened_at, id). */
@@ -307,8 +309,8 @@ export async function getIncidentTimeline(pool: Db, ctx: TenantContext, incident
          ORDER BY recorded_at DESC, id DESC LIMIT $3) x ORDER BY recorded_at, id`,
     );
     const samples = await c.query(
-      `SELECT * FROM incident_signal_samples WHERE tenant_id = $1 AND signal_id = ANY($2) ORDER BY signal_id, ordinal`,
-      [ctx.tenantId, signals.map((s) => s.id)],
+      `SELECT * FROM incident_signal_samples WHERE tenant_id = $1 AND signal_id = ANY($2) ORDER BY signal_id, ordinal LIMIT $3`,
+      [ctx.tenantId, signals.map((s) => s.id), TIMELINE_SAMPLE_LIMIT],
     );
     const bySignal = new Map<string, SignalView['samples']>();
     for (const s of samples.rows) {

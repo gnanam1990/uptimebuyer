@@ -45,6 +45,7 @@ import {
   deny,
   emit,
   isoOf,
+  lockReceiptKey,
   ms,
   newIncidentDataId,
   newIncidentId,
@@ -169,13 +170,7 @@ async function recoveredInWatchWindow(c: Tx, ctx: TenantContext, t: Trigger): Pr
   return rows[0];
 }
 
-function signalDigest(t: Trigger, manualReportId: string | null): string {
-  if (t.kind === 'TELEMETRY_RULE')
-    return canonicalDigest('incident-signal', 1, {
-      kind: 'TELEMETRY_TRIGGER',
-      ruleRevisionId: t.rule.ruleRevisionId,
-      sampleIds: t.window!.runs.flatMap((r) => r.samples.map((s) => s.sampleId)),
-    });
+function manualSignalDigest(manualReportId: string | null): string {
   return canonicalDigest('incident-signal', 1, { kind: 'MANUAL_REPORT', manualReportId });
 }
 
@@ -240,11 +235,33 @@ async function recordSignal(
       { siteId: incident.site_id as never },
     );
   }
-  const digest = signalDigest(t, manualReportId);
   const signalId = newIncidentDataId('signal');
   const telemetry = t.kind === 'TELEMETRY_RULE' ? t.window! : null;
-  const linked = telemetry ? telemetry.runs.flatMap((r) => r.samples).slice(-MAX_SIGNAL_SAMPLES) : [];
-  const total = telemetry ? telemetry.runs.reduce((n, r) => n + r.samples.length, 0) : 0;
+  let runSamples = telemetry ? telemetry.runs.flatMap((r) => r.samples) : [];
+  if (telemetry && outcome === 'ATTACHED') {
+    // Corroboration is incremental: link only readings not already linked to this incident, so a long breach
+    // re-evaluated after every reading adds each sample once (bounded growth, NFR-04).
+    const seen = await c.query<{ sample_id: string }>(
+      `SELECT s.sample_id FROM incident_signal_samples s
+         JOIN incident_signals g ON g.tenant_id = s.tenant_id AND g.id = s.signal_id
+        WHERE s.tenant_id = $1 AND g.incident_id = $2 AND s.sample_id = ANY($3)`,
+      [ctx.tenantId, incident.id, runSamples.map((x) => x.sampleId)],
+    );
+    const linkedBefore = new Set(seen.rows.map((r) => r.sample_id));
+    runSamples = runSamples.filter((x) => !linkedBefore.has(x.sampleId));
+    if (runSamples.length === 0) return { signalId: null, manualReportId };
+  }
+  const digest = telemetry
+    ? canonicalDigest('incident-signal', 1, {
+        kind: 'TELEMETRY_TRIGGER',
+        ruleRevisionId: t.rule.ruleRevisionId,
+        sampleIds: runSamples.map((x) => x.sampleId),
+      })
+    : manualSignalDigest(manualReportId);
+  const linked = runSamples.slice(-MAX_SIGNAL_SAMPLES);
+  const total = runSamples.length;
+  const windowStart = linked.length > 0 ? Math.min(...linked.map((x) => x.eventAtMs)) : null;
+  const windowEnd = linked.length > 0 ? Math.max(...linked.map((x) => x.eventAtMs)) : null;
   const { rows } = await c.query<{ id: string }>(
     `INSERT INTO incident_signals (tenant_id, id, incident_id, signal_kind, trust, outcome, input_origin, rule_revision_id,
        manual_report_id, window_start_at, window_end_at, sample_count, window_sample_total, channel_count, peak_value_int,
@@ -261,12 +278,16 @@ async function recordSignal(
       t.inputOrigin,
       telemetry ? t.rule.ruleRevisionId : null,
       manualReportId,
-      telemetry ? isoOf(new Date(telemetry.onsetAtMs)) : null,
-      telemetry ? isoOf(new Date(telemetry.lastEventAtMs)) : null,
+      windowStart === null ? null : isoOf(new Date(windowStart)),
+      windowEnd === null ? null : isoOf(new Date(windowEnd)),
       linked.length,
       total,
-      telemetry ? telemetry.runs.length : 0,
-      telemetry ? telemetry.peakValueInt : null,
+      telemetry ? new Set(linked.map((x) => x.channelId)).size : 0,
+      linked.length === 0
+        ? null
+        : t.rule.comparator === 'ABOVE'
+          ? Math.max(...runSamples.map((x) => x.valueInt))
+          : Math.min(...runSamples.map((x) => x.valueInt)),
       telemetry ? 'QUALIFIED' : t.manual!.reasonCode,
       digest,
       actor.kind,
@@ -578,7 +599,7 @@ export interface EvaluateInput {
   at?: string;
 }
 
-const EvaluateInputSchema = z.strictObject({ assetId: z.string(), at: UtcInstantSchema.optional() });
+const EvaluateInputSchema = z.strictObject({ assetId: z.string().max(128), at: UtcInstantSchema.optional() });
 
 async function evaluationInstant(c: Tx, requested: string | undefined): Promise<string> {
   const now = await dbNow(c);
@@ -709,8 +730,8 @@ export async function evaluateIncidentRules(
 // Manual report
 
 const ManualReportInputSchema = z.strictObject({
-  idempotencyKey: z.string(),
-  assetId: z.string(),
+  idempotencyKey: z.string().max(128),
+  assetId: z.string().max(128),
   ruleKey: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/),
   reasonCode: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/),
   note: z.string().min(1).max(2000).optional(),
@@ -764,6 +785,8 @@ export async function submitManualReport(pool: Db, ctx: TenantContext, raw: Manu
   const input = parseInput(ManualReportInputSchema, raw, 'INVALID_MANUAL_REPORT');
   const meta = { action: 'incident.manual_report', resourceType: 'asset', resourceId: input.assetId };
   return tenantCommand(pool, ctx, meta, async (c) => {
+    // Lock order everywhere: Idempotency-Key first, then incident rows (see commands.ts).
+    await lockReceiptKey(c, ctx, input.idempotencyKey);
     const asset = await loadAsset(c, ctx, meta, input.assetId);
     if (
       ctx.principal.kind === 'HUMAN' &&

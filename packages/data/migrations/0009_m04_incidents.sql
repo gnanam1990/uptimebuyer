@@ -409,6 +409,7 @@ BEGIN
   RETURN NEW;
 END
 $$;
+CREATE INDEX incident_signal_samples_sample_ix ON incident_signal_samples (tenant_id, sample_id);
 CREATE TRIGGER incident_signal_samples_guard BEFORE INSERT ON incident_signal_samples
   FOR EACH ROW EXECUTE FUNCTION ub_incident_signal_sample_guard();
 SELECT ub_make_append_only('incident_signal_samples');
