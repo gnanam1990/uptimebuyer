@@ -116,6 +116,8 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'incident.report': ['operator', 'maintenance_approver', 'engineer'],
   'incident.engine': ['service'],
   'evidence.submit': ['operator', 'maintenance_approver', 'engineer'],
+  // Tenant-wide curators only; every identity in this matrix except the tenant admin is site-scoped.
+  'evidence.library_write': ['admin'],
   'evidence.read': [
     'viewer',
     'operator',
@@ -167,6 +169,7 @@ function requestFor(action: ActionName, siteId: SiteId | null = s1): Authorizati
     case 'audit.read':
     case 'audit.export':
     case 'evidence.export':
+    case 'evidence.library_write':
       return { action, siteId: null };
     default:
       return { action, siteId };
