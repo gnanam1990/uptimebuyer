@@ -170,7 +170,7 @@ describe('M07 security review regressions', () => {
     );
     await runContactDispatch(w.db.pool, { adapters: w.adapters, credentials: w.creds, workerId: 'sec' });
     const attempt = (await getContactRequest(w.db.pool, w.operator.ctx, prepared.contactRequestId)).attempts[0]!;
-    // No processing consent yet: an in-scope caller would get a consent hold; a cross-site caller must not learn that.
+    // A cross-site caller must not learn whether the communication exists or what state it is in.
     const comm = await recordCommunication(w.db.pool, w.operator.ctx, {
       contactAttemptId: attempt.contactAttemptId,
       direction: 'INBOUND',
@@ -193,14 +193,10 @@ describe('M07 security review regressions', () => {
     expect(await rejection(getContactRequest(w.db.pool, farOperator.ctx, prepared.contactRequestId))).toEqual(
       await rejection(getContactRequest(w.db.pool, farOperator.ctx, newId('providerContactRequest'))),
     );
-    // In scope, the same call reaches the consent check.
-    expect(
-      await rejection(
-        promoteExcerptToEvidence(w.db.pool, w.operator.ctx, w.store, { communicationId: comm.communicationId }),
-      ),
-    ).toMatchObject({
-      reasonCode: 'PROCESSING_CONSENT_REQUIRED',
-    });
+    // In scope (the provider API granted processing consent), the same call proceeds past authorization.
+    await expect(
+      promoteExcerptToEvidence(w.db.pool, w.operator.ctx, w.store, { communicationId: comm.communicationId }),
+    ).resolves.toMatchObject({ documentId: expect.stringMatching(/^doc_/) });
   });
 
   it('transcript provenance is server-derived: humans cannot claim LIVE or BROKER sources', async () => {

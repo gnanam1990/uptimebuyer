@@ -1,9 +1,9 @@
 // T-029 security review — SSRF and egress bounds for the live provider transport (SECURITY.md SSRF row, API-EVENT-SPEC
 // §9). Unit level with an injected fetch and DNS resolver: nothing reaches the network.
 import { describe, expect, it, vi } from 'vitest';
+import type { ProviderEgressError } from '../src/index.js';
 import {
   HttpsProviderTransport,
-  ProviderEgressError,
   guardedLookup,
   assertProviderUrlAllowed,
   assertResolvesPublic,
