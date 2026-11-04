@@ -4,6 +4,7 @@
 // - The public listener exposes no cross-tenant operational counters (observability cannot be used to infer other
 //   tenants' activity); metrics are available to the operator in-process only.
 import { randomBytes } from 'node:crypto';
+import { signPrincipalToken } from '@uptimebuyer/data';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createWorld,
@@ -87,7 +88,7 @@ describe('T-013 security review: failure budgets are race-free and cannot lock o
     await w2?.close();
   });
 
-  it('concurrent forged tokens for one credential reach authentication at most the failure budget', async () => {
+  it('concurrent forged tokens for one credential reach authentication at most the reserved budgets', async () => {
     const now = syncClock(w2);
     const before = await authAudits('TOKEN_REJECTED');
     const forgedKey = new Uint8Array(randomBytes(32));
@@ -97,9 +98,10 @@ describe('T-013 security review: failure budgets are race-free and cannot lock o
       ),
     );
     const statuses = results.map((r) => r.status);
-    expect(statuses.filter((s) => s === 401)).toHaveLength(3);
-    expect(statuses.filter((s) => s === 429)).toHaveLength(17);
-    expect((await authAudits('TOKEN_REJECTED')) - before).toBe(3);
+    // (source, credential) budget of 3, then the per-source budget of 5 as fallback; nothing beyond
+    expect(statuses.filter((s) => s === 401)).toHaveLength(8);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(12);
+    expect((await authAudits('TOKEN_REJECTED')) - before).toBe(8);
   });
 
   it('concurrent malformed tokens from one source reach authentication at most the per-source budget', async () => {
@@ -139,5 +141,59 @@ describe('T-013 security review: failure budgets are race-free and cannot lock o
       expect(r.status).toBe(200);
       expect(r.body.results).toEqual([expect.objectContaining({ status: 'ACCEPTED' })]);
     }
+  });
+
+  it("an attacker presenting a cold device's kid from another address cannot stop its first valid token", async () => {
+    w2.clock.advance(120_000);
+    const cold = await provisionDevice(w2, { siteId: w2.siteId, assetId: w2.assetId });
+    await sleep(20);
+    const now = syncClock(w2);
+    const forgedKey = new Uint8Array(randomBytes(32));
+    const attack: number[] = [];
+    for (let i = 0; i < 30; i++)
+      attack.push(
+        (
+          await post(w2, cold, [message(i, now - 5, [temp(cold.channels.temp!, 1)])], {
+            tokenKey: forgedKey,
+            remoteAddress: '10.9.9.9',
+          })
+        ).status,
+      );
+    expect(attack).toContain(429);
+    const ok = await post(w2, cold, [message(100, now - 5, [temp(cold.channels.temp!, 3800)])], {
+      remoteAddress: '10.1.1.1',
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.results).toEqual([expect.objectContaining({ status: 'ACCEPTED' })]);
+  });
+
+  it('a replayed valid token is rejected and charged, and does not evict the cached credential', async () => {
+    w2.clock.advance(120_000);
+    const d = await provisionDevice(w2, { siteId: w2.siteId, assetId: w2.assetId });
+    await sleep(20);
+    let now = syncClock(w2);
+    const ip = '10.2.2.2';
+    // first use goes through database authentication (the credential is not known yet) and teaches the key
+    const token = await signPrincipalToken('DEVICE', d.deviceId, d.key);
+    expect(
+      (await post(w2, d, [message(1, now - 5, [temp(d.channels.temp!, 3800)])], { token, remoteAddress: ip })).status,
+    ).toBe(200);
+    const charged = w2.gw.metrics().chargedAuthFailures;
+    const replay = await post(w2, d, [message(2, now - 5, [temp(d.channels.temp!, 3800)])], {
+      token,
+      remoteAddress: ip,
+    });
+    expect(replay.status).toBe(401);
+    expect(w2.gw.metrics().chargedAuthFailures).toBeGreaterThan(charged);
+    // exhaust this address's budget; the device's next valid token is still recognised from the cached key
+    for (let i = 0; i < 10; i++)
+      await post(w2, d, [message(i, now, [temp(d.channels.temp!, 1)])], { token: 'a.b.c', remoteAddress: ip });
+    expect(
+      (await post(w2, d, [message(3, now, [temp(d.channels.temp!, 1)])], { token: 'a.b.c', remoteAddress: ip })).status,
+    ).toBe(429);
+    now = w2.clock.advance(1_000);
+    const fresh = await post(w2, d, [message(4, now - 5, [temp(d.channels.temp!, 3800)])], { remoteAddress: ip });
+    expect(fresh.status).toBe(200);
+    expect(fresh.body.results).toEqual([expect.objectContaining({ status: 'ACCEPTED' })]);
   });
 });
