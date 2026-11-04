@@ -1,0 +1,27 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true
+  },
+  "include": ["./**/*.ts"],
+  "references": [
+    { "path": ".." },
+    { "path": "../../../packages/contracts" },
+    { "path": "../../../packages/domain" },
+    { "path": "../../../packages/data" },
+    { "path": "../../../packages/kite-contracts" },
+    { "path": "../../../packages/commerce" },
+    { "path": "../../../packages/compatibility" },
+    { "path": "../../../packages/evidence" },
+    { "path": "../../../packages/incidents" },
+    { "path": "../../../packages/planning" },
+    { "path": "../../../packages/providers" },
+    { "path": "../../../packages/telemetry" },
+    { "path": "../../sensor-gateway" }
+  ]
+}

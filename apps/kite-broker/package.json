@@ -1,0 +1,32 @@
+{
+  "name": "@uptimebuyer/kite-broker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The exclusive Kite payment broker service (M09): the ONLY holder of the Kite/paid-endpoint credential and the only paid egress. Accepts signed opaque execution references over a 0600 unix socket, reloads every bound fact from PostgreSQL, linearizes reserve + SEND_STARTED, executes through broker-owned adapters and reconciles UNKNOWN only by authoritative lookup or provider-guaranteed same-key replay. Deliberately exports nothing: credential-bearing code is not importable.",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "start": "node --disable-sigusr1 dist/main.js"
+  },
+  "dependencies": {
+    "@uptimebuyer/commerce": "workspace:*",
+    "@uptimebuyer/compatibility": "workspace:*",
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/kite-contracts": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@uptimebuyer/evidence": "workspace:*",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/planning": "workspace:*",
+    "@uptimebuyer/providers": "workspace:*",
+    "@uptimebuyer/sensor-gateway": "workspace:*",
+    "@uptimebuyer/telemetry": "workspace:*"
+  }
+}

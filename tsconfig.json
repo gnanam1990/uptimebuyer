@@ -65,6 +65,15 @@
       "path": "./packages/planning/test"
     },
     {
+      "path": "./packages/commerce"
+    },
+    {
+      "path": "./apps/kite-broker"
+    },
+    {
+      "path": "./apps/kite-broker/test"
+    },
+    {
       "path": "./apps/sensor-gateway"
     },
     {

@@ -22,6 +22,7 @@ export {
   assertAuthenticated,
   assertTenantContext,
   resolveTenantContext,
+  issueBrokerWorkerContext,
   withTenantTransaction,
   type AuthenticatedPrincipal,
   type ContextPrincipal,
