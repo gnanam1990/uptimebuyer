@@ -31,6 +31,7 @@ import {
   freshAsset,
   isoAt,
   person,
+  recoverForTest,
   rejection,
   type IncidentWorld,
 } from './helpers.js';
@@ -418,14 +419,7 @@ describe('T-019 incident lifecycle concurrency', () => {
       cur = await get(inc.incidentId);
     }
     const outcome = await race([
-      () =>
-        advanceIncident(w.db.pool, w.service, inc.incidentId, {
-          to: 'RECOVERED',
-          reasonCode: 'RECOVERY_PASSED',
-          guardRef: 'rev_fixture-passed-0001',
-          expectedVersion: cur.version,
-          idempotencyKey: w.key('recover'),
-        }),
+      () => recoverForTest(w, inc.incidentId, cur.version),
       () =>
         escalateIncident(w.db.pool, w.people.operator!.ctx, inc.incidentId, {
           reasonCode: 'FAILED_INTERVENTION',
@@ -438,17 +432,9 @@ describe('T-019 incident lifecycle concurrency', () => {
     cur = await get(inc.incidentId);
     if (cur.state === 'ESCALATED') {
       // Reaching RECOVERED from ESCALATED is not an M01 edge.
-      expect(
-        await rejection(
-          advanceIncident(w.db.pool, w.service, inc.incidentId, {
-            to: 'RECOVERED',
-            reasonCode: 'RECOVERY_PASSED',
-            guardRef: 'rev_fixture-passed-0001',
-            expectedVersion: cur.version,
-            idempotencyKey: w.key('recover-late'),
-          }),
-        ),
-      ).toMatchObject({ code: 'STATE_TRANSITION_INVALID' });
+      expect(await rejection(recoverForTest(w, inc.incidentId, cur.version))).toMatchObject({
+        code: 'STATE_TRANSITION_INVALID',
+      });
       return;
     }
     expect(cur.state).toBe('RECOVERED');

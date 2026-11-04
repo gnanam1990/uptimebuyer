@@ -11,7 +11,15 @@ import {
   getIncidentTimeline,
   submitManualReport,
 } from '../src/index.js';
-import { HIGH_TEMP_RULE, createIncidentWorld, freshAsset, isoAt, liveRun, type IncidentWorld } from './helpers.js';
+import {
+  HIGH_TEMP_RULE,
+  createIncidentWorld,
+  recoverForTest,
+  freshAsset,
+  isoAt,
+  liveRun,
+  type IncidentWorld,
+} from './helpers.js';
 
 let w: IncidentWorld;
 const HOT = [9_000, 9_200, 9_400, 9_600, 9_800];
@@ -20,10 +28,14 @@ const MAIN_PATH = ['PLANNING', 'AWAITING_APPROVAL', 'EXECUTING', 'VERIFYING', 'R
 async function driveToRecovered(incidentId: string): Promise<void> {
   for (const to of MAIN_PATH) {
     const inc = await getIncident(w.db.pool, w.service, incidentId);
+    if (to === 'RECOVERED') {
+      await recoverForTest(w, incidentId, inc.version);
+      continue;
+    }
     await advanceIncident(w.db.pool, w.service, incidentId, {
       to,
       reasonCode: `FIXTURE_${to}`,
-      guardRef: to === 'RECOVERED' ? 'rev_fixture-passed-0001' : 'evr_fixture-guard-0001',
+      guardRef: 'evr_fixture-guard-0001',
       expectedVersion: inc.version,
       idempotencyKey: w.key(`advance-${to}`),
     });

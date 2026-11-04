@@ -128,18 +128,19 @@ describe('T-011 incident role and authority denial', () => {
         ),
       ).toMatchObject({ code: 'FORBIDDEN', reasonCode: 'PRINCIPAL_KIND_NOT_PERMITTED' });
     expect(await rejection(expireIncidentDeadlines(w.db.pool, op, {}))).toMatchObject({ code: 'FORBIDDEN' });
-    // Recovery needs a recovery-evaluation reference; the engine cannot recover from the wrong state either.
-    expect(
-      await rejection(
-        advanceIncident(w.db.pool, w.service, inc.incidentId, {
-          to: 'RECOVERED',
-          reasonCode: 'X',
-          guardRef: 'evr_not-a-recovery-0001',
-          expectedVersion: inc.version,
-          idempotencyKey: w.key('adv-rec'),
-        }),
-      ),
-    ).toMatchObject({ code: 'VALIDATION_FAILED', reasonCode: 'RECOVERY_EVALUATION_REQUIRED' });
+    // The public engine path can never mark recovery, whatever reference it names (INV-01, INV-14).
+    for (const guardRef of ['evr_not-a-recovery-0001', 'rev_fixture-passed-0001'])
+      expect(
+        await rejection(
+          advanceIncident(w.db.pool, w.service, inc.incidentId, {
+            to: 'RECOVERED',
+            reasonCode: 'X',
+            guardRef,
+            expectedVersion: inc.version,
+            idempotencyKey: w.key('adv-rec'),
+          }),
+        ),
+      ).toMatchObject({ code: 'POLICY_HOLD', reasonCode: 'RECOVERY_EVALUATOR_REQUIRED' });
     // Manual-only edges are not reachable through the engine path.
     expect(
       await rejection(

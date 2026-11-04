@@ -34,6 +34,7 @@ import {
   type PublishIncidentRuleInput,
   type PublishProcedureInput,
 } from '../src/index.js';
+import { recoverIncidentWithEvaluation, type RecoveryEvaluator } from '../src/recovery.js';
 
 export { message, post, provisionDevice, syncClock, temp, type TestDevice, type World };
 
@@ -219,4 +220,41 @@ export async function rejection(
     return { code: err.code, reasonCode: err.details?.reasonCode, message: err.message };
   }
   throw new Error('expected rejection');
+}
+
+/**
+ * TEST-ONLY stand-in for the M11 recovery evaluator. M04 has no recovery evaluations, so the internal recovery hook
+ * is driven here by a fake that reports PASSED (or another state) for the named evaluation. This is not evidence of
+ * recovery and is never exported from @uptimebuyer/incidents.
+ */
+export function fakeEvaluator(
+  state: 'PASSED' | 'FAILED' | 'OBSERVING' = 'PASSED',
+  incidentOverride?: string,
+): RecoveryEvaluator {
+  return {
+    async loadPassedEvaluation(_c, _ctx, incident, recoveryEvaluationId) {
+      return {
+        recoveryEvaluationId,
+        incidentId: incidentOverride ?? incident.incidentId,
+        state: state as 'PASSED',
+        evidenceDigest: `sha256:${'e'.repeat(64)}`,
+      };
+    },
+  };
+}
+
+/** Drive VERIFYING -> RECOVERED through the internal hook with the test-only evaluator. */
+export async function recoverForTest(w: IncidentWorld, incidentId: string, expectedVersion: number) {
+  return recoverIncidentWithEvaluation(
+    w.db.pool,
+    w.service,
+    incidentId,
+    {
+      recoveryEvaluationId: 'rev_fixture-passed-0001',
+      reasonCode: 'RECOVERY_PASSED',
+      expectedVersion,
+      idempotencyKey: w.key('recover'),
+    },
+    fakeEvaluator(),
+  );
 }
