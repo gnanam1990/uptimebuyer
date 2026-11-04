@@ -1,12 +1,32 @@
 {
   "files": [],
   "references": [
-    { "path": "./tests" },
-    { "path": "./packages/contracts" },
-    { "path": "./packages/contracts/test" },
-    { "path": "./packages/domain" },
-    { "path": "./packages/domain/test" },
-    { "path": "./packages/kite-contracts" },
-    { "path": "./packages/kite-contracts/test" }
+    {
+      "path": "./tests"
+    },
+    {
+      "path": "./packages/contracts"
+    },
+    {
+      "path": "./packages/contracts/test"
+    },
+    {
+      "path": "./packages/domain"
+    },
+    {
+      "path": "./packages/domain/test"
+    },
+    {
+      "path": "./packages/kite-contracts"
+    },
+    {
+      "path": "./packages/kite-contracts/test"
+    },
+    {
+      "path": "./packages/data"
+    },
+    {
+      "path": "./packages/data/test"
+    }
   ]
 }

@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M02",
+  "status": "PASS",
+  "startingCommit": "8dcddd9",
+  "endingCommit": "a443d86",
+  "branch": "feat/m02-storage-auth-rbac-tenancy",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "a443d86 fix(m02): close legal-hold, evidence-authority, approval-race, webhook-poisoning and secret-ref gaps",
+    "0e77a52 test(m02): security-review regressions for holds, evidence authority, approval race, webhook poisoning, secret refs (red)",
+    "dffb2e7 docs(m02): module handoff record",
+    "a5117d0 feat(m02): @uptimebuyer/data tenant context, authentication, RBAC, repositories and outbox",
+    "a5d3b4e feat(m02): forward-only tenancy, registry, evidence, outbox and provider-account migrations",
+    "d4667c0 test(m02): correct fixture defects found on first green run",
+    "cb0d7c4 test(m02): T-009..T-012 migration, tenancy, authority and outbox gates (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-01", "FR-21", "FR-23", "FR-24"],
+    "nonfunctional": ["NFR-02", "NFR-05", "NFR-06"],
+    "invariants": ["INV-10", "INV-16"],
+    "tests": ["T-009", "T-010", "T-011", "T-012"]
+  },
+  "changedFiles": [
+    "packages/data/package.json, tsconfig.json, test/tsconfig.json (new package @uptimebuyer/data; deps pg 8.23.1, jose 6.2.12, zod 4.6.7 exact)",
+    "packages/data/migrations/0001_m02_identity_tenancy.sql .. 0006_m02_privacy_lifecycle.sql, migrations/README.md",
+    "packages/data/src/*.ts (20 files)",
+    "packages/data/test/helpers.ts, dataset.ts, t009-migration-forward-fix.int.test.ts, t010-cross-tenant-denial.int.test.ts, t011-role-authority-denial.int.test.ts, t012-outbox-restart-recovery.int.test.ts, t012-killed-publisher.mjs",
+    "tsconfig.json (references packages/data and packages/data/test)",
+    "pnpm-lock.yaml",
+    "packages/data/migrations/0007_m02_security_hardening.sql",
+    "packages/data/src/secret-ref.ts",
+    "packages/data/test/t009-legal-hold-scope.int.test.ts, t010-webhook-secret-refs.int.test.ts, t011-evidence-authority.int.test.ts, t011-approval-race.int.test.ts"
+  ],
+  "diffSummary": "Six forward-only migrations (33 tables) with append-only triggers, composite tenant keys/FKs and btree_gist interval exclusion; a typed pg repository layer that only accepts server-issued TenantContext; OIDC/device/service/integration authentication; deny-by-default RBAC with site and minor-unit amount bounds; transactional outbox, idempotent consumer and durable jobs.",
+  "configChanges": [
+    "Root tsconfig.json references packages/data and packages/data/test.",
+    "Runtime dependencies pinned exactly in packages/data: pg 8.23.1, jose 6.2.12 (JWT/JWS verification; no homegrown crypto), zod 4.6.7; dev @types/pg 8.23.1."
+  ],
+  "commands": [
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/data",
+      "cwd": "repo root",
+      "commitSha": "cb0d7c4",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": 0,
+        "failedFiles": 4
+      },
+      "resultSummary": "RED: 4 test files failed to load (packages/data/src/index.js absent); 0 tests executed"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "a5117d0",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 498,
+        "integration": 32,
+        "m02Integration": 31,
+        "byFile": {
+          "packages/data/test/t009-migration-forward-fix.int.test.ts": 7,
+          "packages/data/test/t010-cross-tenant-denial.int.test.ts": 12,
+          "packages/data/test/t011-role-authority-denial.int.test.ts": 8,
+          "packages/data/test/t012-outbox-restart-recovery.int.test.ts": 4
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17 container, throwaway databases), build, pack check and history secret scan all passed"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/data",
+      "cwd": "repo root",
+      "commitSha": "0e77a52",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": 44,
+        "failed": 13
+      },
+      "resultSummary": "RED (security-review regressions): 13 failed / 31 passed. The forced race produced a live approval on a superseded asset and provider-account revision; a VALID webhook after an INVALID one was reported duplicate; ancestor/descendant legal holds were bypassed; cross-tenant and untenanted secret refs were accepted; humans/devices could write server-produced ledger kinds; a machine token could be replayed."
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "a443d86",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 498,
+        "integration": 45,
+        "m02Integration": 44,
+        "byFile": {
+          "packages/data/test/t009-migration-forward-fix.int.test.ts": 7,
+          "packages/data/test/t009-legal-hold-scope.int.test.ts": 4,
+          "packages/data/test/t010-cross-tenant-denial.int.test.ts": 12,
+          "packages/data/test/t010-webhook-secret-refs.int.test.ts": 2,
+          "packages/data/test/t011-role-authority-denial.int.test.ts": 8,
+          "packages/data/test/t011-evidence-authority.int.test.ts": 5,
+          "packages/data/test/t011-approval-race.int.test.ts": 2,
+          "packages/data/test/t012-outbox-restart-recovery.int.test.ts": 4
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration, build, pack check and history secret scan all passed after the security fixes"
+    }
+  ],
+  "redEvidence": "T-009..T-012 committed first (cb0d7c4) and failed: 4 files, 0 tests, because @uptimebuyer/data had no source. First green run then exposed three fixture defects (dataset events colliding with real assignment event versions, an overlap probe hitting the exclusion constraint before the FK under test, a name[] array not parsed) and two implementation defects (Postgres regex repetition limit in 0005 before it was committed; the effective-policy lookup not selecting its lateral column). Fixture fixes are in d4667c0; no assertion was loosened.",
+  "evidence": [
+    "T-009: clean migrate applies 0000..0006 then is a checksum-stable no-op; a two-tenant representative dataset seeded only through repositories survives a later additive migration byte-for-byte (per-table content digests); a failing migration rolls back atomically with data unchanged, is withdrawn and replaced by a forward fix; editing an applied migration is refused; registry provenance (actor, source, time, digest) for TENANT, SITE, ASSET, DEVICE, SENSOR_CHANNEL, WARRANTY, APPROVED_VENDOR, FOOD_AT_RISK with prior revisions readable; asset identity edit appends a revision, advances the pointer, rebinds the device and invalidates the bound approval via an append-only event while the approval row and old revision are unchanged; the same-asset pointer FK and the interval exclusion constraint hold; UPDATE/DELETE/TRUNCATE rejected on 15 append-only tables plus one-shot stamps and outbox content.",
+    "T-010: structural gate (every tenant-owned table has NOT NULL tenant_id, a (tenant_id,id) key, and every FK leads with tenant_id); 14 direct-ID read/write probes return an error identical to a nonexistent ID, leave tenant B's data digest unchanged and are audited in tenant A only (requested IDs stored as digests); composite FKs reject six foreign-parent inserts; filters/listings/exports contain only the caller tenant; outbox envelopes and consumer contexts take the tenant from the durable row even when the payload claims another; jobs run under their row tenant with tenant-namespaced dedupe keys; object keys are tenant-prefixed and the DB CHECK refuses a foreign prefix; caches are tenant-keyed; webhook bindings resolve the tenant server-side and the same provider event id is independent per tenant/account; X-Tenant-ID non-member, nonexistent and malformed values give identical 403s with digest-only security audit; forged/cloned contexts are rejected.",
+    "T-011: 17 actions x 11 identities (viewer, operator, maintenance_approver, finance_approver, engineer, admin, site-scoped admin, auditor, device, service, integration) match an expected allow matrix with everything else denied; site scope, SITE_REQUIRED, exact minor-unit bounds (50000 ok, 50001 denied), currency mismatch, missing amount/policy, approval-kind and action-class mismatch, and INV-15 engineer-only classes despite a misconfigured policy rule; repository enforcement with audited denials; revoked role and revoked device lose authority; tokens are not interchangeable across principal kinds and bad/expired/wrong-key/unknown tokens fail closed.",
+    "T-012: 26 domain commands commit state plus outbox rows with no publisher; a publisher killed after claim (lease left behind), one killed after delivery before ack, and a real child process SIGKILLed while holding row locks (skipped meanwhile via SKIP LOCKED) lose nothing; four restarted concurrent publishers drain everything; redelivery happened and the idempotent consumer applied each event exactly once (fed every physical delivery twice); a failed consumer rolls back its receipt; per-aggregate versions are contiguous; six healthy concurrent publishers deliver 200 events exactly once physically; same-version re-append is idempotent, conflicting payload is VERSION_CONFLICT, rolled-back transactions leave no event, forged envelopes are refused; a job whose worker died is reclaimed after its lease, the stale worker cannot complete it, and exhausted jobs dead-letter.",
+    "Security review fixes (a443d86): legal holds resolve the tenant>site>asset>incident chain and block erasure on any ancestor/descendant overlap; evidence ledger kind/trust/correction rules per principal with a server-only appendSystemEvidence path; recordApproval locks asset/provider-account rows FOR SHARE before re-reading the current pointer, proven by a deterministic race (a session row-locks the site so the approval insert stalls after its checks); only VALID webhook deliveries hold the replay key; secret refs bound to the owning tenant in code and by CHECK; machine-token jti single use."
+  ],
+  "verification": ["pnpm verify exit 0 at a5117d0 and again at a443d86 (see commands)"],
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN",
+    "realIdentityProvider": "NOT_RUN (OIDC verified only against a locally generated ES256 JWKS)",
+    "secretStore": "NOT_RUN (CredentialResolver exercised only with InMemoryCredentialResolver)"
+  },
+  "schemaOrApiChanges": [
+    "New tables: tenants, users, tenant_memberships, sites, service_identities, integration_identities, role_assignments, registry_revisions, assets, asset_revisions, devices, device_asset_assignments, sensor_channels, sensor_channel_revisions, policies, policy_revisions, evidence_blobs, evidence_revisions, evidence_revision_items, evidence_ledger_entries, approvals, approval_events, outbox_events, outbox_consumer_receipts, jobs, audit_entries, security_audit_entries, provider_accounts, provider_account_revisions, webhook_deliveries, legal_holds, privacy_requests, redaction_tombstones.",
+    "SQL helpers: ub_id_ok, ub_secret_ref_ok, ub_forbid_mutation, ub_allow_stamp_only, ub_make_append_only(tbl, VARIADIC stamp_cols) (later modules call it for their append-only tables), ub_outbox_guard.",
+    "No HTTP endpoints; no contract package changes. Storage-local ID prefixes (mbr, rla, itg, rgr, dasg, chn, chr, plc, ape, aud, sau, job, whd, vnd, lgh, prq, rdt) live in @uptimebuyer/data DATA_ID_PREFIXES.",
+    "0007_m02_security_hardening.sql: ub_tenant_secret_ref_ok + CHECKs on devices, service_identities, integration_identities, provider_account_revisions; webhook replay key becomes partial unique WHERE signature_result='VALID'; assets UNIQUE (tenant_id, site_id, id); legal_holds/privacy_requests gain site_id, asset_id, incident_id with composite FKs and scope-chain CHECK (NOT VALID for pre-existing rows); evidence_ledger_entries at most one correction per entry; new principal_token_uses (jti replay cache).",
+    "API: placeLegalHold/createPrivacyRequest take parentAssetId for INCIDENT scope; new appendSystemEvidence(client, ctx, input) for server-produced ledger kinds; appendLedgerEvidence now restricted per principal kind; credentialRef/webhookVerifierRef must be secretref:<ns>/tenants/<tenantId>/<path>."
+  ],
+  "migrationOrRollback": [
+    "Forward-only; each migration is one transaction and fails atomically. Recovery is a forward fix (new higher-numbered migration) or, for destructive changes, restore from a verified backup and roll forward; see packages/data/migrations/README.md. T-009 exercises failure rollback and forward fix.",
+    "Code rollback before any later module depends on it: revert the four M02 commits on a database that never ran 0001..0006; once applied, do not delete the files (checksums are recorded)."
+  ],
+  "specAmbiguitiesResolved": [
+    "DATA-MODEL tenant_memberships.role is realised as site-scoped role_assignments rows referencing (tenant_id, user_id) memberships, so one member can hold several roles at different sites.",
+    "Roles: SECURITY.md minimum roles (viewer, operator, maintenance_approver, finance_approver, admin, auditor) plus engineer (INV-15 named engineer); 'approver' maps to maintenance_approver (PLAN_ACTION) and finance_approver (BUDGET_ADJUSTMENT). Services hold only 'worker', integrations only 'integration'; devices hold no roles (telemetry.ingest at their own site is implied).",
+    "DATA-MODEL tenant_policies is realised as policies (stable key AUTHORITY | RETENTION) plus immutable policy_revisions; ids use the contracts policyRevision prefix 'pol' and every reference column is policy_revision_id.",
+    "approvals.revoked_at is replaced by append-only approval_events (REVOKED | INVALIDATED | CONSUMED, unique per approval), so revocation/invalidation never edits the signed row; executable = no event and not expired.",
+    "'Immutable' revision tables that the spec gives superseded_at/valid_to columns allow exactly one NULL->value stamp on those columns and nothing else; fully append-only tables reject every UPDATE.",
+    "users.external_subject is globally unique per DATA-MODEL; issuer is stored and must match on sign-in.",
+    "FR-01 warranty, approved vendor and food-at-risk values are versioned through registry_revisions with zod-validated bodies (money as minor units + currency) instead of separate typed tables; typed tables carry identity data that other decisions bind to.",
+    "Denials that cannot resolve a resource (foreign or nonexistent) use the existing FORBIDDEN code with reasonCode RESOURCE_UNAVAILABLE (contracts has no NOT_FOUND code); the caller's audit stores only a digest of the requested id. In-tenant site-scope read denials look identical.",
+    "X-Tenant-ID rejections and unknown webhook bindings are recorded in a platform security_audit_entries table (no tenant attribution, requested value as SHA-256 digest) because recording them under the requested tenant would itself test that tenant's existence.",
+    "Outbox delivery uses a committed lease (lease_owner/lease_expires_at) claimed with FOR UPDATE SKIP LOCKED rather than holding a transaction open across the sink call; at-least-once delivery plus consumeOnce receipts gives once-logical processing keyed by eventId.",
+    "incident_id columns (approvals, evidence_revisions, ledger) are prefix-checked text until M04 creates incidents; M04 must add the composite (tenant_id, incident_id) FKs in its own migration.",
+    "Row-level security is not enabled: the dev role is a superuser (RLS would be bypassed and untestable). withTenantTransaction sets app.tenant_id for a later RLS policy as defence in depth.",
+    "The trust enum has no DEVICE_AUTHENTICATED value; authenticated device telemetry-derived ledger input uses AUTHORITATIVE, constrained to MATERIAL_INPUT, a telemetry.* payload schema and the device itself as subject (no contract change).",
+    "Incidents are not yet a table, so an INCIDENT hold/request scope must name its asset (checked against recorded evidence revisions and approvals); M04 should derive it from incidents."
+  ],
+  "unresolvedRisks": [
+    "Privacy lifecycle is state only: legal holds and privacy requests are durable and holds block deletion/redaction requests, but no retention/erasure worker or cryptographic erasure of governed payloads exists yet; no owned test covers FR-23 directly.",
+    "Policy/procedure revisions beyond AUTHORITY and RETENTION (safety classes, thresholds, recovery windows, escalation, integration settings) need new policy keys and schemas from the modules that own them.",
+    "Asset identity change enqueues plan.revalidate_for_asset_revision jobs; no handler exists until M08.",
+    "T-010/T-011 over telemetry, signoffs, budget, attempts and recovery bindings must be re-run by M03/M09/M10/M11 against their tables (TEST-PLAN coverage rule).",
+    "Machine tokens are HS256 with per-principal secrets and a 5-minute lifetime. A token id is now accepted once (principal_token_uses), which rejects whole-token replay; nothing yet prunes expired rows. M03 must still deduplicate telemetry by (tenant, channel, boot_id, sequence), because a device may legitimately resend data under a fresh token.",
+    "Legacy (pre-0007) INCIDENT holds have no recorded asset; their NULL site/asset makes them overlap every site- and asset-level request in the tenant (fail closed)."
+  ],
+  "nextModuleInputs": [
+    "Tables (all tenant-owned have tenant_id + (tenant_id,id) key + composite FKs): tenants, users, tenant_memberships, sites, service_identities, integration_identities, role_assignments, registry_revisions, assets, asset_revisions, devices, device_asset_assignments, sensor_channels, sensor_channel_revisions, policies, policy_revisions, evidence_blobs, evidence_revisions, evidence_revision_items, evidence_ledger_entries, approvals, approval_events, outbox_events, outbox_consumer_receipts, jobs, audit_entries, security_audit_entries, provider_accounts, provider_account_revisions, webhook_deliveries, legal_holds, privacy_requests, redaction_tombstones.",
+    "Migrations: add NNNN_mXX_topic.sql (next free number 0008) under packages/data/migrations; make append-only tables with SELECT ub_make_append_only('table'[, 'stamp_col', ...]); composite FKs to (tenant_id, id) or (tenant_id, parent_id, id) keys (asset_revisions, sensor_channel_revisions, provider_account_revisions expose (tenant_id, <parent>_id, id)).",
+    "TenantContext/authentication: authenticateHuman(pool, HumanOidcVerifier|HumanSessionVerifier, authorizationHeader), authenticateDevice/authenticateService/authenticateIntegration(pool, CredentialResolver, token), signPrincipalToken(kind, id, key) -> resolveTenantContext(pool, auth, xTenantIdHeader) -> TenantContext; assertTenantContext; withTenantTransaction(pool, ctx, fn).",
+    "Authorization: ACTIONS, ROLES, HUMAN_ROLES, authorize(ctx, {action, siteId, approvalKind, actionClass, amount}, AuthorityPolicy) -> {allowed, reasonCode}, requireAuthorized, readableSites, AuthorityPolicySchema, ENGINEERING_ACTION_CLASSES; adding an action means extending ACTIONS and T-011's matrix.",
+    "Repositories: provisionTenant, upsertUser, updateTenantProfile, addMembership, assignRole, revokeRole, registerServiceIdentity, registerIntegrationIdentity; createSite, updateSite, getSite, listSites; registerAsset, reviseAssetIdentity, getAsset, listAssets, getAssetRevision, listAssetRevisions; registerDevice, setDeviceStatus, assignDeviceToAsset, listDeviceAssignments; createSensorChannel, reviseSensorChannel, listSensorChannelRevisions; recordRegistryEdit, listRegistryRevisions; publishPolicyRevision, getEffectivePolicyRevision; registerEvidenceBlob, commitEvidenceRevision, appendLedgerEvidence, readEvidenceLedger, exportEvidenceLedger; recordApproval, getApprovalStatus, revokeApproval; createProviderAccount, appendProviderAccountRevision, getProviderAccount, resolveWebhookBinding, recordWebhookDelivery, findWebhookDelivery; placeLegalHold, releaseLegalHold, createPrivacyRequest; listAuditEntries, exportAuditEntries, recordAudit, listSecurityAuditEntries; tenantObjectKey, assertObjectKeyInTenant, TenantScopedCache.",
+    "Outbox/jobs: appendOutboxEvent(client, ctx, {eventType, aggregateType, aggregateId, aggregateVersion, payload, correlationId, causationId}) inside the domain transaction (idempotent per aggregate version+type); new OutboxPublisher(pool, sink, {workerId, batchSize, leaseMs, faults}).runOnce()/drain({waitForLeases}); consumeOnce(pool, consumerName, envelope, (client, ctx) => ...) -> PROCESSED | DUPLICATE; enqueueJob(client, ctx, {kind, payload, dedupeKey, maxAttempts}), claimJobs(pool, {workerId, kinds, leaseMs}) -> [{job, ctx}], completeJob, failJob.",
+    "Events already emitted: device.asset_assignment_changed.v1, sensor_channel.revision_changed.v1, evidence.revision_committed.v1, approval.recorded.v1. Job kind emitted: plan.revalidate_for_asset_revision (M08 handles).",
+    "Test helpers: packages/data/test/helpers.ts (createTestDatabase, TestIdentityProvider, seedTenant, humanContext) and dataset.ts (seedRepresentativeDataset) for re-running T-009/T-010/T-011 against later tables.",
+    "Ledger writers: request handlers use appendLedgerEvidence (human operator-attested material input, device telemetry input); server modules record APPROVAL/POLICY_DECISION/EXTERNAL_ACTION/PAYMENT_STATE/RECEIPT/RECOVERY_DECISION/MODEL_PROPOSAL via appendSystemEvidence inside their domain transaction under a worker or service-worker context. Secret refs: secretref:<ns>/tenants/<tenantId>/<path>."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M02 completed and locally verified storage, migrations, tenant isolation, principal authentication, RBAC authority and transactional-outbox code against a local PostgreSQL 17 container; no real identity provider, secret store, provider, Kite payment, deployment, sensor or recovery evidence exists, and all of it remains NOT_RUN."
+}
