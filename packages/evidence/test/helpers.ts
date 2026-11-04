@@ -179,7 +179,7 @@ export function excerptCitations(req: ReasonerRequest, needle: string) {
  */
 export function proposalFor(
   req: ReasonerRequest,
-  overrides: Partial<ReasoningProposal> = {},
+  overrides: Record<string, unknown> = {},
   needle = 'Evaporator fan motor',
 ): ReasoningProposal {
   const cites = excerptCitations(req, needle).slice(0, 2);
@@ -190,7 +190,7 @@ export function proposalFor(
     locator: e.locator,
     quote: needle,
   });
-  return {
+  const proposal = {
     schemaVersion: 1,
     incidentId: req.packet.incident.incidentId,
     evidenceRevisionId: req.packet.binding.evidenceRevisionId,
@@ -229,6 +229,7 @@ export function proposalFor(
     summary: 'Evaporator fan motor likely failed; replacement candidate cited from manual and BOM.',
     ...overrides,
   };
+  return proposal as unknown as ReasoningProposal;
 }
 
 /** Runtime-assembled canary that looks like a credential (never committed as a literal). */

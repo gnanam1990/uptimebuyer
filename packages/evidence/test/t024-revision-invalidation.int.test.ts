@@ -165,7 +165,13 @@ describe('T-024 evidence revision invalidates stale proposal', () => {
       w.db.pool,
       w.admin,
       asset.assetId,
-      { ...before.current, bomRevision: 'BOM-8' } as never,
+      {
+        manufacturer: before.current.manufacturer,
+        model: before.current.model,
+        serial: before.current.serial,
+        safetyClass: before.current.safetyClass,
+        bomRevision: 'BOM-8',
+      },
       { expectedVersion: before.version, source: 'API' },
     );
     const [r4] = await refreshEvidenceForAsset(w.db.pool, w.service, w.store, asset.assetId, {

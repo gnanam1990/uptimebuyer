@@ -1,7 +1,7 @@
 // T-021 (storage layer) — cited bytes are re-openable only if the object store is content-addressed, immutable and
 // confined to its tenant namespace: keys are validated, traversal and symlink escapes are refused, an existing object
 // is never overwritten and reads verify the digest named by the key.
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -55,6 +55,8 @@ describe('T-021 content-addressed object store', () => {
     const digest = sha256Of(bytes);
     const key = objectKeyFor(tenant, 'evidence', digest);
     await store.put(key, bytes);
+    // Objects are written read-only; an attacker with filesystem access has to change that first.
+    chmodSync(join(root, key), 0o640);
     writeFileSync(join(root, key), 'tampered');
     expect(await code(store.get(key))).toBe('OBJECT_INTEGRITY_FAILED');
   });

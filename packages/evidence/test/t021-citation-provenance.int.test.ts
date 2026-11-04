@@ -1,7 +1,7 @@
 // T-021 — Manual and BOM citation provenance (FR-05, INV-03, INV-10). Retrieval from a versioned manual and parts list
 // returns exact page/record citations, asset binding, content hash and source; the cited text re-opens from the
 // immutable object and verifies against the recorded digest. Only documents for the exact asset revision apply.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CitationSchema } from '@uptimebuyer/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -161,6 +161,7 @@ describe('T-021 manual and BOM citation provenance', () => {
         query: 'WO-9 condenser',
       })
     ).find((h) => h.documentId === doc.documentId)!;
+    chmodSync(join(w.storeRoot, doc.objectKey), 0o640);
     writeFileSync(join(w.storeRoot, doc.objectKey), 'tampered bytes');
     const r = await rejection(reopenCitation(w.db.pool, w.people.operator!.ctx, w.store, hit.citation.citationId));
     expect(r.reasonCode).toBe('OBJECT_INTEGRITY_FAILED');
