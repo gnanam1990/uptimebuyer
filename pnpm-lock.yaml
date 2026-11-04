@@ -39,6 +39,55 @@ importers:
         specifier: 5.1.0
         version: 5.1.0(@types/node@22.20.5)(vite@8.3.5(@types/node@22.20.5))
 
+  apps/kite-broker:
+    dependencies:
+      '@uptimebuyer/commerce':
+        specifier: workspace:*
+        version: link:../../packages/commerce
+      '@uptimebuyer/compatibility':
+        specifier: workspace:*
+        version: link:../../packages/compatibility
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@uptimebuyer/data':
+        specifier: workspace:*
+        version: link:../../packages/data
+      '@uptimebuyer/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@uptimebuyer/kite-contracts':
+        specifier: workspace:*
+        version: link:../../packages/kite-contracts
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      '@uptimebuyer/evidence':
+        specifier: workspace:*
+        version: link:../../packages/evidence
+      '@uptimebuyer/incidents':
+        specifier: workspace:*
+        version: link:../../packages/incidents
+      '@uptimebuyer/planning':
+        specifier: workspace:*
+        version: link:../../packages/planning
+      '@uptimebuyer/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@uptimebuyer/sensor-gateway':
+        specifier: workspace:*
+        version: link:../sensor-gateway
+      '@uptimebuyer/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
+
   apps/sensor-gateway:
     dependencies:
       '@uptimebuyer/contracts':
@@ -66,6 +115,31 @@ importers:
       jose:
         specifier: 6.2.12
         version: 6.2.12
+
+  packages/commerce:
+    dependencies:
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@uptimebuyer/data':
+        specifier: workspace:*
+        version: link:../data
+      '@uptimebuyer/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@uptimebuyer/kite-contracts':
+        specifier: workspace:*
+        version: link:../kite-contracts
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
 
   packages/compatibility:
     dependencies:
