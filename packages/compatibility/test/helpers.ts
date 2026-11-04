@@ -58,7 +58,7 @@ export const DATASHEET = (): IngestDocumentInput => ({
       '',
       'Frequency: 60 Hz',
       '',
-      'Certification: UL 471 listed for commercial refrigerators',
+      'Certification: UL 471',
       '',
     ].join('\n'),
   ),
@@ -277,7 +277,7 @@ export async function exactCandidate(
   over: Partial<RegisterCandidateInput> = {},
   who: Person = w.people.operator!,
 ) {
-  const cert = await citationFor(w, inc.evidenceRevisionId, 'UL 471 listed', 'Northwind 5A1-0402 data sheet');
+  const cert = await citationFor(w, inc.evidenceRevisionId, 'Certification UL 471', 'Northwind 5A1-0402 data sheet');
   return registerCandidateAction(w.db.pool, who.ctx, {
     incidentId: inc.incidentId,
     kind: 'PART_PURCHASE',

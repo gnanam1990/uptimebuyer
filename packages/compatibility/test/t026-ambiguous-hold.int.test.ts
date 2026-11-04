@@ -161,7 +161,7 @@ describe('T-026 ambiguous compatibility hold (persisted)', () => {
     const foreignCite = await citationFor(
       w,
       other.evidenceRevisionId,
-      'UL 471 listed',
+      'Certification UL 471',
       'Northwind 5A1-0402 data sheet',
     );
     const r = await rejection(
