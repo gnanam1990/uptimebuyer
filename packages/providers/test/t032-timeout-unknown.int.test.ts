@@ -36,6 +36,7 @@ import {
   publishBrokerEvents,
   rejection,
   type ProviderWorld,
+  pointOf,
 } from './helpers.js';
 
 let w: ProviderWorld;
@@ -52,6 +53,7 @@ async function scenario(label: string) {
   const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
     incidentId: w.incident.incidentId,
     serviceProviderId: sp['cl-001']!,
+    contactPointId: pointOf(sp['cl-001']!, 'API'),
     providerAccountId: acct.providerAccountId,
     channel: 'API',
     purposeCode: 'QUOTE',
@@ -240,6 +242,7 @@ describe('T-032 provider timeout becomes unknown', () => {
     const blockedByRevision = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['fr-207']!,
+      contactPointId: pointOf(sp['fr-207']!, 'EMAIL'),
       providerAccountId: noEmail.providerAccountId,
       channel: 'EMAIL',
       purposeCode: 'QUOTE',
@@ -265,6 +268,7 @@ describe('T-032 provider timeout becomes unknown', () => {
     const blockedByAdapter = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['fr-207']!,
+      contactPointId: pointOf(sp['fr-207']!, 'EMAIL'),
       providerAccountId: apiOnly.providerAccountId,
       channel: 'EMAIL',
       purposeCode: 'QUOTE',
@@ -285,6 +289,7 @@ describe('T-032 provider timeout becomes unknown', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['fr-207']!,
+      contactPointId: pointOf(sp['fr-207']!, 'EMAIL'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'EMAIL',
       purposeCode: 'QUOTE',
@@ -310,6 +315,7 @@ describe('T-032 provider timeout becomes unknown', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['cl-001']!,
+      contactPointId: pointOf(sp['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'ARRIVAL_ESTIMATE',
@@ -415,6 +421,7 @@ describe('T-032 provider timeout becomes unknown', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['cl-001']!,
+      contactPointId: pointOf(sp['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'DIAGNOSTIC_COMMITMENT',

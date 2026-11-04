@@ -57,6 +57,7 @@ import {
   StaticAdapterRegistry,
   StructuredProviderApiAdapter,
   endpointPolicyDigest,
+  reviewContactPoint,
   runProviderSearch,
   type EndpointPolicy,
   type ProviderHttpResponse,
@@ -197,8 +198,20 @@ export async function createProviderWorld(label: string): Promise<ProviderWorld>
   };
 }
 
-/** Run the bounded search against the unpaid account and return the discovered provider ids by external ref. */
-export async function discover(w: ProviderWorld, ctx: TenantContext = w.operator.ctx) {
+/** Discovered contact point ids by service provider and channel (contact values never leave the server). */
+export const POINTS = new Map<string, string>();
+export function pointOf(serviceProviderId: string, channel: string): string {
+  const id = POINTS.get(`${serviceProviderId}|${channel}`);
+  if (!id) throw new Error(`no ${channel} contact point discovered for ${serviceProviderId}`);
+  return id;
+}
+
+/**
+ * Run the bounded search against the unpaid account and return the discovered provider ids by external ref. By
+ * default an admin reviews (VERIFIES) every discovered contact point, so scenarios may contact a provider through
+ * another account; the injection tests pass `verify: false`.
+ */
+export async function discover(w: ProviderWorld, ctx: TenantContext = w.operator.ctx, opts: { verify?: boolean } = {}) {
   const search = await runProviderSearch(
     w.db.pool,
     ctx,
@@ -212,6 +225,12 @@ export async function discover(w: ProviderWorld, ctx: TenantContext = w.operator
     { adapters: w.adapters, credentials: w.creds },
   );
   const byRef = Object.fromEntries(search.results.map((r) => [r.discovery.externalRef, r.provider.serviceProviderId]));
+  for (const r of search.results)
+    for (const cp of r.contactPoints) {
+      POINTS.set(`${r.provider.serviceProviderId}|${cp.channel}`, cp.contactPointId);
+      if ((opts.verify ?? true) && cp.reviewState !== 'VERIFIED')
+        await reviewContactPoint(w.db.pool, w.admin, { contactPointId: cp.contactPointId, decision: 'VERIFIED' });
+    }
   return { search, byRef: byRef as Record<string, string> };
 }
 

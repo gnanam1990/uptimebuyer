@@ -33,6 +33,7 @@ import {
   rejection,
   type Person,
   type ProviderWorld,
+  pointOf,
 } from './helpers.js';
 
 let a: ProviderWorld;
@@ -58,6 +59,7 @@ describe('T-010 / T-011 provider, contact, communication, quote and webhook scop
     const prepared = await prepareContactRequest(a.db.pool, a.operator.ctx, {
       incidentId: a.incident.incidentId,
       serviceProviderId: byRef['cl-001']!,
+      contactPointId: pointOf(byRef['cl-001']!, 'API'),
       providerAccountId: a.unpaid.providerAccountId,
       channel: 'API',
       purposeCode: 'QUOTE',
@@ -84,7 +86,6 @@ describe('T-010 / T-011 provider, contact, communication, quote and webhook scop
       direction: 'INBOUND',
       commType: 'API_MESSAGE',
       transcriptSource: 'ADAPTER_CAPTURE',
-      sourceAdapterClass: 'SYNTHETIC_FIXTURE',
       recordingDisclosure: 'NOT_APPLICABLE',
       rawText: 'Callout 95.00 GBP, ETA 90 minutes.',
       observedAt: new Date().toISOString(),
@@ -136,6 +137,7 @@ describe('T-010 / T-011 provider, contact, communication, quote and webhook scop
         prepareContactRequest(b.db.pool, B, {
           incidentId: a.incident.incidentId,
           serviceProviderId: ids.serviceProviderId,
+          contactPointId: pointOf(ids.serviceProviderId, 'API'),
           providerAccountId: a.unpaid.providerAccountId,
           channel: 'API',
           purposeCode: 'QUOTE',
@@ -269,6 +271,7 @@ describe('T-010 / T-011 provider, contact, communication, quote and webhook scop
         prepareContactRequest(pool, viewer, {
           incidentId: a.incident.incidentId,
           serviceProviderId: ids.serviceProviderId,
+          contactPointId: pointOf(ids.serviceProviderId, 'EMAIL'),
           providerAccountId: a.unpaid.providerAccountId,
           channel: 'EMAIL',
           purposeCode: 'QUOTE',

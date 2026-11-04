@@ -28,6 +28,7 @@ import {
   rejection,
   type Person,
   type ProviderWorld,
+  pointOf,
 } from './helpers.js';
 
 let w: ProviderWorld;
@@ -65,6 +66,7 @@ describe('T-031 transcript identity and consent integrity', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['cl-001']!,
+      contactPointId: pointOf(byRef['cl-001']!, 'PHONE'),
       providerAccountId: w.unpaid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'QUOTE',
@@ -91,7 +93,6 @@ describe('T-031 transcript identity and consent integrity', () => {
       direction: 'INBOUND',
       commType: 'PHONE_TRANSCRIPT',
       transcriptSource: 'PROVIDER_TRANSCRIPTION',
-      sourceAdapterClass: 'LOCAL_FAKE',
       recordingDisclosure: 'GIVEN',
       rawText: transcript(),
       observedAt: new Date(Date.now() - 1_000).toISOString(),
@@ -106,7 +107,6 @@ describe('T-031 transcript identity and consent integrity', () => {
         direction: 'INBOUND',
         commType: 'PHONE_TRANSCRIPT',
         transcriptSource: 'PROVIDER_TRANSCRIPTION',
-        sourceAdapterClass: 'LOCAL_FAKE',
         recordingDisclosure: 'NOT_GIVEN',
         rawText: transcript(),
         observedAt: new Date().toISOString(),
@@ -124,7 +124,6 @@ describe('T-031 transcript identity and consent integrity', () => {
         direction: 'INBOUND',
         commType: 'PHONE_TRANSCRIPT',
         transcriptSource: 'PROVIDER_TRANSCRIPTION',
-        sourceAdapterClass: 'LOCAL_FAKE',
         recordingDisclosure: 'GIVEN',
         rawText: 'x',
         observedAt: new Date().toISOString(),
@@ -165,7 +164,8 @@ describe('T-031 transcript identity and consent integrity', () => {
       incidentId: w.incident.incidentId,
       commType: 'PHONE_TRANSCRIPT',
       transcriptSource: 'PROVIDER_TRANSCRIPTION',
-      sourceAdapterClass: 'LOCAL_FAKE',
+      // A human recorded it: provenance is OPERATOR, whatever adapter carried the call (server-derived).
+      sourceAdapterClass: 'OPERATOR',
       recordingDisclosure: 'GIVEN',
       retentionClass: 'COMMUNICATION_STANDARD',
       authority: 'NONE',

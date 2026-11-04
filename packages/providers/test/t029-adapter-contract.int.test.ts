@@ -35,6 +35,7 @@ import {
   providerAccount,
   rejection,
   type ProviderWorld,
+  pointOf,
 } from './helpers.js';
 import { recordRegistryEdit } from '@uptimebuyer/data';
 
@@ -191,6 +192,7 @@ describe('T-029 live-shaped provider adapter contract', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['cl-001']!,
+      contactPointId: pointOf(byRef['cl-001']!, 'API'),
       providerAccountId: w.unpaid.providerAccountId,
       channel: 'API',
       purposeCode: 'QUOTE',
@@ -254,6 +256,7 @@ describe('T-029 live-shaped provider adapter contract', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['nw-330']!,
+      contactPointId: pointOf(byRef['nw-330']!, 'API'),
       providerAccountId: w.unpaid.providerAccountId,
       channel: 'API',
       purposeCode: 'AVAILABILITY',
@@ -283,6 +286,7 @@ describe('T-029 live-shaped provider adapter contract', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['cl-001']!,
+      contactPointId: pointOf(byRef['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'ARRIVAL_ESTIMATE',
@@ -344,6 +348,7 @@ describe('T-029 live-shaped provider adapter contract', () => {
       prepareContactRequest(w.db.pool, w.operator.ctx, {
         incidentId: w.incident.incidentId,
         serviceProviderId: sp,
+        contactPointId: pointOf(sp, channel),
         providerAccountId: acct.providerAccountId,
         channel,
         purposeCode: 'QUOTE',
@@ -467,6 +472,7 @@ describe('T-029 live-shaped provider adapter contract', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['fr-207']!,
+      contactPointId: pointOf(byRef['fr-207']!, 'EMAIL'),
       providerAccountId: acct.providerAccountId,
       channel: 'EMAIL',
       purposeCode: 'QUOTE',

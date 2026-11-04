@@ -32,6 +32,7 @@ import {
   rejection,
   type Person,
   type ProviderWorld,
+  pointOf,
 } from './helpers.js';
 
 let w: ProviderWorld;
@@ -183,6 +184,7 @@ describe('FR-20 notification routing, dedupe and deep-link context (delivery sid
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['cl-001']!,
+      contactPointId: pointOf(byRef['cl-001']!, 'API'),
       providerAccountId: w.unpaid.providerAccountId,
       channel: 'API',
       purposeCode: 'QUOTE',
@@ -216,6 +218,7 @@ describe('FR-20 notification routing, dedupe and deep-link context (delivery sid
     const paid = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: byRef['cl-001']!,
+      contactPointId: pointOf(byRef['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'QUOTE',

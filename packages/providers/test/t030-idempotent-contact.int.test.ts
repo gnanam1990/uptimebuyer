@@ -25,6 +25,7 @@ import {
   fx,
   rejection,
   type ProviderWorld,
+  pointOf,
 } from './helpers.js';
 
 let w: ProviderWorld;
@@ -54,6 +55,7 @@ describe('T-030 idempotent provider contact', () => {
   const unpaidInput = (key: string, purposeCode: 'QUOTE' | 'AVAILABILITY' = 'QUOTE') => ({
     incidentId: w.incident.incidentId,
     serviceProviderId: sp['cl-001']!,
+    contactPointId: pointOf(sp['cl-001']!, 'API'),
     providerAccountId: w.unpaid.providerAccountId,
     channel: 'API' as const,
     purposeCode,
@@ -91,6 +93,7 @@ describe('T-030 idempotent provider contact', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       ...unpaidInput(w.key('prep-u')),
       serviceProviderId: sp['nw-330']!,
+      contactPointId: pointOf(sp['nw-330']!, 'API'),
     });
     const k = w.key('exec');
     const results = await Promise.all([
@@ -151,6 +154,7 @@ describe('T-030 idempotent provider contact', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['cl-001']!,
+      contactPointId: pointOf(sp['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'QUOTE',
@@ -211,6 +215,7 @@ describe('T-030 idempotent provider contact', () => {
     const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['cl-001']!,
+      contactPointId: pointOf(sp['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'AVAILABILITY',
@@ -233,6 +238,7 @@ describe('T-030 idempotent provider contact', () => {
     const other = await prepareContactRequest(w.db.pool, w.operator.ctx, {
       incidentId: w.incident.incidentId,
       serviceProviderId: sp['cl-001']!,
+      contactPointId: pointOf(sp['cl-001']!, 'PHONE'),
       providerAccountId: w.paid.providerAccountId,
       channel: 'PHONE',
       purposeCode: 'DIAGNOSTIC_COMMITMENT',
