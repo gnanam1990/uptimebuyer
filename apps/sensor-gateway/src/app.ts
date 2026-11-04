@@ -259,7 +259,9 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
     const reserved: [RateBuckets, string][] = [];
     if (!recognised) {
       let needSource = true;
-      if (kid && credentialAttempts.take(pairKey, 1).ok) {
+      // The (source, credential) allowance only applies to a credential this gateway has authenticated before.
+      // An unknown or random kid always spends the per-source budget, so rotating kids cannot defeat the cap.
+      if (kid && known && credentialAttempts.take(pairKey, 1).ok) {
         reserved.push([credentialAttempts, pairKey]);
         needSource = !credentialFailures.has(kid, 1);
       }
