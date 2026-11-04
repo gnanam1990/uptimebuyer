@@ -39,6 +39,7 @@ import {
   type RuleRevisionRecord,
 } from './config.js';
 import { computeOriginalDeadline } from './deadline.js';
+import { appendDeadlineEvent } from './deadline-store.js';
 import {
   actorFor,
   bumpRow,
@@ -522,6 +523,16 @@ export async function reopenRow(
   reasonCode: string,
   trigger: 'TELEMETRY_RULE' | 'MANUAL_REPORT' | 'OPERATOR_COMMAND',
 ): Promise<IncidentRow> {
+  // A reopened incident never presents a deadline that already passed as running (or met): under the pinned procedure
+  // the ledger records EXPIRE first; the original deadline and its basis are untouched.
+  const now = await dbNow(c);
+  if (row.deadline_status === 'RUNNING' && ms(row.current_response_deadline_at) <= ms(now))
+    row = await appendDeadlineEvent(c, ctx, row, {
+      eventType: 'EXPIRE',
+      reasonCode: 'DEADLINE_PASSED_BEFORE_REOPEN',
+      effectiveAt: now,
+      role: null,
+    });
   const reopened = await transitionRow(c, ctx, row, 'REOPENED', reasonCode, {
     extraSet:
       'recovered_at = NULL, reopen_count = reopen_count + 1, acknowledged_at = NULL, acknowledged_by_user_id = NULL',

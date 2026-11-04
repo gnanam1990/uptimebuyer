@@ -115,7 +115,7 @@ describe('T-011 incident role and authority denial', () => {
       code: 'FORBIDDEN',
       reasonCode: 'PRINCIPAL_KIND_NOT_PERMITTED',
     });
-    for (const to of ['PLANNING', 'RECOVERED'] as const)
+    for (const to of ['PLANNING', 'ESCALATED'] as const)
       expect(
         await rejection(
           advanceIncident(w.db.pool, w.admin, inc.incidentId, {

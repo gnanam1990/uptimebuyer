@@ -3,9 +3,9 @@
 // carries every pinned reference, the authoritative deadline projection (original and current), the current owner and
 // the optional risk estimates separately labelled NON_AUTHORITATIVE.
 import { UtcInstantSchema, type IncidentState } from '@uptimebuyer/contracts';
-import { readableSites, tenantCommand, type Db, type TenantContext, type Tx } from '@uptimebuyer/data';
+import { dbNow, readableSites, tenantCommand, type Db, type TenantContext, type Tx } from '@uptimebuyer/data';
 import { z } from 'zod';
-import { canRead, isoOf, isoOrNull, loadIncident, parseInput, type IncidentRow } from './internal.js';
+import { canRead, isoOf, isoOrNull, loadIncident, ms, parseInput, type IncidentRow } from './internal.js';
 
 export interface AssignmentView {
   assignmentId: string;
@@ -57,6 +57,8 @@ export interface IncidentView {
   deadlineStatus: 'RUNNING' | 'PAUSED' | 'EXPIRED';
   deadlinePausedAt: string | null;
   deadlineExtendedMs: number;
+  /** True when the authoritative deadline is EXPIRED or a RUNNING deadline has passed (never "met" by recovery). */
+  deadlineOverdue: boolean;
   currentAssignment: AssignmentView | null;
   acknowledgedAt: string | null;
   acknowledgedByUserId: string | null;
@@ -223,6 +225,9 @@ async function toView(c: Tx, row: IncidentRow): Promise<IncidentView> {
     deadlineStatus: row.deadline_status,
     deadlinePausedAt: isoOrNull(row.deadline_paused_at),
     deadlineExtendedMs: Number(row.deadline_extended_ms),
+    deadlineOverdue:
+      row.deadline_status === 'EXPIRED' ||
+      (row.deadline_status === 'RUNNING' && row.current_response_deadline_at.getTime() <= ms(await dbNow(c))),
     currentAssignment,
     acknowledgedAt: isoOrNull(row.acknowledged_at),
     acknowledgedByUserId: row.acknowledged_by_user_id,
