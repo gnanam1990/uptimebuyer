@@ -3,6 +3,8 @@
   "references": [
     { "path": "./tests" },
     { "path": "./packages/contracts" },
-    { "path": "./packages/contracts/test" }
+    { "path": "./packages/contracts/test" },
+    { "path": "./packages/domain" },
+    { "path": "./packages/domain/test" }
   ]
 }
