@@ -27,6 +27,7 @@ import {
   canonicalDigest,
   computeActionDigest,
   normalizeComponentKey,
+  normalizeFactValue,
   normalizeManufacturer,
   normalizePartNumber,
   type Explanation,
@@ -108,7 +109,7 @@ export interface ResolvedClaim {
   role: string;
   sourceKind: string;
   trustLevel: string;
-  basis: 'CITED_EXACT_TEXT' | 'SELLER_TEXT';
+  basis: 'CITED_EXACT_TEXT' | 'SEMANTIC_MATCH' | 'SELLER_TEXT';
   observedAt: UtcInstant;
 }
 
@@ -147,6 +148,12 @@ export interface CandidateActionView extends Omit<CandidateRegistration, 'create
 
 const squash = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
+/**
+ * Resolve a cited claim. The citation must belong to the bound evidence revision and its span must contain the
+ * claimed text (else the claim is refused). It is an exact citation only when M05 extracted a fact with the expected
+ * key and an exactly equal normalized value from that very span; containment alone is a SEMANTIC_MATCH, and a
+ * seller-authored source is SELLER_TEXT. Neither can ever be authoritative (INV-04).
+ */
 async function resolveClaim(
   c: Tx,
   ctx: TenantContext,
@@ -154,19 +161,28 @@ async function resolveClaim(
   evidenceRevisionId: string,
   citationId: string,
   mustContain: string,
+  factKey: string,
 ): Promise<ResolvedClaim> {
   const { rows } = await c.query(
     `SELECT ct.id, ct.evidence_revision_id, s.id AS span_id, s.text, d.id AS document_id, d.role, d.source_kind,
-            d.trust_level, d.created_at
+            d.trust_level, d.created_at,
+            EXISTS (SELECT 1 FROM evidence_document_facts f
+                     WHERE f.tenant_id = s.tenant_id AND f.span_id = s.id AND f.fact_key = $3
+                       AND regexp_replace(btrim(f.value), '\s+', ' ', 'g') = $4) AS exact
        FROM citations ct
        JOIN evidence_document_spans s ON s.tenant_id = ct.tenant_id AND s.id = ct.span_id
        JOIN evidence_documents d ON d.tenant_id = s.tenant_id AND d.id = s.document_id
       WHERE ct.tenant_id = $1 AND ct.id = $2`,
-    [ctx.tenantId, citationId],
+    [ctx.tenantId, citationId, factKey, normalizeFactValue(mustContain)],
   );
   const r = rows[0];
   if (!r || r.evidence_revision_id !== evidenceRevisionId) throw unavailable(meta, citationId, 'citation');
   if (!squash(r.text).includes(squash(mustContain))) throw invalid('CLAIM_NOT_IN_CITATION', { citationId });
+  const basis: ResolvedClaim['basis'] = SELLER_SOURCE_KINDS.includes(r.source_kind)
+    ? 'SELLER_TEXT'
+    : r.exact === true
+      ? 'CITED_EXACT_TEXT'
+      : 'SEMANTIC_MATCH';
   return {
     citationId: r.id,
     documentId: r.document_id,
@@ -174,7 +190,7 @@ async function resolveClaim(
     role: r.role,
     sourceKind: r.source_kind,
     trustLevel: r.trust_level,
-    basis: SELLER_SOURCE_KINDS.includes(r.source_kind) ? 'SELLER_TEXT' : 'CITED_EXACT_TEXT',
+    basis,
     observedAt: isoOf(r.created_at)!,
   };
 }
@@ -229,13 +245,21 @@ export async function registerCandidateAction(
       specClaims.push({
         key: cl.key,
         value: cl.value,
-        ...(await resolveClaim(c, ctx, meta, evr.id, cl.citationId, cl.value)),
+        ...(await resolveClaim(c, ctx, meta, evr.id, cl.citationId, cl.value, `spec:${cl.key}`)),
       });
     const certificationClaims = [];
     for (const cl of input.certificationClaims)
       certificationClaims.push({
         code: cl.code,
-        ...(await resolveClaim(c, ctx, meta, evr.id, cl.citationId, cl.code)),
+        ...(await resolveClaim(
+          c,
+          ctx,
+          meta,
+          evr.id,
+          cl.citationId,
+          cl.code,
+          `spec:certification-${normalizeComponentKey(cl.code)}`,
+        )),
       });
 
     const amount = { amountMinor: input.amount.amountMinor, currency: input.amount.currency as CurrencyCode };

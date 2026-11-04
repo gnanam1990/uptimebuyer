@@ -8,7 +8,7 @@ import { rejected } from './errors.js';
 import { DOCUMENT_LIMITS } from './limits.js';
 import { extractPdfText } from './pdf.js';
 
-export const PARSER_VERSION = 'uptimebuyer-parser.v1';
+export const PARSER_VERSION = 'uptimebuyer-parser.v2';
 export const SUPPORTED_MEDIA_TYPES = Object.freeze(['application/pdf', 'text/plain', 'text/markdown', 'text/csv'] as const);
 export type SupportedMediaType = (typeof SUPPORTED_MEDIA_TYPES)[number];
 export type ParsedExtractionMethod = 'PDF_TEXT' | 'STRUCTURED_IMPORT' | 'MANUAL_ENTRY';
@@ -255,6 +255,7 @@ const SPEC_KEYS: Readonly<Record<string, string>> = {
 const DOT_LEADER = /^\s*([A-Za-z][A-Za-z0-9 ,/()'&+-]{1,80}?)\s*\.{3,}\s*([A-Za-z0-9][A-Za-z0-9./-]{2,40})\s*$/;
 const SPEC_LINE = /^\s*([A-Za-z][A-Za-z ]{2,40}?)\s*:\s*(.{1,60}?)\s*$/;
 const PART_VALUE = /^[A-Z0-9][A-Z0-9./-]{2,40}$/;
+const CERT_CODE = /^[A-Za-z0-9](?:[A-Za-z0-9 ./-]{0,38}[A-Za-z0-9])?$/;
 
 export const normalizeComponent = (s: string) =>
   s
@@ -292,7 +293,17 @@ export function extractFacts(text: string, method: ParsedExtractionMethod, spanO
     }
     const s = SPEC_LINE.exec(line);
     if (s) {
-      const key = SPEC_KEYS[s[1]!.trim().toLowerCase()];
+      const label = s[1]!.trim().toLowerCase();
+      // v2: a certification line lists exact codes; each becomes its own fact (spec:certification-<code key>), so
+      // a longer code, a negation or prose never equals a claimed code (M06 claim binding).
+      if (label === 'certification' || label === 'certifications') {
+        for (const item of s[2]!.split(/[,;]/).map((x) => normalizeSpec(x))) {
+          const key = normalizeComponent(item);
+          if (CERT_CODE.test(item) && key) add(`spec:certification-${key}`, item);
+        }
+        continue;
+      }
+      const key = SPEC_KEYS[label];
       if (key) add(`spec:${key}`, normalizeSpec(s[2]!));
     }
   }

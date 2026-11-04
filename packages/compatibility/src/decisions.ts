@@ -243,7 +243,7 @@ async function buildFacts(
   return {
     requiredPart: factOf(byKey.get(`part:${cand.component}`) ?? empty),
     requiredConstraints: [...byKey.entries()]
-      .filter(([k]) => k.startsWith('spec:'))
+      .filter(([k]) => k.startsWith('spec:') && !k.startsWith('spec:certification-'))
       .map(([k, v]) => ({ key: k.slice(5), fact: factOf(v) })),
     candidateConstraints: [...claimed.entries()]
       .sort(([a], [b]) => (a < b ? -1 : 1))
