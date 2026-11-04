@@ -74,7 +74,14 @@ provider guides) and `github.com/gokite-ai/passport-skills` (README, `docs/refer
 - **The adapter (`apps/kite-broker/src/adapters/kite-passport.ts`)** runs exactly those commands with an argument
   vector (no shell), a broker-only `HOME` state root (where `kpass` keeps its JWT/agent token/session key), a minimal
   environment, timeout and output cap. It is constructed only from explicit `KITE_PASSPORT` secret configuration;
-  otherwise the broker uses `UnconfiguredAdapter` (UNSUPPORTED, no I/O).
+  otherwise the broker uses `UnconfiguredAdapter` (UNSUPPORTED, no I/O). Every payment is bound to the authority's
+  own session: the adapter resolves the stored approval request id with `kpass session status --request-id`, refuses
+  (nothing sent) unless that session is active, and passes `--session-id` (without it kpass pays from its "current"
+  session or the account allowance). The delegation `ttl_seconds` is the authority's remaining lifetime computed from
+  the PostgreSQL clock; under 60 s the activation is refused before egress.
+- **Replay and refusals (review fixes):** same-key replay runs the same `assertExecutionPreconditionsInTx` gate as
+  linearization under the authority lock and is refused (UNKNOWN, reserved, manual) when anything is no longer current;
+  a not-sent adapter refusal counts as no-effect proof only on a first send that was never handed off.
 - **Unverified / assumed:** the wire auth header and token format; the default production API host; whether a lost
   `session create` response can be found again (no client key is accepted, so it is reconciled only by `request_id`,
   else manual); whether same-key retry of `session execute` is a provider guarantee for every outcome (the docs say
