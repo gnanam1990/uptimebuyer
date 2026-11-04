@@ -66,6 +66,8 @@ export const ACTIONS = Object.freeze({
   /** Server-side incident engine: rule evaluation, system transitions, deadline sweep (M04). */
   'incident.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
   'evidence.submit': human(['operator'], 'OPTIONAL'),
+  /** Publishing or withdrawing manufacturer (OEM) library documents: tenant-wide curators only (M05 hardening). */
+  'evidence.library_write': human(['operator', 'admin'], 'TENANT'),
   /** Evidence revisions, retrieval, search and citation re-opening at the incident's site (M05); workers may read. */
   'evidence.read': {
     principals: ['HUMAN', 'SERVICE'],

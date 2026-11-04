@@ -12,6 +12,7 @@ import {
 } from '@uptimebuyer/contracts';
 import { canonicalDigest } from '@uptimebuyer/domain';
 import {
+  requireAuthorized,
   Denial,
   actorOf,
   notPermitted,
@@ -377,6 +378,13 @@ export async function ingestDocument(
       siteId = a.rows[0].site_id;
     }
     requireEvidenceWrite(ctx, siteId, { type: 'evidence_document', id: null });
+    // Declaring a manufacturer publication is a library act: compatibility policy reads OEM_PUBLICATION as
+    // manufacturer-sourced, so a site-scoped uploader may not self-declare it, even for an asset at their own site.
+    if (input.sourceKind === 'OEM_PUBLICATION' && ctx.principal.kind === 'HUMAN')
+      requireAuthorized(ctx, { action: 'evidence.library_write', siteId: null }, undefined, {
+        type: 'evidence_document',
+        id: null,
+      });
     let supersedes: string | null = null;
     if (input.supersedesDocumentId) {
       const old = await loadDocument(c, ctx, meta, input.supersedesDocumentId);
@@ -475,6 +483,11 @@ export async function withdrawDocument(
   return tenantCommand(pool, ctx, meta, async (c) => {
     const d = await loadDocument(c, ctx, meta, documentId);
     requireEvidenceWrite(ctx, d.site_id, { type: 'evidence_document', id: d.id });
+    if (d.source_kind === 'OEM_PUBLICATION' && ctx.principal.kind === 'HUMAN')
+      requireAuthorized(ctx, { action: 'evidence.library_write', siteId: null }, undefined, {
+        type: 'evidence_document',
+        id: d.id,
+      });
     if (d.source_kind === 'REGISTRY_SNAPSHOT')
       throw new Denial(notPermitted('SNAPSHOT_NOT_WITHDRAWABLE'), {
         ...meta,
