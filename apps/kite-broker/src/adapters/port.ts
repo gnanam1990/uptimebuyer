@@ -15,6 +15,8 @@ export interface AuthorizedIntent {
   amountMinor: bigint;
   currency: string;
   providerAccountRevisionId: string;
+  /** The authority's own confirmed provider session reference; execution must use exactly this session. */
+  providerSessionRef: string | null;
 }
 
 export interface AuthorizedSessionScope {

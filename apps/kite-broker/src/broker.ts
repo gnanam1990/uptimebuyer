@@ -477,17 +477,7 @@ export class KiteBroker {
           return fail(/^[A-Z][A-Z0-9_]{0,63}$/.test(reason) ? reason : 'DECISION_NOT_EXECUTABLE');
         }
       }
-      const authorized = {
-        tenantId: ctx.tenantId,
-        commercialIntentId: i.id,
-        actionKind: f.actionKind,
-        semanticOperation: i.semantic_operation,
-        merchantId: x.merchant_id,
-        purpose: x.purpose,
-        amountMinor: BigInt(i.max_amount_minor),
-        currency: i.currency,
-        providerAccountRevisionId: i.provider_account_revision_id,
-      };
+      const authorized = this.authorizedIntent(ctx, i, x, f.actionKind, s);
       const cap = this.opts.adapter.assess(authorized);
       if (cap.kind === 'UNSUPPORTED') return fail('ADAPTER_CAPABILITY_UNSUPPORTED');
       const prepared = this.opts.adapter.prepare(authorized);
@@ -903,44 +893,88 @@ export class KiteBroker {
     return events;
   }
 
-  /** Provider-guaranteed same-key replay: re-prepare deterministically and prove the request digest is unchanged. */
+  /**
+   * Provider-guaranteed same-key replay. A replay can create the effect if the first send never landed, so it is an
+   * execution: under the authority row lock (FOR SHARE, held across the re-send so a revocation or suspension
+   * serializes behind it) every linearization check is rerun. If any fails, nothing is sent: the adapter has no
+   * non-executing lookup on this path, so the effect stays UNKNOWN and reserved and routes to manual resolution.
+   */
   private async replaySameKey(ctx: TenantContext, intentId: string, attempt: any): Promise<AdapterOutcome> {
-    const i = (
-      await this.pool.query(
-        `SELECT i.*, x.merchant_id, x.purpose, x.allowed_action_kinds FROM commercial_intents i
-           JOIN execution_authorities x ON x.tenant_id = i.tenant_id AND x.id = i.execution_authority_id
-          WHERE i.tenant_id = $1 AND i.id = $2`,
-        [ctx.tenantId, intentId],
-      )
-    ).rows[0];
-    const prepared = this.opts.adapter.prepare({
+    const refused = (reasonCode: string): AdapterOutcome => ({
+      kind: 'RECONCILIATION_UNSUPPORTED',
+      reasonCode,
+      rawProviderStatus: null,
+      rawResponseDigest: null,
+      observedAt: new Date().toISOString(),
+    });
+    return this.tx(ctx, async (c) => {
+      const peek = (
+        await c.query(`SELECT execution_authority_id FROM commercial_intents WHERE tenant_id = $1 AND id = $2`, [
+          ctx.tenantId,
+          intentId,
+        ])
+      ).rows[0];
+      const x = (
+        await c.query(
+          `SELECT *, expires_at > clock_timestamp() AS live FROM execution_authorities WHERE tenant_id = $1 AND id = $2
+            FOR SHARE`,
+          [ctx.tenantId, peek.execution_authority_id],
+        )
+      ).rows[0];
+      const i = (
+        await c.query(`SELECT * FROM commercial_intents WHERE tenant_id = $1 AND id = $2`, [ctx.tenantId, intentId])
+      ).rows[0];
+      if (i.state !== 'UNKNOWN') return unknownOutcome('REPLAY_NOT_APPLICABLE');
+      const s = (
+        await c.query(
+          `SELECT * FROM execution_authority_sessions WHERE tenant_id = $1 AND execution_authority_id = $2`,
+          [ctx.tenantId, x.id],
+        )
+      ).rows[0];
+      const approvalOk = (await c.query(`SELECT ub_approval_executable($1, $2) AS ok`, [ctx.tenantId, x.approval_id]))
+        .rows[0].ok;
+      const f = await loadSubjectFacts(c, ctx.tenantId, { type: i.subject_type, id: i.subject_id }, x.approval_id);
+      const current =
+        verifyAuthorityScope(authorityScopeOf(x), authoritySignatureOf(x), this.opts.authorityKeys) &&
+        x.status === 'ACTIVE' &&
+        x.live &&
+        s.external_outcome_state === 'CONFIRMED' &&
+        approvalOk &&
+        f !== null &&
+        f.recomputedActionDigest === x.action_digest &&
+        !f.invalidated &&
+        (i.subject_type !== 'PLAN_ACTION' ||
+          (f.planHash === x.plan_hash && ['APPROVED', 'EXECUTING'].includes(f.planState ?? ''))) &&
+        (await providerRevisionCurrent(c, ctx.tenantId, x.provider_account_revision_id)) &&
+        (await staleRevisionReason(c, ctx.tenantId, f)) === null;
+      if (!current) return refused('REPLAY_AUTHORITY_NOT_CURRENT');
+      const prepared = this.opts.adapter.prepare(this.authorizedIntent(ctx, i, x, f.actionKind, s));
+      if (prepared.requestDigest !== attempt.request_digest) return refused('REPLAY_REQUEST_DIGEST_CHANGED');
+      return this.opts.adapter.execute(
+        prepared,
+        {
+          clientOperationId: attempt.client_operation_id,
+          idempotencyKey: attempt.idempotency_key,
+          requestDigest: attempt.request_digest,
+        },
+        { onHandoff: () => {} },
+      );
+    });
+  }
+
+  private authorizedIntent(ctx: TenantContext, i: any, x: any, actionKind: string, s: any) {
+    return {
       tenantId: ctx.tenantId,
       commercialIntentId: i.id,
-      actionKind: i.allowed_action_kinds[0],
+      actionKind,
       semanticOperation: i.semantic_operation,
-      merchantId: i.merchant_id,
-      purpose: i.purpose,
+      merchantId: x.merchant_id,
+      purpose: x.purpose,
       amountMinor: BigInt(i.max_amount_minor),
       currency: i.currency,
       providerAccountRevisionId: i.provider_account_revision_id,
-    });
-    if (prepared.requestDigest !== attempt.request_digest)
-      return {
-        kind: 'RECONCILIATION_UNSUPPORTED',
-        reasonCode: 'REPLAY_REQUEST_DIGEST_CHANGED',
-        rawProviderStatus: null,
-        rawResponseDigest: null,
-        observedAt: new Date().toISOString(),
-      };
-    return this.opts.adapter.execute(
-      prepared,
-      {
-        clientOperationId: attempt.client_operation_id,
-        idempotencyKey: attempt.idempotency_key,
-        requestDigest: attempt.request_digest,
-      },
-      { onHandoff: () => {} },
-    );
+      providerSessionRef: s.provider_session_ref as string | null,
+    };
   }
 
   /**
