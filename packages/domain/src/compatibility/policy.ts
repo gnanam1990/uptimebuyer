@@ -69,7 +69,19 @@ export const APPROVER_CAPABLE_ROLES: readonly string[] = Object.freeze([
 export const NAMED_ENGINEER_ROLE = 'engineer';
 
 export const KEY_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
-const ComponentKeySchema = z.string().regex(KEY_RE);
+/** The single canonical component/spec key form; every comparison uses it. */
+export const normalizeComponentKey = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+/** A key that is already canonical: one that would change under canonicalization is refused, never compared raw. */
+export const CanonicalKeySchema = z
+  .string()
+  .regex(KEY_RE)
+  .refine((s) => normalizeComponentKey(s) === s, 'Key is not in canonical form.');
+const ComponentKeySchema = CanonicalKeySchema;
 export const CertificationCodeSchema = z
   .string()
   .regex(/^[A-Za-z0-9](?:[A-Za-z0-9 ./-]{0,38}[A-Za-z0-9])?$/)

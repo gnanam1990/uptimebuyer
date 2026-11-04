@@ -23,10 +23,10 @@ import {
 } from '@uptimebuyer/contracts';
 import { z } from 'zod';
 import {
+  CanonicalKeySchema,
   CertificationCodeSchema,
   EVIDENCE_ROLES,
   EVIDENCE_SOURCE_KINDS,
-  KEY_RE,
   OVERRIDABLE_REASONS,
 } from './policy.js';
 
@@ -55,7 +55,7 @@ const text = (max: number) =>
     .min(1)
     .max(max)
     .refine((s) => s.trim().length > 0, 'Blank text.');
-const KeySchema = z.string().regex(KEY_RE);
+const KeySchema = CanonicalKeySchema;
 
 export const FactSourceSchema = z.strictObject({
   /** Server reference to the evidence (document/span or registry snapshot id); provenance only. */

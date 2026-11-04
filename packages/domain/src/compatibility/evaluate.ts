@@ -25,6 +25,7 @@ import {
 import {
   NAMED_ENGINEER_ROLE,
   NON_AUTHORITATIVE_TRUST,
+  normalizeComponentKey,
   OVERRIDABLE_REASONS,
   SELLER_SOURCE_KINDS,
   policyApproverRoles,
@@ -54,13 +55,6 @@ export type RecoveryPath = (typeof RECOVERY_PATHS)[number];
 export const normalizePartNumber = (s: string) => s.trim().toUpperCase();
 export const normalizeManufacturer = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
 export const normalizeFactValue = (s: string) => s.trim().replace(/\s+/g, ' ');
-export const normalizeComponentKey = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-
 export interface RequiredAuthority {
   kind: AuthorityKind;
   roles: string[];
@@ -152,6 +146,17 @@ export function classifyInterventionDetailed(
   }
   if (!classified) level = Math.max(level, 1);
   return { safetyClass: names[level]!, componentClassified: classified };
+}
+
+/** Certifications the policy requires for `component` (canonicalized on both sides). */
+export function requiredCertificationsFor(
+  component: string,
+  policy: CompatibilityPolicy,
+): CompatibilityPolicy['requiredCertifications'] {
+  const key = normalizeComponentKey(component);
+  return policy.requiredCertifications.filter(
+    (rc) => rc.components === null || rc.components.some((x) => normalizeComponentKey(x) === key),
+  );
 }
 
 export function classifyIntervention(
@@ -366,8 +371,7 @@ export function evaluateCompatibility(
 
   // Required certifications.
   let certOk = true;
-  for (const rc of c.requiredCertifications) {
-    if (rc.components !== null && !rc.components.includes(cand.component)) continue;
+  for (const rc of requiredCertificationsFor(cand.component, c)) {
     const field = `certification:${rc.code}`;
     const merged: Fact = {
       values: input.facts.certifications.filter((x) => x.code === rc.code).flatMap((x) => x.fact.values),
