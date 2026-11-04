@@ -11,6 +11,7 @@ import {
   handlePlanningEvent,
   prepareApprovalRequest,
   publishTenantRiskEstimate,
+  runPlanRevalidationJobs,
 } from '../src/index.js';
 import {
   MANUFACTURER,
@@ -212,5 +213,57 @@ describe('T-035/T-010 planning security review', () => {
       riskBody({ currency: 'XXX' as never }),
     ])
       expect((await rejection(publishTenantRiskEstimate(w.db.pool, w.admin, body))).code).toBe('VALIDATION_FAILED');
+  });
+
+  it('a future-dated risk estimate stales open plans when it takes effect, with or without the job running', async () => {
+    const a = await scenario(w, OFFERS);
+    const b = await scenario(w, OFFERS);
+    const planA = await createRecoveryPlan(
+      w.db.pool,
+      w.service,
+      { incidentId: a.incidentId, candidates: a.refs },
+      w.signing,
+    );
+    const planB = await createRecoveryPlan(
+      w.db.pool,
+      w.service,
+      { incidentId: b.incidentId, candidates: b.refs },
+      w.signing,
+    );
+    const effectiveAt = new Date(Date.now() + 2_000).toISOString();
+    const est = await publishTenantRiskEstimate(
+      w.db.pool,
+      w.admin,
+      riskBody({ downtimeCostPerHourMinor: 60_000n, effectiveAt }),
+    );
+    expect(est.invalidatedPlanIds).toEqual([]);
+    const job = await w.db.pool.query(
+      `SELECT run_after FROM jobs WHERE tenant_id = $1 AND kind = 'plan.revalidate_for_risk_estimate' AND payload->>'riskEstimateId' = $2`,
+      [w.tenant.tenantId, est.riskEstimateId],
+    );
+    expect(job.rows).toHaveLength(1);
+    expect(new Date(job.rows[0].run_after).getTime()).toBe(Date.parse(est.effectiveAt));
+    // Before effective_at the job is not due and both plans stay approvable.
+    expect((await runPlanRevalidationJobs(w.db.pool, { workerId: 'planning-worker-2' })).processed).toBe(0);
+    await new Promise((r) => setTimeout(r, 2_500));
+    // Without the job: preparing approval recomputes against the now-effective estimate and refuses.
+    const topA = planA.actions.find((x) => x.ordinal === 1)!;
+    const held = await rejection(
+      prepareApprovalRequest(
+        w.db.pool,
+        w.service,
+        { planId: planA.planId, planHash: planA.planHash, planActionId: topA.planActionId },
+        w.signing,
+      ),
+    );
+    expect(held).toMatchObject({ code: 'POLICY_HOLD', reasonCode: 'PLAN_STALE' });
+    expect((await getRecoveryPlan(w.db.pool, w.people.viewer!.ctx, planA.planId)).state).toBe('INVALIDATED');
+    // With the job: the other open plan is invalidated once the estimate is effective.
+    const run = await runPlanRevalidationJobs(w.db.pool, { workerId: 'planning-worker-2' });
+    expect(run.invalidatedPlanIds).toContain(planB.planId);
+    expect(await getRecoveryPlan(w.db.pool, w.people.viewer!.ctx, planB.planId)).toMatchObject({
+      state: 'INVALIDATED',
+      invalidatedReason: 'RISK_ESTIMATE_CHANGED',
+    });
   });
 });
