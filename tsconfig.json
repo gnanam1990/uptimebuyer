@@ -27,6 +27,24 @@
     },
     {
       "path": "./packages/data/test"
+    },
+    {
+      "path": "./packages/telemetry"
+    },
+    {
+      "path": "./packages/telemetry/test"
+    },
+    {
+      "path": "./apps/sensor-gateway"
+    },
+    {
+      "path": "./apps/sensor-gateway/test"
+    },
+    {
+      "path": "./edge/sensor-agent"
+    },
+    {
+      "path": "./edge/sensor-agent/test"
     }
   ]
 }
