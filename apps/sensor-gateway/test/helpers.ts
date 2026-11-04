@@ -160,12 +160,30 @@ export async function createWorld(label: string, gatewayOptions: Partial<Gateway
 }
 
 /**
- * Move the manual clock up to real time (after effective-dated registry writes made by the database clock). The
- * clock never moves backwards, so a test that advanced it keeps its later notion of "now".
+ * Move the manual clock up to real time plus a small lead (registry effective dates come from the database clock,
+ * so readings stamped shortly before "now" still postdate a just-provisioned binding; open intervals cover the
+ * lead). The clock never moves backwards, so a test that advanced it keeps its later notion of "now".
  */
-export function syncClock(w: Pick<World, 'clock'>, aheadMs = 0): number {
+export function syncClock(w: Pick<World, 'clock'>, aheadMs = 1_000): number {
   w.clock.set(Math.max(w.clock.now(), Date.now() + aheadMs));
   return w.clock.now();
+}
+
+/** The identity fields of an asset revision (what reviseAssetIdentity accepts). */
+export function identityOf(r: {
+  manufacturer: string;
+  model: string;
+  serial: string | null;
+  safetyClass: 'STANDARD' | 'ELEVATED' | 'SAFETY_CRITICAL';
+  bomRevision: string;
+}) {
+  return {
+    manufacturer: r.manufacturer,
+    model: r.model,
+    serial: r.serial,
+    safetyClass: r.safetyClass,
+    bomRevision: r.bomRevision,
+  };
 }
 
 export const iso = (ms: number) => new Date(ms).toISOString() as DeviceMessage['eventAt'];

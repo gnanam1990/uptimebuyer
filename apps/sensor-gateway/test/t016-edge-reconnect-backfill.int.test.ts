@@ -130,6 +130,7 @@ describe('T-016 edge reconnect and bounded backfill', () => {
     expect(batches.rows.filter((b) => b.delivery === 'BACKFILL').every((b) => b.message_count <= 3)).toBe(true);
 
     // a backfilled message re-sent as live is a duplicate; the stored class stays BACKFILL
+    w.clock.advance(30_000); // let the backfill budget refill
     const resend = await post(w, d, [kept[0]!], { delivery: 'LIVE' });
     expect(resend.body.results).toEqual([expect.objectContaining({ status: 'DUPLICATE' })]);
     const after = (await listTelemetrySamples(w.db.pool, w.admin, { channelId: T })).find(

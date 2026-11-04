@@ -21,6 +21,7 @@ import { TelemetryAcceptedEventSchema, TELEMETRY_LIMITS } from '@uptimebuyer/tel
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createWorld,
+  identityOf,
   message,
   post,
   provisionDevice,
@@ -48,7 +49,8 @@ describe('T-013 authenticated telemetry acceptance', () => {
         { name: 'door', kind: 'DOOR' },
       ],
     });
-    await sleep(20);
+    // the first accepted reading is 250 ms old, so it must postdate the channel revisions created above
+    await sleep(300);
   });
   afterAll(async () => {
     await w?.close();
@@ -253,7 +255,7 @@ describe('T-013 authenticated telemetry acceptance', () => {
       w.db.pool,
       w.admin,
       w.assetId,
-      { ...asset.current, serial: `${asset.current.serial}-R` },
+      { ...identityOf(asset.current), serial: `${asset.current.serial}-R` },
       { expectedVersion: asset.version, source: 'API' },
     );
     // A misassigned device: an interval opened after the revision change that still names the superseded revision

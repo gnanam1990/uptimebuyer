@@ -16,6 +16,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createWorld,
+  identityOf,
   message,
   post,
   provisionDevice,
@@ -138,7 +139,7 @@ describe('T-014 duplicate and out-of-order sequence handling', () => {
       w.db.pool,
       w.admin,
       w.assetId,
-      { ...asset.current, bomRevision: `${asset.current.bomRevision}-b` },
+      { ...identityOf(asset.current), bomRevision: `${asset.current.bomRevision}-b` },
       { expectedVersion: asset.version, source: 'API' },
     );
     await reviseSensorChannel(w.db.pool, w.admin, d.channels.temp!, {
@@ -157,7 +158,8 @@ describe('T-014 duplicate and out-of-order sequence handling', () => {
     const c2 = channelRevs[1]!;
     const rev2 = (await getAsset(w.db.pool, w.admin, w.assetId)).current.assetRevisionId;
     await sleep(30);
-    const t3 = syncClock(w);
+    // strictly after the rebind (whose start follows the bound sample, even if the clock leads real time)
+    const t3 = Math.max(syncClock(w), w.clock.set(Date.parse(a2.validFrom) + 1_000));
 
     // an out-of-order sample from before the rebind arrives after it; a new sample follows
     const lo = Math.max(Date.parse(a1!.validFrom), Date.parse(c1!.validFrom));
@@ -214,7 +216,7 @@ describe('T-014 duplicate and out-of-order sequence handling', () => {
       w.db.pool,
       w.admin,
       w.assetId,
-      { ...asset.current, bomRevision: `${asset.current.bomRevision}-c` },
+      { ...identityOf(asset.current), bomRevision: `${asset.current.bomRevision}-c` },
       { expectedVersion: asset.version, source: 'API' },
     );
     const [first, second] = await listDeviceAssignments(w.db.pool, w.admin, d.deviceId);
@@ -226,11 +228,14 @@ describe('T-014 duplicate and out-of-order sequence handling', () => {
     ]);
     expect(new Date(sup.rows[0].superseded_at).getTime()).toBeGreaterThan(ahead);
     // and the database refuses to close an interval underneath a bound sample
+    const later = w.clock.set(ahead + 1_000);
+    const bound = await post(w, d, [message(2, later, [temp(d.channels.temp!, 4000)])]);
+    expect(bound.body.results).toEqual([expect.objectContaining({ status: 'ACCEPTED' })]);
     await expect(
       w.db.admin(
         `UPDATE device_asset_assignments SET valid_to = valid_from + interval '1 millisecond'
-                   WHERE tenant_id = $1 AND device_id = $2 AND valid_to IS NULL`,
-        [w.tenant.tenantId, dev.deviceId],
+          WHERE tenant_id = $1 AND device_id = $2 AND valid_to IS NULL`,
+        [w.tenant.tenantId, d.deviceId],
       ),
     ).rejects.toThrow(/bound telemetry/i);
   });
