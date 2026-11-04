@@ -103,11 +103,27 @@ export const AuthorityRecordSchema = z.strictObject({
   reasonText: text(2000),
   issuedAt: UtcInstantSchema,
   expiresAt: UtcInstantSchema,
-  signatureDigest: VersionedDigestSchema,
+  /** HMAC-SHA256 under a server-held, per-tenant derived key (see authority.ts); never a recomputable hash. */
+  signature: z.strictObject({
+    algorithm: z.literal('HMAC-SHA256'),
+    keyId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,31}$/),
+    value: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  }),
   /** Lifecycle from the append-only authority events (not signed: it can only move away from ACTIVE). */
   status: z.enum(AUTHORITY_STATUSES),
 });
 export type AuthorityRecord = z.output<typeof AuthorityRecordSchema>;
+export type UnsignedAuthorityRecord = Omit<AuthorityRecord, 'signature'>;
+
+/**
+ * Authority as evaluation evidence: the signed record plus the roles the tenant role registry says the actor holds
+ * at the record's site at the evaluation instant (server-resolved; the record's claimed role is never trusted alone).
+ */
+export const AuthorityEvidenceSchema = z.strictObject({
+  record: AuthorityRecordSchema,
+  heldRoles: z.array(z.string().regex(/^[a-z][a-z_]{1,39}$/)).max(20),
+});
+export type AuthorityEvidence = z.output<typeof AuthorityEvidenceSchema>;
 
 export const CompatibilityInputSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -154,7 +170,7 @@ export const CompatibilityInputSchema = z.strictObject({
     warranty: FactSchema,
     vendor: FactSchema,
   }),
-  authorities: z.array(AuthorityRecordSchema).max(32),
+  authorities: z.array(AuthorityEvidenceSchema).max(32),
   evaluatedAt: UtcInstantSchema,
 });
 export type CompatibilityInput = z.output<typeof CompatibilityInputSchema>;

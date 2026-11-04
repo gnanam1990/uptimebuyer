@@ -10,7 +10,7 @@
 import { DomainError, decodeWire, encodeWire, type VersionedDigest } from '@uptimebuyer/contracts';
 import { z } from 'zod';
 import { computeSchemaDigest } from '../digest.js';
-import { verifyAuthorityRecord } from './authority.js';
+import { verifyAuthorityRecord, type AuthorityKeyring } from './authority.js';
 import {
   AUTHORITATIVE_BASES,
   CompatibilityInputSchema,
@@ -121,22 +121,51 @@ export function compatibilityInputDigest(input: CompatibilityInput, policy: Gove
   });
 }
 
-/** Safety class of an intervention: the asset floor raised (never lowered) by every matching policy rule. */
+/**
+ * Safety class of an intervention, fail-closed. The asset floor (STANDARD stays STANDARD; ELEVATED, SAFETY_CRITICAL
+ * and unknown classes are SAFETY_CRITICAL) is raised, never lowered, by every matching rule. A component is
+ * classified only by a rule that names it explicitly (component keys canonicalized on both sides); an unclassified
+ * component is SAFETY_CRITICAL. A catch-all rule (components null) can only raise.
+ */
+export function classifyInterventionDetailed(
+  i: { assetSafetyClass: string; actionKind: string; component: string },
+  policy: CompatibilityPolicy,
+): { safetyClass: InterventionSafetyClass; componentClassified: boolean } {
+  const rank: Record<InterventionSafetyClass, number> = { STANDARD: 0, SAFETY_CRITICAL: 1, PROHIBITED: 2 };
+  const names: InterventionSafetyClass[] = ['STANDARD', 'SAFETY_CRITICAL', 'PROHIBITED'];
+  const component = normalizeComponentKey(i.component);
+  let level = i.assetSafetyClass === 'STANDARD' ? 0 : 1;
+  let classified = false;
+  for (const r of policy.safetyClasses) {
+    const applies =
+      (r.actionKinds === null || (r.actionKinds as readonly string[]).includes(i.actionKind)) &&
+      (r.assetSafetyClasses === null || r.assetSafetyClasses.includes(i.assetSafetyClass));
+    if (!applies) continue;
+    if (r.components === null) {
+      if (r.safetyClass !== 'STANDARD') level = Math.max(level, rank[r.safetyClass]);
+      continue;
+    }
+    if (r.components.some((x) => normalizeComponentKey(x) === component)) {
+      classified = true;
+      level = Math.max(level, rank[r.safetyClass]);
+    }
+  }
+  if (!classified) level = Math.max(level, 1);
+  return { safetyClass: names[level]!, componentClassified: classified };
+}
+
 export function classifyIntervention(
   i: { assetSafetyClass: string; actionKind: string; component: string },
   policy: CompatibilityPolicy,
 ): InterventionSafetyClass {
-  const rank: Record<InterventionSafetyClass, number> = { STANDARD: 0, SAFETY_CRITICAL: 1, PROHIBITED: 2 };
-  const names: InterventionSafetyClass[] = ['STANDARD', 'SAFETY_CRITICAL', 'PROHIBITED'];
-  let level = i.assetSafetyClass === 'STANDARD' ? 0 : 1;
-  for (const r of policy.safetyClasses) {
-    const match =
-      (r.components === null || r.components.includes(i.component)) &&
-      (r.actionKinds === null || (r.actionKinds as readonly string[]).includes(i.actionKind)) &&
-      (r.assetSafetyClasses === null || r.assetSafetyClasses.includes(i.assetSafetyClass));
-    if (match) level = Math.max(level, rank[r.safetyClass]);
-  }
-  return names[level]!;
+  return classifyInterventionDetailed(i, policy).safetyClass;
+}
+
+export interface EvaluationOptions {
+  /** Display-only context; never part of the input digest. */
+  explanation?: Explanation;
+  /** The authority service's keyring. Without it no authority record can be verified or applied. */
+  keyring?: AuthorityKeyring | null;
 }
 
 type Cover = { type: 'ENGINEER'; cls: ExceptionClass } | { type: 'OVERRIDE' } | { type: 'NONE'; path: RecoveryPath };
@@ -154,8 +183,9 @@ type Assessment =
 export function evaluateCompatibility(
   rawInput: CompatibilityInput,
   policy: GoverningPolicy,
-  explanation?: Explanation,
+  options: EvaluationOptions = {},
 ): CompatibilityResult {
+  const explanation = options.explanation;
   let input: CompatibilityInput;
   let expl: Explanation | null = null;
   try {
@@ -241,10 +271,12 @@ export function evaluateCompatibility(
   const cand = input.candidate;
 
   // Safety classification of the intervention.
-  const safetyClass = classifyIntervention(
+  const { safetyClass, componentClassified } = classifyInterventionDetailed(
     { assetSafetyClass: input.asset.safetyClass, actionKind: cand.actionKind, component: cand.component },
     c,
   );
+  if (!componentClassified && safetyClass !== 'PROHIBITED')
+    hold('COMPONENT_UNCLASSIFIED', { type: 'ENGINEER', cls: 'SAFETY_CRITICAL' });
   if (safetyClass === 'PROHIBITED') rejects.add('SAFETY_PROHIBITED');
   else if (safetyClass === 'SAFETY_CRITICAL')
     hold('SAFETY_CLASSIFICATION', { type: 'ENGINEER', cls: 'SAFETY_CRITICAL' });
@@ -411,8 +443,9 @@ export function evaluateCompatibility(
     const permitted = (OVERRIDABLE_REASONS as readonly string[]).filter((r) =>
       (c?.overridableReasons as readonly string[] | undefined)?.includes(r),
     );
-    for (const a of input.authorities) {
-      const v = verifyAuthorityRecord(a, input, policy);
+    for (const e of input.authorities) {
+      const a = e.record;
+      const v = verifyAuthorityRecord(e, input, policy, options.keyring);
       if (!v.valid) {
         findings.push({ authorityRecordId: a.authorityRecordId, reasonCode: v.reasonCode });
         continue;

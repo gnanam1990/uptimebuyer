@@ -1,10 +1,10 @@
 // Deterministic decision fixtures (M06 scope item 6): a complete exact-match input for the fictional Northwind
-// NWR-2D-48 evaporator fan motor, a governing policy, and builders for sources, facts and signed authority records.
-// Every builder returns a fresh object so callers may mutate it. These are synthetic: no real OEM data, vendor or
-// person. Downstream modules (M08 planning, M13 UI) use them to exercise ALLOW/HOLD/REJECT rendering.
-import type { CompatibilityDecisionId, UtcInstant } from '@uptimebuyer/contracts';
-import { authoritySignatureDigest } from './authority.js';
-import type { AuthorityRecord, CompatibilityInput, Fact, FactSource } from './input.js';
+// NWR-2D-48 evaporator fan motor, a governing policy, and builders for sources and facts. Every builder returns a
+// fresh object so callers may mutate it. These are synthetic: no real OEM data, vendor or person. Signed authority
+// fixtures are test-only (no signer with a known key ships here). Downstream modules (M08 planning, M13 UI) use them
+// to exercise ALLOW/HOLD/REJECT rendering.
+import type { UtcInstant } from '@uptimebuyer/contracts';
+import type { CompatibilityInput, Fact, FactSource } from './input.js';
 import type { CompatibilityPolicy, GoverningPolicy } from './policy.js';
 
 export const FIXTURE_EVALUATED_AT = '2026-11-01T12:00:00.000Z' as UtcInstant;
@@ -86,6 +86,12 @@ export function fixtureCompatibilityPolicy(): CompatibilityPolicy {
     warranty: { statusRequired: true },
     substitution: { mode: 'ENGINEER_EXCEPTION' },
     safetyClasses: [
+      {
+        components: ['evaporator-fan-motor', 'condenser-fan-motor', 'door-gasket-left', 'defrost-thermostat'],
+        actionKinds: null,
+        assetSafetyClasses: null,
+        safetyClass: 'STANDARD',
+      },
       { components: ['compressor'], actionKinds: null, assetSafetyClasses: null, safetyClass: 'SAFETY_CRITICAL' },
       { components: ['refrigerant-circuit'], actionKinds: null, assetSafetyClasses: null, safetyClass: 'PROHIBITED' },
     ],
@@ -203,37 +209,4 @@ export function exactMatchInput(): CompatibilityInput {
     authorities: [],
     evaluatedAt: FIXTURE_EVALUATED_AT,
   };
-}
-
-let authoritySeq = 0;
-/** A signed authority record bound to `input`'s tuple; `over` is applied before signing. */
-export function fixtureAuthority(
-  input: CompatibilityInput,
-  over: Partial<Omit<AuthorityRecord, 'signatureDigest'>> = {},
-): AuthorityRecord {
-  const b = input.binding;
-  const unsigned = {
-    authorityRecordId: `cau_fixture-${++authoritySeq}`,
-    kind: 'ENGINEER_EXCEPTION' as const,
-    tenantId: b.tenantId,
-    siteId: b.siteId,
-    incidentId: b.incidentId,
-    candidateActionId: b.candidateActionId,
-    assetRevisionId: b.assetRevisionId,
-    evidenceRevisionId: b.evidenceRevisionId,
-    policyRevisionId: b.policyRevisionId,
-    actionDigest: b.actionDigest,
-    heldDecisionId: 'cmp_fixture-held' as CompatibilityDecisionId,
-    exceptionClasses: [],
-    overriddenReasons: [],
-    actorUserId: 'usr_fixture-engineer',
-    actorRole: 'engineer',
-    reasonCode: 'OEM_PART_BACKORDERED',
-    reasonText: 'Superseded OEM motor with identical mounting and rating; verified on site.',
-    issuedAt: '2026-11-01T11:00:00.000Z',
-    expiresAt: '2026-11-01T23:00:00.000Z',
-    status: 'ACTIVE' as const,
-    ...over,
-  } as Omit<AuthorityRecord, 'signatureDigest'>;
-  return { ...unsigned, signatureDigest: authoritySignatureDigest(unsigned as AuthorityRecord) } as AuthorityRecord;
 }

@@ -140,6 +140,11 @@ export const CompatibilityPolicySchema = z
       if (new Set(r.roles).size !== r.roles.length || new Set(r.sourceKinds).size !== r.sourceKinds.length)
         issue(['authoritativeSources', i], 'Duplicate role or source kind.');
     });
+    p.safetyClasses.forEach((r, i) => {
+      // A catch-all STANDARD rule would classify every unknown component as STANDARD (fail-open).
+      if (r.components === null && r.safetyClass === 'STANDARD')
+        issue(['safetyClasses', i, 'components'], 'A STANDARD classification must name its components.');
+    });
     const keys = p.mandatoryConstraints.map((c) => c.key);
     if (new Set(keys).size !== keys.length) issue(['mandatoryConstraints'], 'Duplicate constraint key.');
     const codes = p.requiredCertifications.map((c) => c.code);
