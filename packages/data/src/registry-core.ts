@@ -79,6 +79,8 @@ export const REGISTRY_BODY_SCHEMAS = {
     siteId: SiteIdSchema,
     status: z.enum(['PROVISIONED', 'ONLINE', 'STALE', 'OFFLINE', 'REVOKED']),
     credentialRef: z.string(),
+    /** M03 (FR-22): recorded at registration; absent on revisions written before the field existed. */
+    inputClass: z.enum(['PHYSICAL_SENSOR', 'SIMULATOR']).optional(),
   }),
   SENSOR_CHANNEL: z.strictObject({
     deviceId: DeviceIdSchema,

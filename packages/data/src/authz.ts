@@ -75,6 +75,8 @@ export const ACTIONS = Object.freeze({
   'audit.read': human(['admin', 'auditor'], 'TENANT'),
   'audit.export': human(['admin', 'auditor'], 'TENANT'),
   'evidence.export': human(['admin', 'auditor'], 'TENANT'),
+  /** Telemetry samples, gaps, disclosures and health projections at a device's site (M03; M04 reads as a worker). */
+  'telemetry.read': human(HUMAN_ROLES, 'REQUIRED', { workerAllowed: true }),
   'telemetry.ingest': { principals: ['DEVICE'], roles: ['device'], site: 'REQUIRED' },
   'job.execute': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT' },
   'outbox.dispatch': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT' },

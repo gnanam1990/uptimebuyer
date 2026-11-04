@@ -392,7 +392,17 @@ export async function reviseAssetIdentity(
       old.bomRevision === identity.data.bomRevision;
     if (same) throw validation('IDENTITY_UNCHANGED');
 
-    const now = laterThan(await dbNow(c), old.validFrom);
+    await c.query(`SELECT 1 FROM asset_revisions WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, [
+      ctx.tenantId,
+      old.assetRevisionId,
+    ]);
+    const now = await afterBoundTelemetry(
+      c,
+      ctx.tenantId,
+      'asset_revision_id',
+      old.assetRevisionId,
+      laterThan(await dbNow(c), old.validFrom),
+    );
     await c.query(`UPDATE asset_revisions SET superseded_at = $3 WHERE tenant_id = $1 AND id = $2`, [
       ctx.tenantId,
       old.assetRevisionId,
@@ -526,15 +536,42 @@ export async function listAssetRevisions(
 
 const DEVICE_STATUSES = ['PROVISIONED', 'ONLINE', 'STALE', 'OFFLINE', 'REVOKED'] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
+/** FR-22: a simulator is a separate device class; all of its samples are stored as SIMULATED_INPUT. */
+export const DEVICE_INPUT_CLASSES = Object.freeze(['PHYSICAL_SENSOR', 'SIMULATOR'] as const);
+export type DeviceInputClass = (typeof DEVICE_INPUT_CLASSES)[number];
+
+/**
+ * Rebinding or supersession must start strictly after every sample already bound to the interval being closed
+ * (a device clock may lead by the bounded skew), so stored telemetry is never reinterpreted (FR-02, T-014). The
+ * caller holds the row lock on the interval being closed; telemetry ingestion holds FOR SHARE on it.
+ */
+async function afterBoundTelemetry(
+  c: Tx,
+  tenantId: TenantId,
+  column: 'device_assignment_id' | 'channel_revision_id' | 'asset_revision_id',
+  id: string,
+  at: UtcInstant,
+): Promise<UtcInstant> {
+  const { rows } = await c.query<{ m: Date | null }>(
+    `SELECT max(event_at) AS m FROM telemetry_samples WHERE tenant_id = $1 AND ${column} = $2`,
+    [tenantId, id],
+  );
+  return rows[0]?.m ? laterThan(at, rows[0].m) : at;
+}
 const SecretRef = z.string().regex(/^secretref:[a-z0-9-]{1,32}\/[A-Za-z0-9._/-]{1,200}$/);
 
 export async function registerDevice(
   pool: Db,
   ctx: TenantContext,
-  input: { siteId: SiteId; credentialRef: string; source: RegistrySource },
+  input: { siteId: SiteId; credentialRef: string; source: RegistrySource; inputClass?: DeviceInputClass },
 ): Promise<{ deviceId: DeviceId }> {
   assertTenantContext(ctx);
-  if (!SiteIdSchema.safeParse(input.siteId).success || !SecretRef.safeParse(input.credentialRef).success)
+  const inputClass = input.inputClass ?? 'PHYSICAL_SENSOR';
+  if (
+    !SiteIdSchema.safeParse(input.siteId).success ||
+    !SecretRef.safeParse(input.credentialRef).success ||
+    !(DEVICE_INPUT_CLASSES as readonly string[]).includes(inputClass)
+  )
     throw validation('INVALID_DEVICE');
   assertTenantSecretRef(ctx.tenantId, input.credentialRef, 'credentialRef');
   const src = source(input.source);
@@ -547,17 +584,15 @@ export async function registerDevice(
       type: 'device',
       id: deviceId,
     });
-    await c.query(`INSERT INTO devices (tenant_id, id, site_id, credential_ref) VALUES ($1, $2, $3, $4)`, [
-      ctx.tenantId,
-      deviceId,
-      input.siteId,
-      input.credentialRef,
-    ]);
+    await c.query(
+      `INSERT INTO devices (tenant_id, id, site_id, credential_ref, input_class) VALUES ($1, $2, $3, $4, $5)`,
+      [ctx.tenantId, deviceId, input.siteId, input.credentialRef, inputClass],
+    );
     await appendRegistryRevision(c, {
       tenantId: ctx.tenantId,
       entityKind: 'DEVICE',
       entityId: deviceId,
-      body: { deviceId, siteId: input.siteId, status: 'PROVISIONED', credentialRef: input.credentialRef },
+      body: { deviceId, siteId: input.siteId, status: 'PROVISIONED', credentialRef: input.credentialRef, inputClass },
       actor: actorOf(ctx),
       source: src,
     });
@@ -623,7 +658,9 @@ async function appendAssignment(
     [ctx.tenantId, deviceId],
   );
   const last = prev.rows[0];
-  const validFrom = last ? laterThan(at, last.valid_from) : at;
+  const validFrom = last
+    ? await afterBoundTelemetry(c, ctx.tenantId, 'device_assignment_id', last.id, laterThan(at, last.valid_from))
+    : at;
   await c.query(
     `UPDATE device_asset_assignments SET valid_to = $3 WHERE tenant_id = $1 AND device_id = $2 AND valid_to IS NULL`,
     [ctx.tenantId, deviceId, validFrom],
@@ -917,7 +954,17 @@ export async function reviseSensorChannel(
       type: 'sensor_channel',
       id: channelId,
     });
-    const validFrom = laterThan(await dbNow(c), cur.valid_from);
+    await c.query(`SELECT 1 FROM sensor_channel_revisions WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, [
+      ctx.tenantId,
+      cur.rev_id,
+    ]);
+    const validFrom = await afterBoundTelemetry(
+      c,
+      ctx.tenantId,
+      'channel_revision_id',
+      cur.rev_id,
+      laterThan(await dbNow(c), cur.valid_from),
+    );
     await c.query(`UPDATE sensor_channel_revisions SET valid_to = $3 WHERE tenant_id = $1 AND id = $2`, [
       ctx.tenantId,
       cur.rev_id,
