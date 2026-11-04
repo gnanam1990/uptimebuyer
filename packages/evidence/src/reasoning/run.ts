@@ -32,7 +32,9 @@ import { loadIncident, requireEngine, requireEvidenceRead } from '../scope.js';
 import {
   containsAny,
   envSecretValues,
-  findOutputViolations,
+  inspectModelOutput,
+  parseJsonStrict,
+  scanUntrustedText,
   neutralizeUntrustedText,
   redactContacts,
   redactSecrets,
@@ -114,6 +116,22 @@ interface Prepared {
 function safeMeta(text: string | null, secrets: readonly string[]): string {
   if (text === null) return '';
   return scrubValues(neutralizeUntrustedText(redactSecrets(text).text).text, secrets);
+}
+
+/** Injection flags carried by any untrusted metadata string offered to the model. */
+function metadataFlags(
+  view: { documents: { title: string; documentRevision: string }[]; facts: { values: { value: string }[] }[] },
+  asset: { manufacturer: string; model: string; serial: string | null; bomRevision: string },
+): InjectionFlag[] {
+  const strings = [
+    ...view.documents.flatMap((d) => [d.title, d.documentRevision]),
+    ...view.facts.flatMap((f) => f.values.map((v) => v.value)),
+    asset.manufacturer,
+    asset.model,
+    asset.serial ?? '',
+    asset.bomRevision,
+  ];
+  return [...new Set(strings.flatMap((t) => scanUntrustedText(t)))];
 }
 
 function excerptOf(span: SpanRow, citation: Citation, secrets: readonly string[]): PacketExcerpt {
@@ -240,7 +258,12 @@ async function prepare(c: Tx, ctx: TenantContext, incidentId: string, secrets: r
     inputDigest: finalDigest,
     offered,
     conflictKeys: view.conflicts.map((f) => ({ factKey: f.factKey, values: f.values.map((v) => v.value) })),
-    excerptFlags: [...new Set(packet.excerpts.flatMap((e) => e.untrustedInstructionFlags))],
+    excerptFlags: [
+      ...new Set([
+        ...packet.excerpts.flatMap((e) => e.untrustedInstructionFlags),
+        ...metadataFlags(view, asset),
+      ]),
+    ],
   };
 }
 
@@ -258,13 +281,10 @@ function validateOutput(
   env: Readonly<Record<string, string | undefined>>,
 ): Validated {
   if (content.length > REASONING_LIMITS.maxOutputChars) return { proposal: null, reasons: ['OUTPUT_TOO_LARGE'] };
-  const reasons: string[] = [...findOutputViolations(content, env)];
-  let json: unknown;
-  try {
-    json = JSON.parse(content);
-  } catch {
-    return { proposal: null, reasons: [...reasons, 'SCHEMA_INVALID'] };
-  }
+  const inspected = inspectModelOutput(content, env);
+  const reasons: string[] = [...inspected.violations];
+  if (inspected.value === undefined) return { proposal: null, reasons: [...new Set([...reasons, 'SCHEMA_INVALID'])] };
+  const json = inspected.value;
   const parsed = ReasoningProposalSchema.safeParse(json);
   if (!parsed.success) return { proposal: null, reasons: [...reasons, 'SCHEMA_INVALID'] };
   const p = parsed.data;
@@ -442,16 +462,26 @@ export async function runReasoning(
           break loop;
         }
         let args: unknown;
+        let argsRejected = false;
         try {
-          args = JSON.parse(call.arguments);
+          args = parseJsonStrict(call.arguments);
         } catch {
           args = undefined;
+          argsRejected = true;
         }
         if (call.name === 'submit_candidate_schema') {
+          // Re-inspect the exact submitted text: duplicate keys or escapes in the arguments are rejections too.
+          const dup = inspectModelOutput(call.arguments, env).violations.filter((x) => x !== 'SCHEMA_INVALID');
+          if (dup.length) {
+            status = 'REJECTED';
+            reasons.push(...dup);
+            break loop;
+          }
           const proposal = (args as { proposal?: unknown } | undefined)?.proposal;
           finalContent = proposal === undefined ? call.arguments : JSON.stringify(proposal);
           break loop;
         }
+        if (argsRejected) args = { __rejected: true };
         let content: string;
         if (call.name === 'get_asset_snapshot') {
           content = AssetSnapshotArgsSchema.safeParse(args).success

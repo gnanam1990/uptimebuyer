@@ -167,3 +167,130 @@ export function findOutputViolations(
   if (containsAny(text, envSecretValues(env)) || redactSecrets(text).redactions > 0) v.push('SECRET_IN_OUTPUT');
   return v;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Model output inspection on decoded values. JSON.parse silently keeps the last of duplicate keys and decodes \u
+// escapes, so scanning raw text is a parser differential. The strict parser below rejects duplicate keys and every
+// decoded string is scanned on its own.
+
+class DuplicateKeyError extends Error {}
+
+/** JSON.parse-compatible parser that rejects duplicate object keys at any depth. */
+export function parseJsonStrict(text: string): unknown {
+  let i = 0;
+  const ws = () => {
+    while (i < text.length && (text[i] === ' ' || text[i] === '\n' || text[i] === '\r' || text[i] === '\t')) i++;
+  };
+  const str = (): string => {
+    const start = i;
+    i++;
+    while (i < text.length && text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+    if (i >= text.length) throw new SyntaxError('unterminated string');
+    i++;
+    return JSON.parse(text.slice(start, i)) as string;
+  };
+  const value = (depth: number): unknown => {
+    if (depth > 64) throw new SyntaxError('too deep');
+    ws();
+    const c = text[i];
+    if (c === '{') {
+      i++;
+      const obj: Record<string, unknown> = {};
+      const keys = new Set<string>();
+      ws();
+      if (text[i] === '}') {
+        i++;
+        return obj;
+      }
+      for (;;) {
+        ws();
+        if (text[i] !== '"') throw new SyntaxError('expected key');
+        const k = str();
+        if (keys.has(k)) throw new DuplicateKeyError(k);
+        keys.add(k);
+        ws();
+        if (text[i++] !== ':') throw new SyntaxError('expected colon');
+        Object.defineProperty(obj, k, { value: value(depth + 1), enumerable: true, writable: true, configurable: true });
+        ws();
+        if (text[i] === ',') {
+          i++;
+          continue;
+        }
+        if (text[i++] !== '}') throw new SyntaxError('expected }');
+        return obj;
+      }
+    }
+    if (c === '[') {
+      i++;
+      const arr: unknown[] = [];
+      ws();
+      if (text[i] === ']') {
+        i++;
+        return arr;
+      }
+      for (;;) {
+        arr.push(value(depth + 1));
+        ws();
+        if (text[i] === ',') {
+          i++;
+          continue;
+        }
+        if (text[i++] !== ']') throw new SyntaxError('expected ]');
+        return arr;
+      }
+    }
+    if (c === '"') return str();
+    const m = /^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null)/.exec(text.slice(i, i + 64));
+    if (!m) throw new SyntaxError('unexpected token');
+    i += m[0].length;
+    return JSON.parse(m[0]);
+  };
+  const v = value(0);
+  ws();
+  if (i !== text.length) throw new SyntaxError('trailing data');
+  return v;
+}
+
+function decodedStrings(v: unknown, out: string[] = []): string[] {
+  if (typeof v === 'string') out.push(v);
+  else if (Array.isArray(v)) for (const x of v) decodedStrings(x, out);
+  else if (v && typeof v === 'object')
+    for (const [k, x] of Object.entries(v)) {
+      out.push(k);
+      decodedStrings(x, out);
+    }
+  return out;
+}
+
+/** Instruction classes that may never appear in model output (AI-SAFETY §4: no payment instruction, tool or URL). */
+const OUTPUT_INSTRUCTION_FLAGS: readonly InjectionFlag[] = ['TOOL_REQUEST', 'PAYMENT_REQUEST', 'POLICY_CHANGE', 'EGRESS_REQUEST'];
+
+export type OutputViolation =
+  | 'EXECUTABLE_URL_IN_OUTPUT'
+  | 'SECRET_IN_OUTPUT'
+  | 'INSTRUCTION_IN_OUTPUT'
+  | 'DUPLICATE_JSON_KEY'
+  | 'SCHEMA_INVALID';
+
+/**
+ * Parse model output strictly and scan every decoded string (and the raw text) for URLs, secrets and instructions.
+ * `value` is the decoded document when it parsed without duplicate keys.
+ */
+export function inspectModelOutput(
+  text: string,
+  env: Readonly<Record<string, string | undefined>>,
+): { value: unknown; violations: OutputViolation[] } {
+  const v = new Set<OutputViolation>(findOutputViolations(text, env));
+  let value: unknown;
+  try {
+    value = parseJsonStrict(text);
+  } catch (e) {
+    v.add(e instanceof DuplicateKeyError ? 'DUPLICATE_JSON_KEY' : 'SCHEMA_INVALID');
+    return { value: undefined, violations: [...v] };
+  }
+  for (const s of decodedStrings(value)) {
+    for (const x of findOutputViolations(s, env)) v.add(x);
+    if (scanUntrustedText(s).some((f) => OUTPUT_INSTRUCTION_FLAGS.includes(f))) v.add('INSTRUCTION_IN_OUTPUT');
+  }
+  return { value, violations: [...v] };
+}
