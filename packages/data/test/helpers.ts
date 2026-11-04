@@ -46,11 +46,19 @@ export async function createTestDatabase(label: string): Promise<TestDatabase> {
   u.pathname = `/${name}`;
   const url = u.toString();
   const pool = new pg.Pool({ connectionString: url, max: 12 });
+  // DROP DATABASE ... WITH (FORCE) terminates any connection still open (57P01 admin_shutdown). That is expected only
+  // during teardown; any other idle-client error still surfaces as an unhandled error and fails the run.
+  let dropping = false;
+  pool.on('error', (error: Error & { code?: string }) => {
+    if (dropping && error.code === '57P01') return;
+    throw error;
+  });
   return {
     url,
     pool,
     admin: (sql, params) => pool.query(sql, params as unknown[]),
     async drop() {
+      dropping = true;
       await pool.end().catch(() => {});
       const c = new pg.Client({ connectionString: base });
       await c.connect();

@@ -217,6 +217,8 @@ export interface PostOptions {
   mutateBody?: (raw: string) => string;
   extra?: Record<string, unknown>;
   disclosures?: unknown[];
+  /** Client socket address seen by the gateway (default 127.0.0.1). */
+  remoteAddress?: string;
 }
 
 export interface PostResult {
@@ -254,7 +256,13 @@ export async function post(
   if (token !== null) headers.authorization = `Bearer ${token}`;
   if (signature !== null) headers[SIGNATURE_HEADER] = signature;
   if (o.tenantHeader !== undefined) headers['x-tenant-id'] = o.tenantHeader;
-  const res = await w.gw.app.inject({ method: 'POST', url: '/v1/device/telemetry:batch', headers, payload: raw });
+  const res = await w.gw.app.inject({
+    method: 'POST',
+    url: '/v1/device/telemetry:batch',
+    headers,
+    payload: raw,
+    ...(o.remoteAddress ? { remoteAddress: o.remoteAddress } : {}),
+  });
   return { status: res.statusCode, body: res.json(), headers: res.headers };
 }
 
