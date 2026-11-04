@@ -168,7 +168,7 @@ async function resolveClaim(
             d.trust_level, d.created_at,
             EXISTS (SELECT 1 FROM evidence_document_facts f
                      WHERE f.tenant_id = s.tenant_id AND f.span_id = s.id AND f.fact_key = $3
-                       AND regexp_replace(btrim(f.value), '\s+', ' ', 'g') = $4) AS exact
+                       AND regexp_replace(btrim(f.value), '\\s+', ' ', 'g') = $4) AS exact
        FROM citations ct
        JOIN evidence_document_spans s ON s.tenant_id = ct.tenant_id AND s.id = ct.span_id
        JOIN evidence_documents d ON d.tenant_id = s.tenant_id AND d.id = s.document_id
