@@ -1,0 +1,6 @@
+item,component,oem_part_number,qty,notes
+BOM7-010,Evaporator fan motor,5A1-0402,1,115 V shaded pole
+BOM7-020,Condenser fan motor,5A1-0315,1,
+BOM7-030,Electronic controller,3C7-1180,1,firmware 2.4
+BOM7-040,"Door gasket, left",2G4-0048,1,
+BOM7-050,Defrost thermostat,4T2-0077,1,
