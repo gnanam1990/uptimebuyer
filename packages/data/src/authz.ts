@@ -159,6 +159,17 @@ export const ACTIONS = Object.freeze({
   'provider.communication.erase': human(['admin'], 'TENANT'),
   /** Link a discovered provider to an approved-vendor registry record (separate from discovery; M07). */
   'provider.vendor_link': human(['admin'], 'TENANT'),
+  /** Read recovery plans, their exposed cost inputs and approval requests at the incident's site (M08). */
+  'planning.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Deterministic planning engine: build plans, prepare approval requests, revalidate/invalidate (M08). */
+  'planning.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** Publish a versioned tenant risk estimate (tenant-wide needs a tenant-wide grant; FR-09, FR-21). */
+  'planning.risk_publish': human(['admin'], 'OPTIONAL'),
 } as const satisfies Record<string, ActionSpec>);
 export type ActionName = keyof typeof ACTIONS;
 
