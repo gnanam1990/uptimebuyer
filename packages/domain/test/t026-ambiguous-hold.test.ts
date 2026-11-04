@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   evaluateCompatibility,
+  requiredCertificationsFor,
   exactMatchInput,
   fixtureFact,
   fixtureGoverningPolicy,
@@ -318,5 +319,37 @@ describe('T-026 ambiguous compatibility hold', () => {
       expect(v.ok).toBe(false);
       if (!v.ok) expect(v.issues.length).toBeGreaterThan(0);
     }
+  });
+
+  it('security review: one canonical component key drives classification and certification scoping', () => {
+    const scoped = () => {
+      const p = fixtureGoverningPolicy();
+      p.compatibility!.requiredCertifications = [{ code: 'UL 471', components: ['compressor'] }];
+      return p;
+    };
+    // Keys that pass the character pattern but change under canonicalization are refused, never compared raw.
+    for (const variant of ['compressor-', 'compressor--relay', '-compressor']) {
+      const i = exactMatchInput();
+      i.candidate.component = variant;
+      i.facts.certifications = [];
+      expect(() => evaluateCompatibility(i, scoped()), variant).toThrow();
+      const v = validateCompatibilityPolicy({
+        ...scoped().compatibility!,
+        requiredCertifications: [{ code: 'UL 471', components: [variant] }],
+      });
+      expect(v.ok, variant).toBe(false);
+    }
+    // Scoping helpers canonicalize both sides, so a case/whitespace variant still requires the certification.
+    for (const variant of ['compressor', 'Compressor ', ' COMPRESSOR', 'compressor-'])
+      expect(
+        requiredCertificationsFor(variant, scoped().compatibility!).map((c) => c.code),
+        variant,
+      ).toEqual(['UL 471']);
+    const i = exactMatchInput();
+    i.candidate.component = 'compressor';
+    i.facts.certifications = [];
+    const r = evaluateCompatibility(i, scoped());
+    expect(r.blockingReasons).toContain('MISSING_CERTIFICATION');
+    expect(r.missingFields).toContain('certification:UL 471');
   });
 });
