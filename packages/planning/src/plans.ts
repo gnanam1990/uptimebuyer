@@ -1,6 +1,7 @@
 // Recovery plans (FR-09, INV-03, INV-04, INV-10): the planning engine evaluates the named candidates of an open
 // incident and persists one immutable plan revision per distinct plan hash. Same inputs in any order reproduce the
-// same hash and return the existing revision; a new revision supersedes (invalidates) the incident's open plans.
+// same hash and return the existing live (not INVALIDATED) revision; a new revision supersedes (invalidates) the
+// incident's open plans, and an invalidated revision never blocks re-planning the same inputs.
 // The plan is advisory: it never approves, reserves, spends or executes (approved: false).
 import { canonicalize, evaluateRecoveryPlan, type CostResult, type RecoveryPlanEvaluation } from '@uptimebuyer/domain';
 import { decodeWire, newId, type Money, type UtcInstant } from '@uptimebuyer/contracts';
@@ -312,7 +313,8 @@ export async function createRecoveryPlan(
       meta,
     );
     const existing = await c.query(
-      `SELECT * FROM recovery_plans WHERE tenant_id = $1 AND incident_id = $2 AND plan_hash = $3`,
+      `SELECT * FROM recovery_plans WHERE tenant_id = $1 AND incident_id = $2 AND plan_hash = $3
+          AND state <> 'INVALIDATED'`,
       [ctx.tenantId, incident.id, evaluation.planHash],
     );
     if (existing.rows[0]) return { ...(await loadView(c, ctx.tenantId, existing.rows[0])), created: false };

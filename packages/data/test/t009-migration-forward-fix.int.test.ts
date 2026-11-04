@@ -45,7 +45,7 @@ const M04_MIGRATIONS = ['0009_m04_incidents.sql'];
 const M05_MIGRATIONS = ['0010_m05_evidence_reasoning.sql'];
 const M06_MIGRATIONS = ['0011_m06_compatibility_policy.sql'];
 const M07_MIGRATIONS = ['0012_m07_provider_comms.sql', '0013_m07_contact_point_review.sql'];
-const M08_MIGRATIONS = ['0014_m08_planning.sql'];
+const M08_MIGRATIONS = ['0014_m08_planning.sql', '0015_m08_plan_hash_open_scope.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {
