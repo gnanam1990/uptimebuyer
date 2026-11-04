@@ -38,7 +38,7 @@ import {
   createTestDatabase,
   dbScripts,
   humanContext,
-  incidentId,
+  fixtureIncident,
   resolver,
   seedTenant,
   sha,
@@ -102,6 +102,19 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   ],
   'registry.write': ['admin', 'site_admin'],
   'incident.acknowledge': ['operator', 'maintenance_approver', 'engineer'],
+  'incident.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+  ],
+  'incident.manage': ['operator', 'maintenance_approver', 'engineer'],
+  'incident.report': ['operator', 'maintenance_approver', 'engineer'],
+  'incident.engine': ['service'],
   'evidence.submit': ['operator', 'maintenance_approver', 'engineer'],
   'approval.plan_action': ['maintenance_approver'],
   'approval.budget_adjustment': ['finance_approver'],
@@ -405,14 +418,20 @@ describe('T-011 role and approval authority denial', () => {
       },
       source: 'API',
     });
+    const gamma = await fixtureIncident(db.pool, {
+      tenantId: t.tenantId,
+      assetId: asset.assetId,
+      userId: t.adminUserId,
+      label: 'gamma',
+    });
     const evidence = await commitEvidenceRevision(db.pool, ctx.operator!, {
-      incidentId: incidentId('gamma'),
+      incidentId: gamma,
       assetRevisionId: asset.assetRevisionId,
       items: [],
     });
     const input = {
       approvalKind: 'PLAN_ACTION' as const,
-      incidentId: incidentId('gamma'),
+      incidentId: gamma,
       siteId: s1,
       assetRevisionId: asset.assetRevisionId,
       evidenceRevisionId: evidence.evidenceRevisionId,

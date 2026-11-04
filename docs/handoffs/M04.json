@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M04",
+  "status": "PASS",
+  "startingCommit": "16fbf6f",
+  "endingCommit": "a6a89af",
+  "branch": "feat/m04-incident-engine",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "a6a89af fix(m04): RECOVERED only through an internal evaluator hook; reopen never hides a passed deadline",
+    "7216713 test(m04): recovery authority and reopened-deadline regressions (red)",
+    "be65411 docs(m04): module handoff record",
+    "6066227 test(m04): T-017 telemetry outbox consumer and stale-data escalation coverage",
+    "6a5a466 fix(m04): incremental device corroboration, bounded ids, key-first lock order, future due times",
+    "5aebae8 test(m04): security-review regressions for evidence growth, oversized ids, key-lock deadlock and past due times (red)",
+    "d4596b6 test(m04): correct fixture defects found on first green run",
+    "fb14bda feat(m04): @uptimebuyer/incidents rule evaluation, convergence, lifecycle and deadlines",
+    "7a9ff1c feat(m04): data-layer hooks for the incident engine",
+    "63dea71 feat(m04): incidents migration 0009 with database-enforced single active incident",
+    "886034b test(m04): T-017..T-020 threshold, dedupe, lifecycle and manual-report gates; T-010/T-011 re-run on incidents (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-03", "FR-04", "FR-16"],
+    "nonfunctional": ["NFR-03", "NFR-08"],
+    "invariants": ["INV-09"],
+    "tests": ["T-017", "T-018", "T-019", "T-020"]
+  },
+  "changedFiles": [
+    "packages/data/migrations/0009_m04_incidents.sql (new)",
+    "packages/data/src/authz.ts (actions incident.read, incident.manage, incident.report, incident.engine), evidence.ts (appendOperatorEvidence), privacy.ts (INCIDENT scope chain from incidents), index.ts (exports tenantCommand, Denial, unavailable, notPermitted, CommandMeta, actorOf, humanActor, dbNow, iso, isoNN, lockKey, pgCode, sha256Digest, versionConflict, FK_VIOLATION, UNIQUE_VIOLATION)",
+    "packages/data/test/helpers.ts (fixtureIncident), dataset.ts, t009-legal-hold-scope.int.test.ts, t009-migration-forward-fix.int.test.ts (0009 in applied list), t011-approval-race.int.test.ts, t011-role-authority-denial.int.test.ts (4 incident actions in the matrix)",
+    "packages/incidents/** (new @uptimebuyer/incidents: package.json, tsconfig.json, src/{rules,deadline,events,config,internal,engine,commands,read,index}.ts; test/helpers.ts, t017-rule-window.test.ts, t019-deadline-replay.test.ts, t010-incident-cross-tenant.int.test.ts, t011-incident-authority.int.test.ts, t017-threshold-incident.int.test.ts, t017-consumer-stale.int.test.ts, t018-concurrent-dedupe.int.test.ts, t018-security-review.int.test.ts, t019-lifecycle-concurrency.int.test.ts, t020-manual-report.int.test.ts)",
+    "tsconfig.json (references packages/incidents and its test project)",
+    "pnpm-lock.yaml (workspace links only; no new external dependency)",
+    "packages/incidents/src/recovery.ts (internal, not exported), src/deadline-store.ts; test/t019-recovery-guard.int.test.ts; test helpers fakeEvaluator/recoverForTest (test-only)"
+  ],
+  "diffSummary": "One incident authority per tenant/site/asset/fault window: a forward-only migration whose generated dedupe key and partial unique index decide convergence, pinned-reference immutability, LIVE-only sample linkage and append-only lifecycle/assignment/deadline/report/signal/estimate/receipt tables plus the M02 incident FKs; a pure event-time rule evaluator and deadline ledger; and repositories for rule/procedure publication, telemetry evaluation (direct and as an outbox consumer), manual reports, version-CAS lifecycle and deadline commands, reads and timelines.",
+  "configChanges": [
+    "Root tsconfig.json references packages/incidents and packages/incidents/test.",
+    "No new external dependency: zod 4.6.7 and pg 8.23.1 at the existing exact pins; @uptimebuyer/sensor-gateway is a dev-only workspace dependency for the integration fixtures."
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run --project unit packages/incidents; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/incidents packages/data/test/{t009-legal-hold-scope,t009-migration-forward-fix,t011-role-authority-denial,t011-approval-race,t010-cross-tenant-denial}.int.test.ts (with 0009 moved aside)",
+      "cwd": "repo root",
+      "commitSha": "886034b",
+      "exitCode": 1,
+      "testCounts": {
+        "unitFailedFiles": 2,
+        "integrationFailedFiles": 11,
+        "integrationFailed": 11,
+        "integrationPassed": 6,
+        "integrationSkipped": 17
+      },
+      "resultSummary": "RED: both incidents unit files and all six incidents integration files failed to load (no source); T-009/T-010/T-011 data tests failed because the fixture incidents need the incidents table and the action catalogue lacked the four incident actions"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/incidents/test/t018-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "5aebae8",
+      "exitCode": 1,
+      "testCounts": {
+        "integration": 4,
+        "failed": 4
+      },
+      "resultSummary": "RED (self security review): re-evaluating an ongoing breach re-linked the whole run (6/7/8/9 samples); 10 kB ids reached lookups (FORBIDDEN instead of VALIDATION_FAILED); a manual report and an acknowledge sharing one Idempotency-Key deadlocked (40P01); an assignment could be due in the past"
+    },
+    {
+      "command": "pnpm format && DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "6066227",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 548,
+        "integration": 121,
+        "m04Unit": 13,
+        "m04Integration": 33,
+        "byFile": {
+          "packages/incidents/test/t017-rule-window.test.ts": 9,
+          "packages/incidents/test/t019-deadline-replay.test.ts": 4,
+          "packages/incidents/test/t017-threshold-incident.int.test.ts": 6,
+          "packages/incidents/test/t017-consumer-stale.int.test.ts": 1,
+          "packages/incidents/test/t018-concurrent-dedupe.int.test.ts": 3,
+          "packages/incidents/test/t018-security-review.int.test.ts": 4,
+          "packages/incidents/test/t019-lifecycle-concurrency.int.test.ts": 8,
+          "packages/incidents/test/t020-manual-report.int.test.ts": 3,
+          "packages/incidents/test/t010-incident-cross-tenant.int.test.ts": 3,
+          "packages/incidents/test/t011-incident-authority.int.test.ts": 5
+        }
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local Postgres 17 container, throwaway databases), build, pack check and history secret scan passed; M00-M03 suites green"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/incidents",
+      "cwd": "repo root",
+      "commitSha": "7216713",
+      "exitCode": 1,
+      "testCounts": {
+        "integrationFailedFiles": 9
+      },
+      "resultSummary": "RED (coordinator review): all incidents integration files fail to load (no src/recovery.ts); at 6066227 advanceIncident(RECOVERED, rev_*) succeeded for any worker-role service, and a reopen after the deadline passed left it RUNNING"
+    },
+    {
+      "command": "pnpm format && DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "a6a89af",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 548,
+        "integration": 125,
+        "m04Unit": 13,
+        "m04Integration": 37,
+        "byFile": {
+          "packages/incidents/test/t017-rule-window.test.ts": 9,
+          "packages/incidents/test/t019-deadline-replay.test.ts": 4,
+          "packages/incidents/test/t017-threshold-incident.int.test.ts": 6,
+          "packages/incidents/test/t017-consumer-stale.int.test.ts": 1,
+          "packages/incidents/test/t018-concurrent-dedupe.int.test.ts": 3,
+          "packages/incidents/test/t018-security-review.int.test.ts": 4,
+          "packages/incidents/test/t019-lifecycle-concurrency.int.test.ts": 8,
+          "packages/incidents/test/t020-manual-report.int.test.ts": 3,
+          "packages/incidents/test/t010-incident-cross-tenant.int.test.ts": 3,
+          "packages/incidents/test/t011-incident-authority.int.test.ts": 5,
+          "packages/incidents/test/t019-recovery-guard.int.test.ts": 4
+        }
+      },
+      "resultSummary": "all verify steps passed after the recovery-authority and reopened-deadline fixes"
+    }
+  ],
+  "redEvidence": "All owned tests were committed first (886034b) and failed to load; the M02-era data tests failed on the missing incidents table and action catalogue. First green run found only fixture defects (a BELOW-rule fixture that never crossed its own threshold, a pg name[] cast, site-scoped operators cannot register M02 blobs, two type annotations), fixed in d4596b6 without loosening an assertion. The self security review produced 4 red regressions (5aebae8) fixed in 6a5a466. t017-consumer-stale.int.test.ts was written after the implementation as coverage for the outbox-consumer and stale paths and passed on its first run (not red-first). Coordinator review added red regressions (7216713): RECOVERED was reachable from the public engine path and a reopen could present a passed deadline as RUNNING; fixed in a6a89af.",
+  "evidence": [
+    "T-017: a 5-reading LIVE breach (2 min, >= 4 samples, ABOVE 8 C with 0.5 C hysteresis) opens one TRIAGING incident (v2) pinning asset, asset revision, rule revision, AUTHORITY policy revision, procedure revision, deadline basis (breach onset in event time), SITE_LOCAL:Europe/London timezone basis and basis digest, original = current containment deadline onset+30 min, INITIAL owner from the procedure, correlation id; the signal links exactly the 5 sample ids with their assignment/channel/calibration/asset revisions; SET deadline event; outbox opened (CRITICAL notification trigger), assignment_changed, deadline_changed, state_changed; POLICY_DECISION ledger entry; re-evaluation is DUPLICATE. Noise, short bursts, BACKFILL, LATE and a stale tail open nothing (STALE_SIGNAL); the database refuses to link a BACKFILL sample (UB043). Publishing procedure revision 2 leaves the existing incident's procedure, deadlines, digest and version unchanged, the pinned procedure still caps extensions, an operator cannot extend; a later incident pins revision 2. A 6 h NON_AUTHORITATIVE risk estimate moves nothing; AUTHORITATIVE is refused by CHECK/append-only; the original deadline column is immutable (UB042). Simulated input opens a SIMULATED_INPUT-labelled incident. The outbox consumer opens once and replays are DUPLICATE; stale events escalate with SIGNAL_UNCERTAIN.",
+    "T-018: 10 concurrent rule evaluations + 6 concurrent manual reports return one incident id, exactly one OPENED, one active row, one opened event, 6 report signals and 1 telemetry signal; a forged second active row is refused (23505) and the generated dedupe key cannot be written (428C9). After recovery, 6 evaluations + 4 reports inside the watch window produce exactly one REOPENED (RECOVERED>REOPENED>TRIAGING once, history kept, one reopened event, still one row). With a 0 ms watch window a new incident opens after recovery while each fault window keeps one active incident. A long breach re-evaluated per reading links each sample once.",
+    "T-019: five conflicting commands on one version -> one success, four VERSION_CONFLICT; 12 concurrent shorten-with-retry commands all land (version +12, deadline -12 min, 13 contiguous ledger rows, replay equals projection); accept vs reassign -> one winner, one current assignment, at most one accepted; non-assignee NOT_ASSIGNEE, superseded ASSIGNMENT_NOT_CURRENT; cross-tenant and B-admin owners RESOURCE_UNAVAILABLE, viewer ASSIGNEE_NOT_ELIGIBLE, FK refuses a foreign assignee; handoff needs the accepted owner and supersedes it with a digest; escalation re-entry, pause and resume need the accepted owner and resume restores paused_from_state; recover vs escalate -> one winner, RECOVERED only to REOPENED, viewer cannot reopen, concurrent reopens -> one; PAUSE needs the procedure role, PAUSE/RESUME/SHORTEN/EXTEND/EXPIRE are authorized, bounded, append-only (UB001), replay equals projection with the original untouched, the sweep escalates on expiry, an expired deadline cannot be revived (UB042) or extended (DEADLINE_EXPIRED); idempotent retry returns the original result, reuse with another request or principal is IDEMPOTENCY_KEY_REUSED; a key shared by a report and a command serializes without deadlock.",
+    "T-020: an operator's report records actor, reason, note, observed time and ordered in-tenant attachments, opens a MANUAL_REPORT incident (deadline basis = observed time), writes an operator-attested ledger entry and an audit entry with the human actor; a later device window ATTACHES as DEVICE_AUTHENTICATED evidence with its exact samples while the incident's trigger provenance stays MANUAL_REPORT; the database refuses samples under a report signal (UB043), a report signal claiming device trust and a device signal written by a human (23514), and edits to reports (UB001). Viewers, services, oversize notes, future observations, >20 attachments, device fields (sampleIds, trust, tenantId), unknown rules, foreign assets and foreign blobs are refused.",
+    "T-010 re-run: every incident table has a tenant-leading primary key and tenant-leading FKs; the five M02 incident_id columns reference incidents; eight read/command paths on B's incident are byte-identical to a nonexistent id (RESOURCE_UNAVAILABLE), audited in A without B's id, B unchanged; A cannot report on/evaluate B's asset or assign to B's user; B's worker sees only B.",
+    "T-011 re-run: reads for every human role at the site and the engine worker, other-site users see nothing; viewers/auditors/services cannot command; evaluation, engine advance, recovery and the deadline sweep are worker-only; RECOVERED needs a rev_ reference; deadline EXTEND/PAUSE need the pinned procedure's role; rule/procedure publishing is admin-only, rules need an effective procedure, procedures need an eligible initial owner.",
+    "Recovery authority (T-019): advanceIncident(RECOVERED) is POLICY_HOLD RECOVERY_EVALUATOR_REQUIRED for the worker service, admin and operator with rev_ or other references, and recoverIncidentWithEvaluation is absent from the package's public exports; the internal hook refuses a non-PASSED or other-incident evaluation (RECOVERY_EVALUATION_NOT_PASSED), a non-engine caller, and any state but VERIFYING. Reopened deadlines: reopening after a RUNNING pinned deadline passed appends EXPIRE (DEADLINE_PASSED_BEFORE_REOPEN), status EXPIRED, deadlineOverdue true, original/current deadline and procedure unchanged; a deadline expired while RECOVERED stays EXPIRED with no second EXPIRE; a future deadline keeps RUNNING."
+  ],
+  "verification": ["pnpm verify exit 0 at a6a89af (unit 548, integration 125)"],
+  "externalEvidence": {
+    "openServ": "NOT_RUN",
+    "kitePayment": "NOT_RUN",
+    "providerFulfillment": "NOT_RUN",
+    "realSensor": "NOT_RUN (incidents were opened only from the M03 reference gateway with synthetic devices in a throwaway database)",
+    "notificationDelivery": "NOT_RUN (M04 emits outbox notification triggers only; channel delivery is M07)",
+    "incidentOpenLatency": "NOT_RUN as an SLO measurement: open_latency_ms is recorded per incident and carried on incident.opened.v1, but no p95 target is measured"
+  },
+  "schemaOrApiChanges": [
+    "Migration 0009_m04_incidents.sql: operating_procedure_revisions, incident_rule_revisions, incidents (generated dedupe_key = ub_incident_dedupe_key(tenant_id, site_id, asset_id, fault_window_key); partial unique incidents_one_active_ux WHERE state <> 'RECOVERED'; ub_incident_update_guard: version + 1 only, pinned references/original deadline immutable (UB041/UB042), EXPIRED never revived; no DELETE/TRUNCATE), incident_transitions, incident_assignments (one current per incident, tenant-member FK, accepted/superseded one-shot stamps), incident_deadline_events (FK to the incident's own procedure revision and basis digest; type/status CHECKs), incident_manual_reports, incident_manual_report_attachments, incident_signals (kind fixes trust/actor/origin by CHECK), incident_signal_samples (ub_incident_signal_sample_guard: LIVE flag-free samples of the incident's asset under a device signal only, UB043), incident_acknowledgements, incident_risk_estimates (authority CHECK = NON_AUTHORITATIVE), incident_command_receipts (unique per tenant + Idempotency-Key). NOT VALID composite FKs from evidence_revisions, evidence_ledger_entries, approvals (incident + site), legal_holds and privacy_requests (incident + site + asset) to incidents.",
+    "@uptimebuyer/data: new actions incident.read (human roles at site, workers), incident.manage and incident.report (operator at site), incident.engine (worker service, workers); appendOperatorEvidence(client, ctx, input, {siteId}); placeLegalHold/createPrivacyRequest INCIDENT scope: parentAssetId optional and must equal the incident's asset, unknown incident is RESOURCE_UNAVAILABLE; repository helpers exported (see changedFiles).",
+    "@uptimebuyer/incidents API: publishOperatingProcedure, publishIncidentRule; evaluateIncidentRules, submitManualReport, applyTelemetryStale, handleTelemetryEvent (consumer incident-engine.v1); acknowledgeIncident, assignIncident, acceptAssignment, handoffIncident, escalateIncident, returnFromEscalation, pauseIncident, resumeIncident (optional ResumeRevalidator hooks), reopenIncident, advanceIncident, adjustIncidentDeadline, expireIncidentDeadlines, recordRiskEstimate; getIncident, listIncidents, getIncidentTimeline; pure evaluateRuleWindow, planDeadlineEvent, replayDeadlineEvents, computeOriginalDeadline.",
+    "Events: incident.opened.v1 (IncidentOpenedEventSchema, includes notification {required, reasonCode CRITICAL_INCIDENT_OPENED|INCIDENT_OPENED}), incident.state_changed.v1 (M01 schema), incident.assignment_changed.v1, incident.assignment_accepted.v1, incident.deadline_changed.v1, incident.reopened.v1 (notification INCIDENT_REOPENED); aggregate version = incident version; opening emits opened/assignment/deadline at v1 and state_changed at v2.",
+    "advanceIncident no longer reaches RECOVERED (POLICY_HOLD RECOVERY_EVALUATOR_REQUIRED). Internal, non-exported src/recovery.ts: RecoveryEvaluator { loadPassedEvaluation(c, ctx, {incidentId, assetRevisionId, version}, recoveryEvaluationId) -> PassedRecoveryEvaluation | null } and recoverIncidentWithEvaluation(pool, ctx, incidentId, {recoveryEvaluationId: rev_*, reasonCode, expectedVersion, idempotencyKey}, evaluator). IncidentView gains deadlineOverdue."
+  ],
+  "migrationOrRollback": [
+    "Forward-only and additive (new tables, function, triggers, indexes; five NOT VALID FKs on existing tables). Rollback before anything depends on it: revert the M04 commits on a database that never ran 0009; once applied, ship a forward fix. 0009 was amended inside this unmerged branch (child-row ids, receipt key, sample index) before any shared database applied it.",
+    "The new M02 FKs are NOT VALID so an upgrade over legacy rows naming fixture incidents succeeds; new rows are checked. A database without such orphans can VALIDATE CONSTRAINT in a later forward migration. Direct SQL writers of evidence revisions, ledger entries, approvals, holds or privacy requests must now name a real incident (fixtureIncident in packages/data/test/helpers.ts for M02-era tests)."
+  ],
+  "specAmbiguitiesResolved": [
+    "fault_window_id is the rule's fault_window_key; rules sharing a key on an asset (and manual reports naming such a rule) converge on one incident. Fault family is triage data on the incident, not a dedupe dimension.",
+    "Opening runs DETECTED -> TRIAGING in the same transaction (guard: incident and source evidence persisted); acknowledgement is a separate versioned record, not a transition, and resets on reopen.",
+    "Deadline basis TRIGGER_EVENT_AT = breach onset (first reading of the qualifying run) in source event time, or the report's observed time (<= 5 s ahead, <= 24 h old); OPENED_AT = database opening time. Reopen keeps the original deadline ledger (no second SET) and expires it if it already passed.",
+    "Bounded lateness: the newest LIVE reading must be at most maxEvaluationLagMs old at the evaluation instant; the instant is never behind the database clock and at most 1 h ahead (consumers use the batch receipt time). Samples beyond the instant are ignored.",
+    "Watch window: the RECOVERED incident's pinned rule watch_window_ms, with the trigger's newest event after recovered_at and the evaluation instant within recovered_at + window.",
+    "Policy revision pinned = the AUTHORITY policy revision in force at opening (nullable when a tenant has none); rule and procedure revisions are pinned separately.",
+    "Deadline authority: SHORTEN and RESUME need incident.manage; PAUSE and EXTEND additionally need the pinned procedure's adjust_role at the site, its pause allowance and its total extension bound. Incident pause does not pause the deadline.",
+    "Ownership: assignees are ACTIVE members with operator/maintenance_approver/engineer/admin at the site; escalation re-entry, pause, resume and handoff need the accepted current owner; handoff targets someone else and needs a future due time.",
+    "Resume revalidation (M04 part): asset ACTIVE and, when the prior state is AWAITING_APPROVAL/EXECUTING/VERIFYING, the pinned asset revision still current; later modules add checks via ResumeRevalidator. M01 has no PAUSED -> ESCALATED edge, so a failed revalidation leaves the incident PAUSED (POLICY_HOLD).",
+    "Stale-data behaviour ESCALATE_ACTIVE: telemetry.stale.v1 for a device escalates active incidents on its currently assigned assets with a STALE_SIGNAL and signal_state UNCERTAIN (sticky until accepted-owner re-entry); HOLD does nothing. Stale data never recovers or de-escalates.",
+    "Idempotency-Key receipts are unique per tenant and key across all incident commands; the request digest covers command type, principal and body. Engine triggers are deduplicated by signal digest instead.",
+    "Device corroboration on an open incident is incremental: only samples not yet linked are linked (each signal <= 500, total kept).",
+    "Main-path edges are requested by owning modules through advanceIncident with a guard reference; M04 enforces legality and CAS. RECOVERED is never reachable through advanceIncident; only the internal recovery hook with a PASSED evaluation from a RecoveryEvaluator can set it.",
+    "Reopen after the pinned deadline: the deadline is not recomputed (the ledger has one SET and the original is immutable); if the RUNNING deadline already passed, reopen appends EXPIRE under the pinned procedure so the incident shows EXPIRED/overdue (and the deadline sweep's escalation applies to later expiries). A new response deadline for a reopened incident needs a spec decision."
+  ],
+  "unresolvedRisks": [
+    "signal_state UNCERTAIN is cleared only by accepted-owner re-entry, not automatically by fresh data.",
+    "Samples from a later-revoked device still count inside the window (revocation is not re-checked at evaluation).",
+    "The deadline sweep and the telemetry consumer must be scheduled by the deployed process (M14); nothing runs them on a timer here.",
+    "Engine paths (incident.engine) are open to every worker-role service identity and every outbox/job worker context of the tenant.",
+    "listIncidents/getIncidentTimeline are bounded (500 / 1000 rows per list, 20 000 linked samples) but not cursor-paginated for timelines; NFR-08 open-latency targets are recorded, not measured.",
+    "evidence_revisions has no asset column, so an evidence revision for an incident can still name another asset's revision (M05 should bind it).",
+    "No production RecoveryEvaluator exists: incidents cannot reach RECOVERED outside tests until M11 implements it (tests use an explicitly test-only fake evaluator).",
+    "A reopened incident whose deadline already passed is EXPIRED/overdue but not given a new deadline; the reopen does not itself escalate."
+  ],
+  "nextModuleInputs": [
+    "Read APIs (incident.read at the incident's site, or engine workers): getIncident(pool, ctx, incidentId) -> IncidentView {state, version, pausedFromState, siteId, assetId, assetRevisionId, ruleRevisionId, procedureRevisionId, policyRevisionId, triggerKind/InputOrigin, urgency, faultFamily, faultWindowKey, dedupeKey, signalState, deadline{Kind,Basis,BasisAt,BasisDigest,TimezoneBasis}, originalResponseDeadlineAt, currentResponseDeadlineAt, deadlineStatus, currentAssignment, reopenCount, correlationId, openLatencyMs}; listIncidents(pool, ctx, {siteId?, assetId?, states?, activeOnly?, limit<=500, after?}); getIncidentTimeline -> transitions, signals (+ exact samples), assignments, deadlineEvents, manualReports (+ attachments), acknowledgements, riskEstimates (NON_AUTHORITATIVE).",
+    "Commands (all take expectedVersion + idempotencyKey; stale version -> VERSION_CONFLICT): acknowledgeIncident, assignIncident, acceptAssignment, handoffIncident, escalateIncident, returnFromEscalation, pauseIncident, resumeIncident(..., {revalidate}), reopenIncident, adjustIncidentDeadline (PAUSE/RESUME/SHORTEN/EXTEND), recordRiskEstimate; engine: evaluateIncidentRules, applyTelemetryStale, handleTelemetryEvent, expireIncidentDeadlines, advanceIncident({to: AWAITING_EVIDENCE|PLANNING|AWAITING_APPROVAL|EXECUTING|VERIFYING|RECOVERED|ESCALATED, guardRef, reasonCode}).",
+    "M05 (evidence/reasoning): bind evidence revisions to real incident ids (FK now enforced); move TRIAGING/REOPENED work forward with advanceIncident(to AWAITING_EVIDENCE|PLANNING, guardRef = evr_ id); fault_family/urgency on the incident are triage hypotheses, not authority; manual reports and signals are inputs with explicit trust labels.",
+    "M07 (notifications): consume incident.opened.v1 (payload.notification.required for CRITICAL), incident.reopened.v1, incident.state_changed.v1 (to ESCALATED), incident.assignment_changed.v1 and incident.deadline_changed.v1 with consumeOnce; delivery is never acknowledgement (acknowledgeIncident is a separate operator command).",
+    "M08 (planning) / M09-M10: read the pinned procedureRevisionId, currentResponseDeadlineAt and deadlineStatus as the containment deadline input (FR-09); never derive deadlines from risk estimates; request PLANNING -> AWAITING_APPROVAL -> EXECUTING -> VERIFYING through advanceIncident with plan/approval/intent references; AWAITING_APPROVAL -> PLANNING only before possible egress; supply ResumeRevalidator checks for plan/approval/in-flight effects.",
+    "M11 (recovery): implement RecoveryEvaluator in packages/incidents/src/recovery.ts terms (load the named rev_ evaluation in the caller's transaction; return it only when it is PASSED for this incident, its current action digest and pinned asset revision, with the stable LIVE post-boundary window and required signoffs) and expose a recovery command that calls the internal recoverIncidentWithEvaluation(pool, workerCtx, incidentId, {recoveryEvaluationId, reasonCode, expectedVersion, idempotencyKey}, evaluator); do not export the hook itself. Use the pinned rule recoveryWindowMs and asset revision; a recurrence inside the rule's watch window reopens the same incident automatically; stale/late/backfill samples are already excluded from incident evidence (UB043)."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M04 completed and locally verified the incident engine (rule evaluation, database-enforced single active incident, lifecycle, ownership and deadline ledger, manual reports, notification triggers) against a local PostgreSQL 17 container with synthetic devices; no physical sensor, notification delivery, deployment, provider, Kite payment or recovery evidence exists, and all of it remains NOT_RUN."
+}

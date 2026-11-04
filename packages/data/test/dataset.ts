@@ -29,7 +29,14 @@ import {
   reviseSensorChannel,
   withTenantTransaction,
 } from '../src/index.js';
-import { humanContext, incidentId, sha, vdigest, type SeededTenant, type TestIdentityProvider } from './helpers.js';
+import {
+  fixtureIncident,
+  humanContext,
+  sha,
+  vdigest,
+  type SeededTenant,
+  type TestIdentityProvider,
+} from './helpers.js';
 
 export async function seedRepresentativeDataset(
   pool: pg.Pool,
@@ -133,7 +140,12 @@ export async function seedRepresentativeDataset(
     sizeBytes: 1024,
     trustLevel: 'AUTHORITATIVE',
   });
-  const inc = incidentId(`${label}-1`);
+  const inc = await fixtureIncident(pool, {
+    tenantId: admin.tenantId,
+    assetId: asset.assetId,
+    userId: tenant.adminUserId,
+    label: `${label}-1`,
+  });
   const evidence = await commitEvidenceRevision(pool, admin, {
     incidentId: inc,
     assetRevisionId: asset.assetRevisionId,

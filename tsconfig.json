@@ -35,6 +35,12 @@
       "path": "./packages/telemetry/test"
     },
     {
+      "path": "./packages/incidents"
+    },
+    {
+      "path": "./packages/incidents/test"
+    },
+    {
       "path": "./apps/sensor-gateway"
     },
     {

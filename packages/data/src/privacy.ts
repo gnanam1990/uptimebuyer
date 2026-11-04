@@ -23,9 +23,9 @@ interface ScopeChain {
 }
 
 /**
- * Resolve a scope to its ancestor chain inside the caller's tenant. Incidents are not yet a table (M04), so an
- * INCIDENT scope must name its asset; it must agree with any evidence revision or approval already recorded for the
- * incident. M04 should resolve the chain from `incidents` instead.
+ * Resolve a scope to its ancestor chain inside the caller's tenant. An INCIDENT scope is resolved from the incidents
+ * table (M04): its site and asset are the incident's own immutable columns, so a caller can never move a hold or a
+ * request onto another asset. A parent asset, when named, must agree with the incident row.
  */
 async function resolveChain(
   c: Tx,
@@ -50,24 +50,14 @@ async function resolveChain(
       return { siteId: r.rows[0].site_id, assetId: scopeId, incidentId: null };
     }
     case 'INCIDENT': {
-      const r = await c.query(`SELECT site_id FROM assets WHERE tenant_id = $1 AND id = $2`, [tenantId, parentAssetId]);
-      if (!r.rows[0]) throw unavailable(meta, parentAssetId ?? null, 'asset');
-      const bound = await c.query<{ asset_id: string }>(
-        `SELECT DISTINCT r.asset_id FROM (
-           SELECT asset_revision_id FROM evidence_revisions WHERE tenant_id = $1 AND incident_id = $2
-           UNION SELECT asset_revision_id FROM approvals WHERE tenant_id = $1 AND incident_id = $2) x
-         JOIN asset_revisions r ON r.tenant_id = $1 AND r.id = x.asset_revision_id`,
+      const r = await c.query<{ site_id: string; asset_id: string }>(
+        `SELECT site_id, asset_id FROM incidents WHERE tenant_id = $1 AND id = $2`,
         [tenantId, scopeId],
       );
-      if (bound.rows.some((b) => b.asset_id !== parentAssetId)) throw validation('INCIDENT_ASSET_MISMATCH');
-      // Until M04's incidents table exists, the first recorded chain pins the incident: any hold already placed for
-      // this incident fixes its asset, so a caller cannot dodge the hold by naming a different parent asset.
-      const pinned = await c.query<{ asset_id: string }>(
-        `SELECT DISTINCT asset_id FROM legal_holds WHERE tenant_id = $1 AND incident_id = $2 AND asset_id IS NOT NULL`,
-        [tenantId, scopeId],
-      );
-      if (pinned.rows.some((b) => b.asset_id !== parentAssetId)) throw validation('INCIDENT_ASSET_MISMATCH');
-      return { siteId: r.rows[0].site_id, assetId: parentAssetId!, incidentId: scopeId };
+      const inc = r.rows[0];
+      if (!inc) throw unavailable(meta);
+      if (parentAssetId !== undefined && parentAssetId !== inc.asset_id) throw validation('INCIDENT_ASSET_MISMATCH');
+      return { siteId: inc.site_id, assetId: inc.asset_id, incidentId: scopeId };
     }
   }
 }
@@ -77,8 +67,8 @@ function checkScope(scopeType: unknown, scopeId: unknown, parentAssetId: unknown
     throw validation('INVALID_SCOPE');
   if (scopeType === 'INCIDENT') {
     if (!/^inc_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/.test(scopeId)) throw validation('INVALID_SCOPE');
-    if (parentAssetId === undefined) throw validation('INCIDENT_ASSET_REQUIRED');
-    if (!AssetIdSchema.safeParse(parentAssetId).success) throw validation('INVALID_SCOPE');
+    if (parentAssetId !== undefined && !AssetIdSchema.safeParse(parentAssetId).success)
+      throw validation('INVALID_SCOPE');
   } else if (parentAssetId !== undefined) throw validation('PARENT_ASSET_ONLY_FOR_INCIDENT');
 }
 

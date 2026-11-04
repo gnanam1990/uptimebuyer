@@ -1,6 +1,20 @@
 // @uptimebuyer/data — PostgreSQL storage, tenant-scoped repositories, principal authentication, RBAC authority,
 // transactional outbox and jobs (M02). Every repository call takes a server-issued TenantContext.
-export { withTransaction, type Db, type Tx, type Queryable } from './db.js';
+export {
+  FK_VIOLATION,
+  UNIQUE_VIOLATION,
+  dbNow,
+  iso,
+  isoNN,
+  lockKey,
+  pgCode,
+  sha256Digest,
+  versionConflict,
+  withTransaction,
+  type Db,
+  type Tx,
+  type Queryable,
+} from './db.js';
 export * from './ids.js';
 export {
   HUMAN_ROLES,
@@ -18,6 +32,8 @@ export {
   type RoleGrant,
   type TenantContext,
   type WorkerPrincipal,
+  actorOf,
+  humanActor,
 } from './context.js';
 export {
   HumanOidcVerifier,
@@ -35,7 +51,16 @@ export {
   type MachinePrincipalKind,
 } from './auth.js';
 export * from './authz.js';
-export { recordAudit, resourceUnavailable, type AuditInput } from './command.js';
+export {
+  Denial,
+  notPermitted,
+  recordAudit,
+  resourceUnavailable,
+  tenantCommand,
+  unavailable,
+  type AuditInput,
+  type CommandMeta,
+} from './command.js';
 export * from './audit.js';
 export { listSecurityAuditEntries, type SecurityAuditEntry } from './security-audit.js';
 export {
