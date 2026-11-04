@@ -3,8 +3,8 @@
   "recordKind": "F0_FEASIBILITY_RESULT",
   "statement": "F0 is feasibility evidence, not canonical module or product implementation evidence.",
   "run": {
-    "startedAt": "2026-11-04T16:33:26.476Z",
-    "finishedAt": "2026-11-04T16:33:48.768Z",
+    "startedAt": "2026-11-04T16:35:52.211Z",
+    "finishedAt": "2026-11-04T16:36:14.289Z",
     "command": "node spikes/f0/run.mjs",
     "exitCode": 0,
     "environment": {
@@ -21,7 +21,7 @@
     },
     "repository": {
       "branch": "spike/f0-feasibility",
-      "head": "a60aee0316d4c035baa5a5310fc7bd1fcfc7d279",
+      "head": "86ebe969cd29e27c03a7030f5149af3cf1660af9",
       "dirtyPaths": 0
     }
   },
@@ -31,8 +31,8 @@
       "mTLS client key+certificate for CN=f0-kite-broker",
       "32-byte bearer capability"
     ],
-    "capabilityFingerprint": "e096fad34cdf6bda",
-    "brokerClientCertFingerprint256": "B8:CE:EC:8D:86:C4:1F:1B:25:04:23:30:2C:7E:D3:63:43:81:05:42:F6:86:55:6E:4B:A3:00:B2:D6:DA:6A:DB",
+    "capabilityFingerprint": "04b0783db5fc3480",
+    "brokerClientCertFingerprint256": "48:79:04:3B:0F:60:0D:79:2F:17:49:B4:46:3B:F1:E2:44:E1:33:DC:55:AC:07:DF:2A:7C:29:66:BB:4A:63:FB",
     "holder": "f0-kite-broker only",
     "delivery": "launcher -> broker fd 3 pipe; never env, argv, file, log or repository"
   },
@@ -59,7 +59,7 @@
       "id": "execute-confirmed",
       "gate": "F0-C(local)",
       "pass": true,
-      "evidence": "state=CONFIRMED effect=sfx_80d96c5c7955ad73"
+      "evidence": "state=CONFIRMED effect=sfx_dd89c477e7f073a6"
     },
     {
       "id": "duplicate-submission-same-effect",
@@ -327,7 +327,7 @@
       "id": "secret-fs-spike-tree",
       "layer": "secret",
       "denied": false,
-      "observed": "read 88542 bytes (launcher scans)",
+      "observed": "read 168243 bytes (launcher scans)",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -507,7 +507,7 @@
       "id": "broker-replay-captured-envelope",
       "layer": "broker",
       "denied": true,
-      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_dd89c477e7f073a6",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -577,7 +577,7 @@
       "id": "secret-fs-spike-tree",
       "layer": "secret",
       "denied": false,
-      "observed": "read 88542 bytes (launcher scans)",
+      "observed": "read 168243 bytes (launcher scans)",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -757,7 +757,7 @@
       "id": "broker-replay-captured-envelope",
       "layer": "broker",
       "denied": true,
-      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_dd89c477e7f073a6",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -827,7 +827,7 @@
       "id": "secret-fs-spike-tree",
       "layer": "secret",
       "denied": false,
-      "observed": "read 88542 bytes (launcher scans)",
+      "observed": "read 168243 bytes (launcher scans)",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1007,7 +1007,7 @@
       "id": "broker-replay-captured-envelope",
       "layer": "broker",
       "denied": true,
-      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_dd89c477e7f073a6",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1077,7 +1077,7 @@
       "id": "secret-fs-spike-tree",
       "layer": "secret",
       "denied": false,
-      "observed": "read 88542 bytes (launcher scans)",
+      "observed": "read 168243 bytes (launcher scans)",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1257,7 +1257,7 @@
       "id": "broker-replay-captured-envelope",
       "layer": "broker",
       "denied": true,
-      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_dd89c477e7f073a6",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1327,7 +1327,7 @@
       "id": "secret-fs-spike-tree",
       "layer": "secret",
       "denied": false,
-      "observed": "read 88542 bytes (launcher scans)",
+      "observed": "read 168243 bytes (launcher scans)",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1507,7 +1507,7 @@
       "id": "broker-replay-captured-envelope",
       "layer": "broker",
       "denied": true,
-      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_dd89c477e7f073a6",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1577,7 +1577,7 @@
       "id": "secret-fs-spike-tree",
       "layer": "secret",
       "denied": false,
-      "observed": "read 88542 bytes (launcher scans)",
+      "observed": "read 168243 bytes (launcher scans)",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     },
@@ -1757,7 +1757,7 @@
       "id": "broker-replay-captured-envelope",
       "layer": "broker",
       "denied": true,
-      "observed": "200 state=CONFIRMED egress=false effect=sfx_80d96c5c7955ad73",
+      "observed": "200 state=CONFIRMED egress=false effect=sfx_dd89c477e7f073a6",
       "secretMarkersFound": [],
       "controlCanaryFound": false
     }
@@ -1852,18 +1852,18 @@
     "happyPath": {
       "first": {
         "state": "CONFIRMED",
-        "effectId": "sfx_80d96c5c7955ad73",
+        "effectId": "sfx_dd89c477e7f073a6",
         "egress": true,
         "replayed": false
       },
       "duplicate": {
         "state": "CONFIRMED",
-        "effectId": "sfx_80d96c5c7955ad73",
+        "effectId": "sfx_dd89c477e7f073a6",
         "egress": false,
         "decision": "RETURN_STORED"
       },
       "provider": {
-        "effectId": "sfx_80d96c5c7955ad73",
+        "effectId": "sfx_dd89c477e7f073a6",
         "executeCalls": 1,
         "effectsCreated": 1
       }
@@ -1883,11 +1883,11 @@
       },
       "reconcile": {
         "state": "CONFIRMED",
-        "effectId": "sfx_090237640081bca9",
+        "effectId": "sfx_b0f6533b8dfea7eb",
         "lookup": true
       },
       "provider": {
-        "effectId": "sfx_090237640081bca9",
+        "effectId": "sfx_b0f6533b8dfea7eb",
         "executeCalls": 1,
         "effectsCreated": 1
       }
@@ -1911,7 +1911,7 @@
         "decision": "RETURN_UNKNOWN_NO_RETRY"
       },
       "provider": {
-        "effectId": "sfx_6e53e3b974e44cd0",
+        "effectId": "sfx_747e751815aa63ac",
         "executeCalls": 1,
         "effectsCreated": 1
       }
@@ -1924,11 +1924,11 @@
       },
       "reconcile": {
         "state": "CONFIRMED",
-        "effectId": "sfx_953ba32e238e5c70",
+        "effectId": "sfx_89280c3f2a954218",
         "lookup": true
       },
       "provider": {
-        "effectId": "sfx_953ba32e238e5c70",
+        "effectId": "sfx_89280c3f2a954218",
         "executeCalls": 1,
         "effectsCreated": 1
       }
@@ -1936,18 +1936,18 @@
     "journalLoss": {
       "first": {
         "state": "CONFIRMED",
-        "effectId": "sfx_0dec0e1699f474bb",
+        "effectId": "sfx_446f5f361977aa55",
         "egress": true,
         "replayed": false
       },
       "afterLoss": {
         "state": "CONFIRMED",
-        "effectId": "sfx_0dec0e1699f474bb",
+        "effectId": "sfx_446f5f361977aa55",
         "egress": true,
         "replayed": true
       },
       "provider": {
-        "effectId": "sfx_0dec0e1699f474bb",
+        "effectId": "sfx_446f5f361977aa55",
         "executeCalls": 2,
         "effectsCreated": 1
       }
@@ -2035,23 +2035,23 @@
     "payment": {
       "kind": "PAYMENT_OBSERVATION",
       "source": "LOCAL_STAND_IN",
-      "effectId": "sfx_80d96c5c7955ad73",
+      "effectId": "sfx_dd89c477e7f073a6",
       "amountMinor": "100",
       "currency": "XTS",
-      "digest": "1f4a5aeb667fd0587644a2adacc95125164aff0cb26a424b5674d275fdeb993c"
+      "digest": "3a89badd871b0eeded20676556f82c8fe3e9e2ef027d77407c820ad35e22e7b0"
     },
     "acceptance": {
       "kind": "PROVIDER_ACCEPTANCE",
       "source": "LOCAL_STAND_IN",
-      "effectId": "sfx_80d96c5c7955ad73",
-      "digest": "8a3a91377fc0a2a6c7a2e4f1ffb08f06b968a4b6bf005b9d8b1023f755de06f5"
+      "effectId": "sfx_dd89c477e7f073a6",
+      "digest": "de2a62c94f0f33ec70ff1bb6c54005867ec33476df3cc90c6ae6701fac318171"
     },
     "work": {
       "kind": "WORK_REPORT",
       "source": "FIXTURE",
       "status": "PROVIDER_REPORTED_COMPLETED",
-      "reportedAtMs": 1793810023730,
-      "digest": "bce121581bc01f1051738b459ed6d132d09326bed6f7f2d34e602d5d828f60f1"
+      "reportedAtMs": 1793810169249,
+      "digest": "0e85301429c48a7203da93430b2748ef1872a5b2fea497924cf4ceb0a14a81b4"
     },
     "signoff": {
       "kind": "SIGNOFF",
@@ -2062,10 +2062,10 @@
     "simWindow": {
       "kind": "SENSOR_WINDOW",
       "source": "SIMULATED_INPUT",
-      "startMs": 1793810025730,
+      "startMs": 1793810171249,
       "samples": 1,
       "allFreshInRange": true,
-      "digest": "6f356af787f4f115e06f4f3b27b9040535e33bc7ee4d4250663e4f6673488efe"
+      "digest": "05cc81f4c4e3d75b589d247a75ea5cca906eeb8a02c87bd892b9e8bf94beac67"
     }
   },
   "recovery": {
@@ -2100,28 +2100,28 @@
   "processes": {
     "brokerLaunches": [
       {
-        "pid": 54324,
+        "pid": 61496,
         "stateDir": "state-1",
         "crashFaultArmed": true
       },
       {
-        "pid": 54353,
+        "pid": 61524,
         "stateDir": "state-1",
         "crashFaultArmed": false
       },
       {
-        "pid": 56172,
+        "pid": 63129,
         "stateDir": "state-2",
         "crashFaultArmed": false
       }
     ],
     "f0-general-worker+sandbox": {
-      "pid": 54408,
+      "pid": 61577,
       "uid": 501,
       "sandboxed": true
     },
     "f0-serv+sandbox": {
-      "pid": 54719,
+      "pid": 61852,
       "uid": 501,
       "sandboxed": true,
       "openServKey": {
@@ -2130,17 +2130,17 @@
       }
     },
     "f0-client+sandbox": {
-      "pid": 55059,
+      "pid": 62126,
       "uid": 501,
       "sandboxed": true
     },
     "f0-general-worker": {
-      "pid": 55317,
+      "pid": 62375,
       "uid": 501,
       "sandboxed": false
     },
     "f0-serv": {
-      "pid": 55660,
+      "pid": 62626,
       "uid": 501,
       "sandboxed": false,
       "openServKey": {
@@ -2149,12 +2149,12 @@
       }
     },
     "f0-client": {
-      "pid": 55918,
+      "pid": 62878,
       "uid": 501,
       "sandboxed": false
     },
     "broker": {
-      "pid": 56172,
+      "pid": 63129,
       "uid": 501,
       "nodeArgs": [
         "--disable-sigusr1"
@@ -2163,7 +2163,7 @@
       "ingress": "unix socket 0600 in 0700 dir"
     },
     "standin": {
-      "pid": 54323,
+      "pid": 61495,
       "uid": 501,
       "label": "LOCAL_STAND_IN",
       "holds": "server key + SHA-256 of capability (not the capability)"
