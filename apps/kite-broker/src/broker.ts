@@ -40,6 +40,7 @@ import {
   transitionAuthorityInTx,
   verifyAuthorityScope,
   type AuthorityVerifyKeys,
+  type SubjectFacts,
 } from '@uptimebuyer/commerce';
 import {
   verifyExecutionReference,
@@ -253,8 +254,9 @@ export class KiteBroker {
     });
   }
 
-  private async applySessionOutcome(ctx: TenantContext, sessionId: string, o: AdapterOutcome): Promise<void> {
+  private async applySessionOutcome(ctx: TenantContext, sessionId: string, given: AdapterOutcome): Promise<void> {
     await this.tx(ctx, async (c) => {
+      let o = given;
       let s = (
         await c.query(`SELECT * FROM execution_authority_sessions WHERE tenant_id = $1 AND id = $2 FOR NO KEY UPDATE`, [
           ctx.tenantId,
@@ -419,66 +421,14 @@ export class KiteBroker {
         return { kind: 'FAILED', events: [ev], reasonCode };
       };
 
-      if (!verifyAuthorityScope(authorityScopeOf(x), authoritySignatureOf(x), this.opts.authorityKeys))
-        return fail('AUTHORITY_SIGNATURE_INVALID');
-      if (x.status === 'REVOKED' || x.status === 'EXPIRED') return fail(`AUTHORITY_${x.status}`);
-      if (!x.live) {
-        await transitionAuthorityInTx(c, ctx, x, 'EXPIRED', 'AUTHORITY_EXPIRED');
-        return fail('AUTHORITY_EXPIRED');
+      // The ONE shared precondition gate (also used by same-key replay; see assertExecutionPreconditionsInTx).
+      const pre = await assertExecutionPreconditionsInTx(c, ctx, i, x, this.opts);
+      if (!pre.ok) {
+        if (pre.transient) throw hold(pre.reasonCode, pre.details ?? {});
+        if (pre.expired) await transitionAuthorityInTx(c, ctx, x, 'EXPIRED', 'AUTHORITY_EXPIRED');
+        return fail(pre.reasonCode);
       }
-      if (x.status === 'SUSPENDED') throw hold('AUTHORITY_SUSPENDED');
-      const s = (
-        await c.query(
-          `SELECT * FROM execution_authority_sessions WHERE tenant_id = $1 AND execution_authority_id = $2`,
-          [ctx.tenantId, x.id],
-        )
-      ).rows[0];
-      if (s.external_outcome_state !== 'CONFIRMED')
-        throw hold('KITE_SESSION_NOT_CONFIRMED', { sessionOutcome: s.external_outcome_state });
-      const ok = (await c.query(`SELECT ub_approval_executable($1, $2) AS ok`, [ctx.tenantId, x.approval_id])).rows[0]
-        .ok;
-      if (!ok) return fail('APPROVAL_NOT_EXECUTABLE');
-      const bound =
-        i.approval_id === x.approval_id &&
-        i.action_digest === x.action_digest &&
-        i.subject_type === x.subject_type &&
-        i.subject_id === x.subject_id &&
-        i.provider_account_revision_id === x.provider_account_revision_id &&
-        i.currency === x.currency &&
-        BigInt(i.max_amount_minor) <= BigInt(x.per_action_limit_minor);
-      if (!bound) return fail('INTENT_OUTSIDE_AUTHORITY');
-
-      const f = await loadSubjectFacts(c, ctx.tenantId, { type: i.subject_type, id: i.subject_id }, x.approval_id);
-      if (!f || f.recomputedActionDigest !== x.action_digest || f.storedActionDigest !== x.action_digest)
-        return fail('ACTION_DIGEST_MISMATCH');
-      if (f.invalidated) return fail('SUBJECT_INVALIDATED');
-      if (
-        f.merchantId !== x.merchant_id ||
-        f.purpose !== x.purpose ||
-        f.amount.currency !== x.currency ||
-        f.amount.amountMinor !== BigInt(i.max_amount_minor) ||
-        !x.allowed_action_kinds.includes(f.actionKind)
-      )
-        return fail('SUBJECT_OUTSIDE_AUTHORITY');
-      const stale = await staleRevisionReason(c, ctx.tenantId, f);
-      if (stale) return fail(stale);
-      if (!(await providerRevisionCurrent(c, ctx.tenantId, x.provider_account_revision_id)))
-        return fail('PROVIDER_ACCOUNT_REVISION_NOT_CURRENT');
-      if (i.subject_type === 'PLAN_ACTION') {
-        if (f.planHash !== x.plan_hash || !['APPROVED', 'EXECUTING'].includes(f.planState ?? ''))
-          return fail('PLAN_NOT_EXECUTABLE');
-        try {
-          await assertDecisionExecutableInTx(
-            c,
-            ctx,
-            { compatibilityDecisionId: f.compatibilityDecisionId!, actionDigest: x.action_digest },
-            this.opts.compatibilitySigning,
-          );
-        } catch (e) {
-          const reason = e instanceof DomainError ? String(e.details.reasonCode ?? e.code) : 'DECISION_NOT_EXECUTABLE';
-          return fail(/^[A-Z][A-Z0-9_]{0,63}$/.test(reason) ? reason : 'DECISION_NOT_EXECUTABLE');
-        }
-      }
+      const { facts: f, session: s } = pre;
       const authorized = this.authorizedIntent(ctx, i, x, f.actionKind, s);
       const cap = this.opts.adapter.assess(authorized);
       if (cap.kind === 'UNSUPPORTED') return fail('ADAPTER_CAPABILITY_UNSUPPORTED');
@@ -917,6 +867,13 @@ export class KiteBroker {
           intentId,
         ])
       ).rows[0];
+      const head = (
+        await c.query(`SELECT subject_type, incident_id FROM commercial_intents WHERE tenant_id = $1 AND id = $2`, [
+          ctx.tenantId,
+          intentId,
+        ])
+      ).rows[0];
+      if (head.subject_type === 'PLAN_ACTION') await lockKey(c, planningLock(ctx.tenantId, head.incident_id));
       const x = (
         await c.query(
           `SELECT *, expires_at > clock_timestamp() AS live FROM execution_authorities WHERE tenant_id = $1 AND id = $2
@@ -928,32 +885,13 @@ export class KiteBroker {
         await c.query(`SELECT * FROM commercial_intents WHERE tenant_id = $1 AND id = $2`, [ctx.tenantId, intentId])
       ).rows[0];
       if (i.state !== 'UNKNOWN') return unknownOutcome('REPLAY_NOT_APPLICABLE');
-      const s = (
-        await c.query(
-          `SELECT * FROM execution_authority_sessions WHERE tenant_id = $1 AND execution_authority_id = $2`,
-          [ctx.tenantId, x.id],
-        )
-      ).rows[0];
-      const approvalOk = (await c.query(`SELECT ub_approval_executable($1, $2) AS ok`, [ctx.tenantId, x.approval_id]))
-        .rows[0].ok;
-      const f = await loadSubjectFacts(c, ctx.tenantId, { type: i.subject_type, id: i.subject_id }, x.approval_id);
-      const current =
-        verifyAuthorityScope(authorityScopeOf(x), authoritySignatureOf(x), this.opts.authorityKeys) &&
-        x.status === 'ACTIVE' &&
-        x.live &&
-        s.external_outcome_state === 'CONFIRMED' &&
-        approvalOk &&
-        f !== null &&
-        f.recomputedActionDigest === x.action_digest &&
-        !f.invalidated &&
-        (i.subject_type !== 'PLAN_ACTION' ||
-          (f.planHash === x.plan_hash && ['APPROVED', 'EXECUTING'].includes(f.planState ?? ''))) &&
-        (await providerRevisionCurrent(c, ctx.tenantId, x.provider_account_revision_id)) &&
-        (await staleRevisionReason(c, ctx.tenantId, f)) === null;
-      if (!current) return refused('REPLAY_AUTHORITY_NOT_CURRENT');
+      // Exactly the linearization preconditions (one shared function): any failure refuses the replay.
+      const pre = await assertExecutionPreconditionsInTx(c, ctx, i, x, this.opts);
+      if (!pre.ok) return refused('REPLAY_AUTHORITY_NOT_CURRENT');
+      const { facts: f, session: s } = pre;
       const prepared = this.opts.adapter.prepare(this.authorizedIntent(ctx, i, x, f.actionKind, s));
       if (prepared.requestDigest !== attempt.request_digest) return refused('REPLAY_REQUEST_DIGEST_CHANGED');
-      return this.opts.adapter.execute(
+      const out = await this.opts.adapter.execute(
         prepared,
         {
           clientOperationId: attempt.client_operation_id,
@@ -962,6 +900,7 @@ export class KiteBroker {
         },
         { onHandoff: () => {} },
       );
+      return out;
     });
   }
 
@@ -1031,6 +970,87 @@ export class KiteBroker {
     const ctx = issueBrokerWorkerContext(tenantId, `view-${intentId.slice(4, 40)}`);
     return this.tx(ctx, (c) => loadIntentViewInTx(c, tenantId, intentId));
   }
+}
+
+export type ExecutionPrecondition =
+  | { ok: true; facts: SubjectFacts; session: any }
+  | { ok: false; reasonCode: string; transient: boolean; expired?: boolean; details?: Record<string, unknown> };
+
+/**
+ * Every precondition a paid execution must satisfy, in ONE place, inside the caller's transaction (which holds the
+ * planning lock and the authority row lock). Used by first-send linearization AND by same-key replay so the two paths
+ * cannot drift. `transient` failures (suspension, session not yet confirmed) may later pass; the rest are permanent.
+ */
+export async function assertExecutionPreconditionsInTx(
+  c: Tx,
+  ctx: TenantContext,
+  i: any,
+  x: any,
+  deps: { authorityKeys: AuthorityVerifyKeys; compatibilitySigning: AuthoritySigning },
+): Promise<ExecutionPrecondition> {
+  const no = (reasonCode: string, extra: Partial<Extract<ExecutionPrecondition, { ok: false }>> = {}) =>
+    ({ ok: false, reasonCode, transient: false, ...extra }) as ExecutionPrecondition;
+  if (!verifyAuthorityScope(authorityScopeOf(x), authoritySignatureOf(x), deps.authorityKeys))
+    return no('AUTHORITY_SIGNATURE_INVALID');
+  if (x.status === 'REVOKED' || x.status === 'EXPIRED') return no(`AUTHORITY_${x.status}`);
+  if (!x.live) return no('AUTHORITY_EXPIRED', { expired: true });
+  if (x.status === 'SUSPENDED') return no('AUTHORITY_SUSPENDED', { transient: true });
+  const session = (
+    await c.query(`SELECT * FROM execution_authority_sessions WHERE tenant_id = $1 AND execution_authority_id = $2`, [
+      ctx.tenantId,
+      x.id,
+    ])
+  ).rows[0];
+  if (session.external_outcome_state !== 'CONFIRMED')
+    return no('KITE_SESSION_NOT_CONFIRMED', {
+      transient: true,
+      details: { sessionOutcome: session.external_outcome_state },
+    });
+  const approvalOk = (await c.query(`SELECT ub_approval_executable($1, $2) AS ok`, [ctx.tenantId, x.approval_id]))
+    .rows[0].ok;
+  if (!approvalOk) return no('APPROVAL_NOT_EXECUTABLE');
+  const bound =
+    i.approval_id === x.approval_id &&
+    i.execution_authority_id === x.id &&
+    i.action_digest === x.action_digest &&
+    i.subject_type === x.subject_type &&
+    i.subject_id === x.subject_id &&
+    i.provider_account_revision_id === x.provider_account_revision_id &&
+    i.currency === x.currency &&
+    BigInt(i.max_amount_minor) <= BigInt(x.per_action_limit_minor);
+  if (!bound) return no('INTENT_OUTSIDE_AUTHORITY');
+  const f = await loadSubjectFacts(c, ctx.tenantId, { type: i.subject_type, id: i.subject_id }, x.approval_id);
+  if (!f || f.recomputedActionDigest !== x.action_digest || f.storedActionDigest !== x.action_digest)
+    return no('ACTION_DIGEST_MISMATCH');
+  if (f.invalidated) return no('SUBJECT_INVALIDATED');
+  if (
+    f.merchantId !== x.merchant_id ||
+    f.purpose !== x.purpose ||
+    f.amount.currency !== x.currency ||
+    f.amount.amountMinor !== BigInt(i.max_amount_minor) ||
+    !x.allowed_action_kinds.includes(f.actionKind)
+  )
+    return no('SUBJECT_OUTSIDE_AUTHORITY');
+  const stale = await staleRevisionReason(c, ctx.tenantId, f);
+  if (stale) return no(stale);
+  if (!(await providerRevisionCurrent(c, ctx.tenantId, x.provider_account_revision_id)))
+    return no('PROVIDER_ACCOUNT_REVISION_NOT_CURRENT');
+  if (i.subject_type === 'PLAN_ACTION') {
+    if (f.planHash !== x.plan_hash || !['APPROVED', 'EXECUTING'].includes(f.planState ?? ''))
+      return no('PLAN_NOT_EXECUTABLE');
+    try {
+      await assertDecisionExecutableInTx(
+        c,
+        ctx,
+        { compatibilityDecisionId: f.compatibilityDecisionId!, actionDigest: x.action_digest },
+        deps.compatibilitySigning,
+      );
+    } catch (e) {
+      const reason = e instanceof DomainError ? String(e.details.reasonCode ?? e.code) : 'DECISION_NOT_EXECUTABLE';
+      return no(/^[A-Z][A-Z0-9_]{0,63}$/.test(reason) ? reason : 'DECISION_NOT_EXECUTABLE');
+    }
+  }
+  return { ok: true, facts: f, session };
 }
 
 /** The legal external-outcome path from `from` to a target (REQUESTED is inferred only from a provider answer). */

@@ -9,7 +9,7 @@ function body(signature: string): string {
   const start = src.indexOf(signature);
   if (start < 0) throw new Error(`missing ${signature}`);
   let depth = 0;
-  for (let i = src.indexOf('{', src.indexOf(')', start)); i < src.length; i++) {
+  for (let i = src.indexOf(' {\n', start) + 1; i < src.length; i++) {
     if (src[i] === '{') depth++;
     if (src[i] === '}' && --depth === 0) return src.slice(start, i + 1);
   }

@@ -40,13 +40,17 @@ async function tamper(table: string, sql: string, params: unknown[]) {
   const c = await w.db.pool.connect();
   try {
     await c.query('BEGIN');
-    await c.query(`ALTER TABLE ${table} DISABLE TRIGGER USER`);
+    // Superuser-only: skip every trigger, including foreign-key checks, as a raw database writer could.
+    await c.query(`SET LOCAL session_replication_role = replica`);
     await c.query(sql, params);
-    await c.query(`ALTER TABLE ${table} ENABLE TRIGGER USER`);
     await c.query('COMMIT');
+  } catch (e) {
+    await c.query('ROLLBACK');
+    throw e;
   } finally {
     c.release();
   }
+  void table;
 }
 async function expectManual(intentId: string, adapter: RecordedContractAdapter, reason: string) {
   expect(adapter.executeCalls).toBe(0);
