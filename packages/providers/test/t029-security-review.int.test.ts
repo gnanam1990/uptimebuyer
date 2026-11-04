@@ -353,6 +353,81 @@ describe('M07 security review regressions', () => {
     });
   });
 
+  it('consent withdrawal atomically withdraws every promoted document (>100, system action, no promote/withdraw race)', async () => {
+    const { byRef } = await discover(w);
+    w.api.on('POST /v1/contact-requests', () => fx('contactAccepted'));
+    const prepared = await prepareContactRequest(w.db.pool, w.operator.ctx, {
+      incidentId: w.incident.incidentId,
+      serviceProviderId: byRef['fr-207']!,
+      contactPointId: pointOf(byRef['fr-207']!, 'EMAIL'),
+      providerAccountId: w.unpaid.providerAccountId,
+      channel: 'EMAIL',
+      purposeCode: 'QUOTE',
+      idempotencyKey: w.key('p'),
+    });
+    await executeContactRequest(
+      w.db.pool,
+      w.operator.ctx,
+      prepared.contactRequestId,
+      { idempotencyKey: w.key('e') },
+      {},
+    );
+    await runContactDispatch(w.db.pool, { adapters: w.adapters, credentials: w.creds, workerId: 'sec-many' });
+    const attempt = (await getContactRequest(w.db.pool, w.operator.ctx, prepared.contactRequestId)).attempts[0]!;
+    await recordConsent(w.db.pool, w.operator.ctx, {
+      contactRequestId: prepared.contactRequestId,
+      consentKind: 'PROCESSING',
+      purpose: 'EVIDENCE_REASONING',
+      status: 'GRANTED',
+      capturedVia: 'EMAIL_REPLY',
+    });
+    const record = (i: number) =>
+      recordCommunication(w.db.pool, w.operator.ctx, {
+        contactAttemptId: attempt.contactAttemptId,
+        direction: 'INBOUND',
+        commType: 'EMAIL',
+        transcriptSource: 'ADAPTER_CAPTURE',
+        recordingDisclosure: 'NOT_APPLICABLE',
+        rawText: `Call-out ${100 + i}.00 GBP, ETA ${1 + (i % 9)} hours.`,
+        observedAt: new Date().toISOString(),
+      });
+    for (let i = 0; i < 101; i++) {
+      const comm = await record(i);
+      await promoteExcerptToEvidence(w.db.pool, w.operator.ctx, w.store, { communicationId: comm.communicationId });
+    }
+    const racers = await Promise.all([0, 1, 2, 3].map((i) => record(200 + i)));
+    const active = async () =>
+      (
+        await w.db.pool.query(
+          `SELECT count(*)::int AS n FROM evidence_documents d
+            WHERE d.tenant_id = $1 AND d.consent_ref IN (SELECT id FROM provider_consents WHERE tenant_id = $1
+                    AND contact_request_id = $2 AND consent_kind = 'PROCESSING')
+              AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)`,
+          [w.tenant.tenantId, prepared.contactRequestId],
+        )
+      ).rows[0].n as number;
+    expect(await active()).toBe(101);
+    // The withdrawal comes from the engine (provider-API sourced), which holds no evidence.submit permission, and
+    // races further promotions.
+    const outcomes = await Promise.allSettled([
+      ...racers.map((r) =>
+        promoteExcerptToEvidence(w.db.pool, w.operator.ctx, w.store, { communicationId: r.communicationId }),
+      ),
+      recordConsent(w.db.pool, w.service, {
+        contactRequestId: prepared.contactRequestId,
+        consentKind: 'PROCESSING',
+        purpose: 'EVIDENCE_REASONING',
+        status: 'WITHDRAWN',
+        capturedVia: 'PROVIDER_API',
+      }),
+    ]);
+    expect(outcomes.at(-1)!.status).toBe('fulfilled');
+    for (const o of outcomes.slice(0, -1))
+      if (o.status === 'rejected')
+        expect(o.reason).toMatchObject({ details: { reasonCode: 'PROCESSING_CONSENT_REQUIRED' } });
+    expect(await active()).toBe(0);
+  });
+
   it('webhooks: signed acknowledgement applies once; replay, tamper, stale time and broker-owned bindings are refused', async () => {
     const { byRef } = await discover(w);
     w.api.on('POST /v1/contact-requests', () => 'HANG');
