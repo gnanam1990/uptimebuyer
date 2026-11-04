@@ -15,12 +15,12 @@ import {
   type TenantContext,
   type Tx,
 } from '@uptimebuyer/data';
-import { ingestDocument, type ObjectStorePort } from '@uptimebuyer/evidence';
+import { ingestDocument, withdrawDocument, type ObjectStorePort } from '@uptimebuyer/evidence';
 import { z } from 'zod';
 import { emitProviderEvent } from './events.js';
 import { hold, invalid } from './errors.js';
 import { newProviderId } from './ids.js';
-import { actorFields, isoOf, loadIncident } from './internal.js';
+import { actorFields, authorizeScoped, isoOf, loadIncident } from './internal.js';
 import {
   REDACTION_RULE_VERSION,
   contentDigest,
@@ -105,10 +105,10 @@ export async function recordConsent(
     resourceType: 'provider_contact_request',
     resourceId: input.contactRequestId,
   };
-  return tenantCommand(pool, ctx, meta, async (c) => {
+  const result = await tenantCommand(pool, ctx, meta, async (c) => {
     const req = await loadRequest(c, ctx.tenantId, input.contactRequestId);
     if (!req) throw unavailable(meta);
-    requireAuthorized(ctx, { action: 'provider.contact', siteId: req.site_id as never });
+    authorizeScoped(ctx, 'provider.contact', req.site_id, meta);
     const consentId = await recordProviderConsentInTx(c, ctx, req, {
       consentKind: input.consentKind,
       purpose: input.purpose,
@@ -118,8 +118,24 @@ export async function recordConsent(
       sourceAttemptId: input.sourceAttemptId ?? null,
     });
     await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', reasonCode: `${input.consentKind}_${input.status}` });
-    return { consentId };
+    // Excerpts promoted to M05 under this request's processing consents leave future evidence revisions.
+    const promoted =
+      input.consentKind === 'PROCESSING' && input.status !== 'GRANTED'
+        ? (
+            await c.query<{ id: string }>(
+              `SELECT d.id FROM evidence_documents d
+                WHERE d.tenant_id = $1 AND d.consent_ref IN (
+                  SELECT id FROM provider_consents WHERE tenant_id = $1 AND contact_request_id = $2 AND consent_kind = 'PROCESSING')
+                ORDER BY d.id LIMIT 100`,
+              [ctx.tenantId, req.id],
+            )
+          ).rows.map((r) => r.id)
+        : [];
+    return { consentId, promoted };
   });
+  for (const documentId of result.promoted)
+    await withdrawDocument(pool, ctx, documentId, { reasonCode: 'PROCESSING_CONSENT_WITHDRAWN' });
+  return { consentId: result.consentId };
 }
 
 async function latestConsent(c: Tx, tenantId: string, requestId: string, kind: 'RECORDING' | 'PROCESSING') {
@@ -149,15 +165,10 @@ const RecordSchema = z.strictObject({
   direction: z.enum(['OUTBOUND', 'INBOUND']),
   commType: z.enum(['EMAIL', 'PHONE_TRANSCRIPT', 'API_MESSAGE']),
   transcriptSource: z.enum(['PROVIDER_TRANSCRIPTION', 'ADAPTER_CAPTURE', 'OPERATOR_NOTES']),
-  sourceAdapterClass: z.enum([
-    'LIVE',
-    'SANDBOX',
-    'RECORDED_FIXTURE',
-    'SYNTHETIC_FIXTURE',
-    'LOCAL_FAKE',
-    'BROKER',
-    'OPERATOR',
-  ]),
+  /** Optional echo only: derived server-side (OPERATOR for humans, else the attempt's adapter class). */
+  sourceAdapterClass: z
+    .enum(['LIVE', 'SANDBOX', 'RECORDED_FIXTURE', 'SYNTHETIC_FIXTURE', 'LOCAL_FAKE', 'BROKER', 'OPERATOR'])
+    .optional(),
   recordingDisclosure: z.enum(['GIVEN', 'NOT_GIVEN', 'NOT_APPLICABLE']),
   rawText: z.string().min(1).max(COMMUNICATION_LIMITS.maxRawChars),
   observedAt: UtcInstantSchema,
@@ -182,14 +193,23 @@ export async function recordCommunication(
     resourceId: input.contactAttemptId,
   };
   return tenantCommand(pool, ctx, meta, async (c) => {
-    const a = await c.query<{ contact_request_id: string; transport_state: string }>(
-      `SELECT contact_request_id, transport_state FROM provider_contact_attempts WHERE tenant_id = $1 AND id = $2`,
+    const a = await c.query<{ contact_request_id: string; transport_state: string; adapter_class: string }>(
+      `SELECT contact_request_id, transport_state, adapter_class FROM provider_contact_attempts WHERE tenant_id = $1 AND id = $2`,
       [ctx.tenantId, input.contactAttemptId],
     );
     if (!a.rows[0]) throw unavailable(meta);
     const req = (await loadRequest(c, ctx.tenantId, a.rows[0].contact_request_id))!;
-    requireAuthorized(ctx, { action: 'provider.quote', siteId: req.site_id as never });
+    authorizeScoped(ctx, 'provider.quote', req.site_id, meta);
     if (CHANNEL_OF[input.commType] !== req.channel) throw invalid('COMM_TYPE_CHANNEL_MISMATCH');
+    // Provenance is never client-asserted: a human-recorded transcript is OPERATOR, a server capture is the adapter's.
+    const sourceAdapterClass =
+      ctx.principal.kind === 'HUMAN'
+        ? 'OPERATOR'
+        : a.rows[0].adapter_class === 'NONE'
+          ? 'OPERATOR'
+          : a.rows[0].adapter_class;
+    if (input.sourceAdapterClass !== undefined && input.sourceAdapterClass !== sourceAdapterClass)
+      throw invalid('SOURCE_CLASS_MISMATCH');
     if (a.rows[0].transport_state === 'PREPARED') throw hold('ATTEMPT_NOT_SENT');
     const now = await dbNow(c);
     if (Date.parse(input.observedAt) > Date.parse(now) + 60_000) throw invalid('OBSERVED_IN_FUTURE');
@@ -232,7 +252,7 @@ export async function recordCommunication(
         input.direction,
         input.commType,
         input.transcriptSource,
-        input.sourceAdapterClass,
+        sourceAdapterClass,
         input.recordingDisclosure,
         recordingConsentId,
         pc?.id ?? null,
@@ -343,10 +363,7 @@ export async function getCommunication(
       String(communicationId),
     ]);
     if (!rows[0]) throw unavailable(meta);
-    requireAuthorized(ctx, { action: 'provider.communication.read', siteId: rows[0].site_id }, undefined, {
-      type: 'provider_communication',
-      id: communicationId,
-    });
+    authorizeScoped(ctx, 'provider.communication.read', rows[0].site_id, meta);
     await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED' });
     return toView(rows[0]);
   });
@@ -387,13 +404,20 @@ async function excerptFor(
   ctx: TenantContext,
   communicationId: string,
   meta: { action: string; resourceType: string },
+  authorizeSite: (siteId: string) => void,
 ) {
+  // Load only the scope first and authorize; no consent, erasure or retention state is evaluated before that.
+  const scope = await c.query<{ site_id: string }>(
+    `SELECT site_id FROM provider_communications WHERE tenant_id = $1 AND id = $2`,
+    [ctx.tenantId, communicationId],
+  );
+  if (!scope.rows[0]) throw unavailable({ ...meta, resourceId: communicationId });
+  authorizeSite(scope.rows[0].site_id);
   const { rows } = await c.query(`${SELECT_COMM} WHERE m.tenant_id = $1 AND m.id = $2`, [
     ctx.tenantId,
     communicationId,
   ]);
   const m = rows[0];
-  if (!m) throw unavailable({ ...meta, resourceId: communicationId });
   const pc = await latestConsent(c, ctx.tenantId, m.contact_request_id, 'PROCESSING');
   if (!pc) throw hold('PROCESSING_CONSENT_REQUIRED');
   if (m.body_erased) throw hold('COMMUNICATION_ERASED');
@@ -425,7 +449,7 @@ export async function prepareModelExcerpt(
   };
   return tenantCommand(pool, ctx, meta, async (c) => {
     requireAuthorized(ctx, { action: 'provider.engine', siteId: null });
-    const { m } = await excerptFor(c, ctx, String(input.communicationId), meta);
+    const { m } = await excerptFor(c, ctx, String(input.communicationId), meta, () => {});
     await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { excerptDigest: m.excerpt_digest } });
     return {
       communicationId: m.id,
@@ -453,8 +477,9 @@ export async function promoteExcerptToEvidence(
     resourceId: input?.communicationId,
   };
   const prepared = await tenantCommand(pool, ctx, meta, async (c) => {
-    const { m, consentId } = await excerptFor(c, ctx, String(input.communicationId), meta);
-    requireAuthorized(ctx, { action: 'provider.contact', siteId: m.site_id });
+    const { m, consentId } = await excerptFor(c, ctx, String(input.communicationId), meta, (siteId) =>
+      authorizeScoped(ctx, 'provider.contact', siteId, { ...meta, resourceId: String(input.communicationId) }),
+    );
     const req = (await loadRequest(c, ctx.tenantId, m.contact_request_id))!;
     const asset = await c.query<{ manufacturer: string; model: string }>(
       `SELECT manufacturer, model FROM asset_revisions WHERE tenant_id = $1 AND id = $2`,

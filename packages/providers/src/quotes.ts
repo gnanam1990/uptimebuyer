@@ -14,7 +14,6 @@ import { canonicalDigest, canonicalize } from '@uptimebuyer/domain';
 import {
   dbNow,
   recordAudit,
-  requireAuthorized,
   sha256Digest,
   tenantCommand,
   unavailable,
@@ -27,7 +26,7 @@ import type { AttemptRow } from './attempts.js';
 import { emitProviderEvent } from './events.js';
 import { hold, invalid } from './errors.js';
 import { newProviderId } from './ids.js';
-import { actorFields, isoOf, loadIncident } from './internal.js';
+import { actorFields, authorizeScoped, isoOf, loadIncident } from './internal.js';
 import { loadRequest, type RequestRow } from './requests.js';
 import { AVAILABILITY_STATUSES, type WireQuote } from './schemas.js';
 
@@ -243,7 +242,7 @@ export async function recordQuote(pool: Db, ctx: TenantContext, raw: RecordQuote
   const quoteId = await tenantCommand(pool, ctx, meta, async (c) => {
     const req = await loadRequest(c, ctx.tenantId, input.contactRequestId);
     if (!req) throw unavailable(meta);
-    requireAuthorized(ctx, { action: 'provider.quote', siteId: req.site_id as never });
+    authorizeScoped(ctx, 'provider.quote', req.site_id, meta);
     if (input.sourceCommunicationId) {
       const comm = await c.query(
         `SELECT 1 FROM provider_communications WHERE tenant_id = $1 AND id = $2 AND contact_request_id = $3`,
@@ -337,7 +336,7 @@ async function listIncidentQuotesInternal(
       if (!rows[0]) throw unavailable(meta);
       siteId = rows[0].site_id as string;
     }
-    requireAuthorized(ctx, { action: 'provider.read', siteId: siteId as never });
+    authorizeScoped(ctx, 'provider.read', siteId, meta);
     const latest = new Set(
       (
         await c.query<{ id: string }>(

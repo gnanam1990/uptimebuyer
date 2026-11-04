@@ -16,6 +16,7 @@ export const PROVIDER_ID_PREFIXES = Object.freeze({
   brokerReceipt: 'pbr',
   communicationBody: 'pcb',
   commandReceipt: 'pck',
+  contactPointReview: 'spv',
 } as const);
 export type ProviderIdKind = keyof typeof PROVIDER_ID_PREFIXES;
 

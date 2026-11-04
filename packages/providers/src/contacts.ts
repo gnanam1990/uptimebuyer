@@ -42,6 +42,8 @@ import { hold, invalid } from './errors.js';
 import { isProviderId, newProviderId } from './ids.js';
 import {
   DEFAULT_RATE_LIMITER,
+  authorizeScoped,
+  providerToken,
   actorFields,
   appendAttemptEvent,
   effectiveAuthorityRevisionId,
@@ -84,6 +86,7 @@ const RECONCILE_MAX_MS = 3_600_000;
 const PrepareSchema = z.strictObject({
   incidentId: IncidentIdSchema,
   serviceProviderId: z.string().refine((v) => isProviderId('serviceProvider', v)),
+  contactPointId: z.string().refine((v) => isProviderId('contactPoint', v)),
   providerAccountId: ProviderAccountIdSchema,
   channel: z.enum(['PHONE', 'EMAIL', 'API']),
   purposeCode: z.enum(CONTACT_PURPOSES),
@@ -156,7 +159,7 @@ export async function prepareContactRequest(
   };
   return tenantCommand(pool, ctx, meta, async (c) => {
     const incident = await loadIncident(c, ctx, meta, input.incidentId);
-    requireAuthorized(ctx, { action: 'provider.contact', siteId: incident.site_id as never });
+    authorizeScoped(ctx, 'provider.contact', incident.site_id, meta);
     const digest = requestDigestOf({ op: 'provider.contact.prepare', ...input });
     const prior = await receipts.hit(c, ctx.tenantId, 'provider.contact.prepare', input.idempotencyKey, digest);
     if (prior) return preparedOf((await loadRequest(c, ctx.tenantId, prior))!, false);
@@ -171,12 +174,33 @@ export async function prepareContactRequest(
     if (revision.accountStatus !== 'ACTIVE') throw hold('PROVIDER_ACCOUNT_DISABLED');
     if (revision.paid && !input.paid) throw invalid('PAID_BOUNDS_REQUIRED');
     if (!revision.paid && input.paid) throw invalid('UNPAID_ACCOUNT_TAKES_NO_PAID_BOUNDS');
-    const cp = await c.query<{ id: string }>(
-      `SELECT id FROM service_provider_contact_points WHERE tenant_id = $1 AND service_provider_id = $2 AND channel = $3
-        ORDER BY value_digest LIMIT 1`,
-      [ctx.tenantId, input.serviceProviderId, input.channel],
+    // The request names its exact destination; it must belong to this provider and channel and be usable: the latest
+    // admin review is VERIFIED, or it is unreviewed, DISCOVERED (not attached to an approved provider by a later
+    // search) and was discovered under this request's own pinned account revision.
+    const cp = await c.query<{
+      id: string;
+      service_provider_id: string;
+      channel: string;
+      intake_state: string;
+      source_provider_account_revision_id: string | null;
+      decision: string | null;
+    }>(
+      `SELECT p.id, p.service_provider_id, p.channel, p.intake_state, p.source_provider_account_revision_id,
+              (SELECT r.decision FROM service_provider_contact_point_reviews r WHERE r.tenant_id = p.tenant_id
+                  AND r.contact_point_id = p.id ORDER BY r.reviewed_at DESC, r.id DESC LIMIT 1) AS decision
+         FROM service_provider_contact_points p WHERE p.tenant_id = $1 AND p.id = $2`,
+      [ctx.tenantId, input.contactPointId],
     );
-    if (!cp.rows[0]) throw hold('CONTACT_POINT_NOT_AVAILABLE');
+    const point = cp.rows[0];
+    if (!point) throw unavailable(meta, input.contactPointId, 'contact_point');
+    if (point.service_provider_id !== input.serviceProviderId || point.channel !== input.channel)
+      throw hold('CONTACT_POINT_NOT_OF_PROVIDER');
+    const usable =
+      point.decision === 'VERIFIED' ||
+      (point.decision === null &&
+        point.intake_state === 'DISCOVERED' &&
+        point.source_provider_account_revision_id === revision.providerAccountRevisionId);
+    if (!usable) throw hold('CONTACT_POINT_NOT_APPROVED');
     const evidence = await latestEvidence(c, ctx.tenantId, incident.id);
     const policyRevisionId = await effectiveAuthorityRevisionId(c, ctx.tenantId);
     if (revision.paid && policyRevisionId === null) throw hold('POLICY_REVISION_REQUIRED');
@@ -193,7 +217,7 @@ export async function prepareContactRequest(
       evidenceRevisionId: evidence.evidenceRevisionId,
       assetRevisionId: evidence.assetRevisionId,
       serviceProviderId: input.serviceProviderId,
-      contactPointId: cp.rows[0].id,
+      contactPointId: point.id,
       providerAccountId: revision.providerAccountId,
       providerAccountRevisionId: revision.providerAccountRevisionId,
       channel: input.channel,
@@ -251,7 +275,7 @@ export async function prepareContactRequest(
         evidence.evidenceRevisionId,
         revision.paid ? policyRevisionId : null,
         input.serviceProviderId,
-        cp.rows[0].id,
+        point.id,
         revision.providerAccountId,
         revision.providerAccountRevisionId,
         input.channel,
@@ -414,7 +438,7 @@ export async function executeContactRequest(
   const phase1 = await tenantCommand<Phase1>(pool, ctx, meta, async (c) => {
     const req = await loadRequest(c, ctx.tenantId, String(contactRequestId), true);
     if (!req) throw unavailable(meta);
-    requireAuthorized(ctx, { action: 'provider.contact', siteId: req.site_id as never });
+    authorizeScoped(ctx, 'provider.contact', req.site_id, meta);
     if (!req.paid && authority) throw invalid('UNPAID_REQUEST_TAKES_NO_AUTHORITY');
     const route = req.paid ? 'KITE_BROKER' : 'M07_UNPAID';
     const digest = requestDigestOf({
@@ -735,12 +759,16 @@ async function applyContactResult(
         {
           ...(reconstructed ? {} : { transport_state: 'ACKNOWLEDGED' }),
           external_outcome_state: r.kind,
-          raw_provider_status: r.rawStatus.slice(0, 64),
-          provider_ref: r.providerRef,
+          raw_provider_status: providerToken(r.rawStatus, 64),
+          provider_ref: providerToken(r.providerRef, 128),
           raw_response_digest: r.rawResponseDigest,
           next_reconcile_at: null,
         },
-        { kind: 'ADAPTER_RESULT', rawProviderStatus: r.rawStatus.slice(0, 64), rawResponseDigest: r.rawResponseDigest },
+        {
+          kind: 'ADAPTER_RESULT',
+          rawProviderStatus: providerToken(r.rawStatus, 64),
+          rawResponseDigest: r.rawResponseDigest,
+        },
         req.incident_id,
       );
       if (r.consent) await recordObservedConsent(c, ctx, req, a, r.consent);
@@ -754,7 +782,7 @@ async function applyContactResult(
       return;
     }
     // DECLINED (definitive) or RATE_LIMITED before acceptance: authoritative no effect.
-    const raw = r.kind === 'RATE_LIMITED' ? 'rate_limited' : r.rawStatus.slice(0, 64);
+    const raw = r.kind === 'RATE_LIMITED' ? 'rate_limited' : providerToken(r.rawStatus, 64);
     await patchAttempt(
       c,
       ctx,
@@ -970,15 +998,15 @@ export async function reconcileContactAttempt(
         ? {
             external_outcome_state: target,
             definite_no_effect: target === 'FAILED' ? true : cur.definite_no_effect,
-            raw_provider_status: r.rawStatus.slice(0, 64),
-            provider_ref: r.providerRef ?? cur.provider_ref,
+            raw_provider_status: providerToken(r.rawStatus, 64),
+            provider_ref: providerToken(r.providerRef, 128) ?? cur.provider_ref,
             raw_response_digest: r.rawResponseDigest,
             next_reconcile_at: null,
           }
         : { next_reconcile_at: null, manual_review: true },
       {
         kind: 'LOOKUP',
-        rawProviderStatus: r.rawStatus.slice(0, 64),
+        rawProviderStatus: providerToken(r.rawStatus, 64),
         rawResponseDigest: r.rawResponseDigest,
         reasonCode: legal ? null : 'LOOKUP_CONFLICT',
       },
@@ -1138,10 +1166,7 @@ export async function getContactRequest(
   return tenantCommand(pool, ctx, meta, async (c) => {
     const r = await loadRequest(c, ctx.tenantId, String(contactRequestId));
     if (!r) throw unavailable(meta);
-    requireAuthorized(ctx, { action: 'provider.read', siteId: r.site_id as never }, undefined, {
-      type: 'provider_contact_request',
-      id: r.id,
-    });
+    authorizeScoped(ctx, 'provider.read', r.site_id, meta);
     const attempts = await attemptsOf(c, ctx.tenantId, r.id);
     const consents = await c.query(
       `SELECT id, consent_kind, purpose, status, captured_via, recorded_at FROM provider_consents

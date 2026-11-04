@@ -3,6 +3,8 @@
 // retrieved content are never fetch targets. Every live request is checked for scheme, userinfo, IP-literal and
 // internal host names, DNS-resolved addresses (private, loopback, link-local, metadata, CGNAT, multicast and
 // documentation ranges are refused), redirects (refused), response size and time.
+import { lookup as dnsLookup } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
 import { canonicalize } from '@uptimebuyer/domain';
 import { sha256Digest } from '@uptimebuyer/data';
@@ -197,17 +199,90 @@ export function assertSafePath(path: string): void {
     throw new ProviderEgressError('PATH_REFUSED');
 }
 
+/** A connect-time DNS lookup for node:net/https that refuses every resolution containing a non-public address. */
+export type GuardedLookup = (
+  hostname: string,
+  options: { all?: boolean } | number | undefined,
+  callback: (err: Error | null, address?: string | { address: string; family: number }[], family?: number) => void,
+) => void;
+
 /**
- * LIVE transport over fetch. Configured only by the deployment for an M07-owned unpaid account; never used in tests
- * (no network in CI). The endpoint policy must hash to the pinned revision's endpoint_policy_digest.
+ * Wrap a resolver as the socket's lookup: the address the connection uses is exactly an address that was checked,
+ * so DNS rebinding between a pre-check and the connect cannot reach a private, loopback or metadata address.
  */
-export class FetchProviderTransport implements ProviderHttpTransport {
+export function guardedLookup(resolve: DnsResolver): GuardedLookup {
+  return (hostname, options, callback) => {
+    const all = typeof options === 'object' && options !== null && options.all === true;
+    resolve(hostname).then(
+      (addrs) => {
+        if (addrs.length === 0) return callback(new ProviderEgressError('DNS_RESOLUTION_FAILED'));
+        if (addrs.some(isNonPublicAddress)) return callback(new ProviderEgressError('NON_PUBLIC_ADDRESS_REFUSED'));
+        if (all)
+          return callback(
+            null,
+            addrs.map((address) => ({ address, family: isIP(address) })),
+          );
+        return callback(null, addrs[0]!, isIP(addrs[0]!));
+      },
+      () => callback(new ProviderEgressError('DNS_RESOLUTION_FAILED')),
+    );
+  };
+}
+
+/** System resolver (all A/AAAA answers). */
+export const systemDnsResolver: DnsResolver = async (host) =>
+  (await dnsLookup(host, { all: true, verbatim: true })).map((a) => a.address);
+
+export interface HttpsResponseLike {
+  readonly status: number;
+  readonly headers: Readonly<Record<string, string | string[] | undefined>>;
+  readonly body: AsyncIterable<Uint8Array>;
+}
+export type HttpsRequester = (
+  url: URL,
+  init: {
+    method: string;
+    headers: Record<string, string>;
+    body: string | null;
+    signal: AbortSignal;
+    lookup: GuardedLookup;
+  },
+) => Promise<HttpsResponseLike>;
+
+/** node:https requester: no redirect following, SNI/Host = the allowlisted hostname, connect via the guarded lookup. */
+export const nodeHttpsRequester: HttpsRequester = (url, init) =>
+  new Promise((resolvePromise, reject) => {
+    const req = httpsRequest(
+      {
+        protocol: 'https:',
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: `${url.pathname}${url.search}`,
+        method: init.method,
+        headers: { ...init.headers, host: url.host },
+        servername: url.hostname,
+        lookup: init.lookup as never,
+        signal: init.signal,
+      },
+      (res) => resolvePromise({ status: res.statusCode ?? 0, headers: res.headers, body: res }),
+    );
+    req.on('error', reject);
+    if (init.body !== null) req.write(init.body);
+    req.end();
+  });
+
+/**
+ * LIVE transport over HTTPS. Configured only by the deployment for an M07-owned unpaid account; never used in tests
+ * against the network. The endpoint policy must hash to the pinned revision's endpoint_policy_digest; the host is
+ * pre-checked and then connected through the guarded lookup, so a rebinding answer is refused at connect time.
+ */
+export class HttpsProviderTransport implements ProviderHttpTransport {
   readonly adapterClass = 'LIVE' as const;
   private readonly origin: string;
   constructor(
     private readonly policy: EndpointPolicy,
-    private readonly resolve: DnsResolver,
-    private readonly fetchImpl: typeof fetch = globalThis.fetch,
+    private readonly resolve: DnsResolver = systemDnsResolver,
+    private readonly requester: HttpsRequester = nodeHttpsRequester,
   ) {
     this.origin = normalizeOrigin(policy.origins[0] ?? '');
   }
@@ -223,33 +298,26 @@ export class FetchProviderTransport implements ProviderHttpTransport {
     const key = await opts.credential();
     if (!key) throw new ProviderEgressError('CREDENTIAL_UNAVAILABLE');
     opts.onSent();
-    const res = await this.fetchImpl(url, {
+    const res = await this.requester(url, {
       method: req.method,
-      redirect: 'manual',
       signal: opts.signal,
+      lookup: guardedLookup(this.resolve),
       headers: {
         ...req.headers,
         accept: 'application/json',
         'content-type': 'application/json',
         authorization: `Bearer ${Buffer.from(key).toString('base64url')}`,
       },
-      ...(req.body === null || req.body === undefined ? {} : { body: JSON.stringify(req.body) }),
+      body: req.body === null || req.body === undefined ? null : JSON.stringify(req.body),
     });
     if (res.status >= 300 && res.status < 400) throw new ProviderEgressError('REDIRECT_REFUSED');
-    const reader = res.body?.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
-    if (reader)
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > ADAPTER_BOUNDS.maxResponseBytes) {
-          await reader.cancel().catch(() => {});
-          throw new ProviderEgressError('RESPONSE_TOO_LARGE');
-        }
-        chunks.push(value);
-      }
+    for await (const value of res.body) {
+      size += value.byteLength;
+      if (size > ADAPTER_BOUNDS.maxResponseBytes) throw new ProviderEgressError('RESPONSE_TOO_LARGE');
+      chunks.push(value);
+    }
     const text = Buffer.concat(chunks).toString('utf8');
     let body: unknown;
     try {
@@ -258,8 +326,8 @@ export class FetchProviderTransport implements ProviderHttpTransport {
       body = null;
     }
     const headers: Record<string, string> = {};
-    const ra = res.headers.get('retry-after');
-    if (ra) headers['retry-after'] = ra;
+    const ra = res.headers['retry-after'];
+    if (typeof ra === 'string') headers['retry-after'] = ra;
     return { status: res.status, headers, body };
   }
 }

@@ -5,6 +5,9 @@ import { DomainError, type UtcInstant } from '@uptimebuyer/contracts';
 import { canonicalize } from '@uptimebuyer/domain';
 import {
   actorOf,
+  authorize,
+  requireAuthorized,
+  type ActionName,
   sha256Digest,
   unavailable,
   type CommandMeta,
@@ -16,6 +19,31 @@ import {
 import { hold, keyReused } from './errors.js';
 import { newProviderId } from './ids.js';
 import type { PinnedRevision, UnpaidCredential } from './ports.js';
+
+/** Provider-controlled status/reference text as a bounded printable-ASCII token (never a crash, never free text). */
+export function providerToken(raw: string | null | undefined, max: number): string | null {
+  if (raw === null || raw === undefined) return null;
+  const t = String(raw)
+    .normalize('NFKC')
+    .replace(/[^\x21-\x7E]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, max);
+  return t.length > 0 ? t : 'unrecognized';
+}
+
+/**
+ * Resource-scoped authorization: a caller who cannot even read provider data at the resource's site gets the
+ * same RESOURCE_UNAVAILABLE as for a nonexistent id (no cross-site existence or state leak); a reader who lacks
+ * the specific action gets the ordinary audited denial.
+ */
+export function authorizeScoped(ctx: TenantContext, action: ActionName, siteId: string, meta: CommandMeta): void {
+  if (!authorize(ctx, { action: 'provider.read', siteId: siteId as never }).allowed) throw unavailable(meta);
+  requireAuthorized(ctx, { action, siteId: siteId as never }, undefined, {
+    type: meta.resourceType,
+    id: meta.resourceId ?? null,
+  });
+}
 
 export const isoOf = (d: Date | string | null): UtcInstant | null =>
   d === null ? null : (new Date(d).toISOString() as UtcInstant);

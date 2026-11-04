@@ -12,6 +12,7 @@ import {
   type UtcInstant,
 } from '@uptimebuyer/contracts';
 import {
+  humanActor,
   recordAudit,
   requireAuthorized,
   tenantCommand,
@@ -29,6 +30,7 @@ import { invalid } from './errors.js';
 import { newProviderId } from './ids.js';
 import {
   DEFAULT_RATE_LIMITER,
+  authorizeScoped,
   actorFields,
   isoOf,
   latestEvidence,
@@ -121,6 +123,14 @@ export interface SearchResultView {
   etaMinutes: number | null;
   serviceAreaMatch: 'IN_AREA' | 'OUT_OF_AREA' | 'UNKNOWN';
   capabilities: string[];
+  /** Destinations by id and review state only; contact values never leave the server. */
+  contactPoints: {
+    contactPointId: string;
+    channel: 'PHONE' | 'EMAIL' | 'API';
+    intakeState: 'DISCOVERED' | 'PENDING_REVIEW';
+    reviewState: 'UNREVIEWED' | 'VERIFIED' | 'REJECTED';
+    sourceSearchId: string | null;
+  }[];
 }
 
 export interface ProviderSearchView {
@@ -179,7 +189,7 @@ export async function runProviderSearch(
 
   const prepared = await tenantCommand<Prepared>(pool, ctx, meta, async (c) => {
     const incident = await loadIncident(c, ctx, meta, input.incidentId);
-    requireAuthorized(ctx, { action: 'provider.search', siteId: incident.site_id as never });
+    authorizeScoped(ctx, 'provider.search', incident.site_id, meta);
     const digest = requestDigestOf({ op: 'provider.search', ...input, query, bounds });
     const prior = await receipts.hit(c, ctx.tenantId, 'provider.search', input.idempotencyKey, digest);
     if (prior) return { kind: 'EXISTING', searchId: prior };
@@ -385,12 +395,20 @@ async function persistResults(c: Tx, ctx: TenantContext, p: Extract<Prepared, { 
           dedupeKey,
         ])
       ).rows[0]!.id;
+    // A provider already linked to an approved-vendor record cannot gain usable destinations from a search.
+    const linked = (
+      await c.query<{ approved_vendor_status: string }>(
+        `SELECT approved_vendor_status FROM service_providers WHERE tenant_id = $1 AND id = $2`,
+        [ctx.tenantId, providerId],
+      )
+    ).rows[0]!.approved_vendor_status;
     for (const cp of item.contacts) {
       const value = normalizeContactValue(cp.channel, cp.value);
       if (value === null) continue;
       await c.query(
-        `INSERT INTO service_provider_contact_points (tenant_id, id, service_provider_id, channel, value, value_digest)
-         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (tenant_id, service_provider_id, channel, value_digest) DO NOTHING`,
+        `INSERT INTO service_provider_contact_points (tenant_id, id, service_provider_id, channel, value, value_digest,
+           source_search_id, source_provider_account_revision_id, intake_state)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (tenant_id, service_provider_id, channel, value_digest) DO NOTHING`,
         [
           ctx.tenantId,
           newProviderId('contactPoint'),
@@ -398,6 +416,9 @@ async function persistResults(c: Tx, ctx: TenantContext, p: Extract<Prepared, { 
           cp.channel,
           value,
           contactValueDigest(cp.channel, value),
+          p.searchId,
+          p.revision.providerAccountRevisionId,
+          linked === 'UNKNOWN' ? 'DISCOVERED' : 'PENDING_REVIEW',
         ],
       );
     }
@@ -464,10 +485,7 @@ export async function getProviderSearch(pool: Db, ctx: TenantContext, searchId: 
     ]);
     const s = rows[0];
     if (!s) throw unavailable(meta);
-    requireAuthorized(ctx, { action: 'provider.read', siteId: s.site_id }, undefined, {
-      type: 'provider_search',
-      id: searchId,
-    });
+    authorizeScoped(ctx, 'provider.read', s.site_id, meta);
     const res = await c.query(
       `SELECT r.*, p.display_name, p.normalized_name, p.provider_kind, p.country, p.postal_code, p.website_domain,
               p.service_area, p.approved_vendor_status, p.approved_vendor_ref, p.approved_vendor_checked_at
@@ -476,6 +494,24 @@ export async function getProviderSearch(pool: Db, ctx: TenantContext, searchId: 
         WHERE r.tenant_id = $1 AND r.search_id = $2 ORDER BY r.rank`,
       [ctx.tenantId, searchId],
     );
+    const pts = await c.query(
+      `SELECT p.id, p.service_provider_id, p.channel, p.intake_state, p.source_search_id,
+              (SELECT r.decision FROM service_provider_contact_point_reviews r WHERE r.tenant_id = p.tenant_id
+                  AND r.contact_point_id = p.id ORDER BY r.reviewed_at DESC, r.id DESC LIMIT 1) AS decision
+         FROM service_provider_contact_points p
+        WHERE p.tenant_id = $1 AND p.service_provider_id = ANY($2::text[]) ORDER BY p.created_at, p.id LIMIT 1000`,
+      [ctx.tenantId, res.rows.map((r) => r.service_provider_id)],
+    );
+    const pointsOf = (providerId: string) =>
+      pts.rows
+        .filter((x) => x.service_provider_id === providerId)
+        .map((x) => ({
+          contactPointId: x.id,
+          channel: x.channel,
+          intakeState: x.intake_state,
+          reviewState: x.decision ?? 'UNREVIEWED',
+          sourceSearchId: x.source_search_id,
+        }));
     return {
       searchId: s.id,
       incidentId: s.incident_id,
@@ -526,6 +562,7 @@ export async function getProviderSearch(pool: Db, ctx: TenantContext, searchId: 
         etaMinutes: r.eta_minutes,
         serviceAreaMatch: r.service_area_match,
         capabilities: r.capabilities,
+        contactPoints: pointsOf(r.service_provider_id),
       })),
     };
   });
@@ -577,5 +614,37 @@ export async function linkApprovedVendor(
       vendorId: input.vendorId,
       checkedAt: isoOf(rows[0]!.approved_vendor_checked_at)!,
     };
+  });
+}
+
+/**
+ * Admin review of a discovered contact point (destination-hijack control): VERIFIED makes it usable for any account,
+ * REJECTED makes it unusable. Append-only; the latest decision wins.
+ */
+export async function reviewContactPoint(
+  pool: Db,
+  ctx: TenantContext,
+  input: { contactPointId: string; decision: 'VERIFIED' | 'REJECTED' },
+): Promise<{ contactPointId: string; decision: 'VERIFIED' | 'REJECTED' }> {
+  if (input?.decision !== 'VERIFIED' && input?.decision !== 'REJECTED') throw invalid('INVALID_REVIEW_DECISION');
+  const meta = {
+    action: 'provider.contact_point_review',
+    resourceType: 'contact_point',
+    resourceId: input.contactPointId,
+  };
+  return tenantCommand(pool, ctx, meta, async (c) => {
+    const cp = await c.query(`SELECT 1 FROM service_provider_contact_points WHERE tenant_id = $1 AND id = $2`, [
+      ctx.tenantId,
+      String(input.contactPointId),
+    ]);
+    if (cp.rowCount !== 1) throw unavailable(meta);
+    requireAuthorized(ctx, { action: 'provider.vendor_link', siteId: null });
+    await c.query(
+      `INSERT INTO service_provider_contact_point_reviews (tenant_id, id, contact_point_id, decision, reviewed_by_user_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [ctx.tenantId, newProviderId('contactPointReview'), input.contactPointId, input.decision, humanActor(ctx)],
+    );
+    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', reasonCode: input.decision });
+    return { contactPointId: input.contactPointId, decision: input.decision };
   });
 }
