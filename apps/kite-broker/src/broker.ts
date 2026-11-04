@@ -133,7 +133,8 @@ export class KiteBroker {
     ]);
     if (exists.rowCount !== 1) throw referenceInvalid('WRONG_TARGET');
     const ins = await this.pool.query(
-      `INSERT INTO broker_reference_uses (tenant_id, nonce, operation, target_kind, target_id) VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO broker_reference_uses (tenant_id, id, nonce, operation, target_kind, target_id)
+       VALUES ($1, 'bru_' || gen_random_uuid(), $2, $3, $4, $5)
        ON CONFLICT (tenant_id, nonce, operation) DO NOTHING`,
       [ref.tenantId, ref.nonce, operation, kind, targetId],
     );

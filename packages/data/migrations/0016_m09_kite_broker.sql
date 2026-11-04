@@ -760,11 +760,13 @@ SELECT ub_make_append_only('external_receipts');
 -- Verified execution-reference uses: a replayed reference is recognised and acts at most once per operation.
 CREATE TABLE broker_reference_uses (
   tenant_id text NOT NULL REFERENCES tenants (id),
+  id text NOT NULL CHECK (ub_id_ok(id, 'bru')),
   nonce text NOT NULL CHECK (nonce ~ '^[A-Za-z0-9_-]{16,64}$'),
   operation text NOT NULL CHECK (operation IN ('ACTIVATE_SESSION', 'EXECUTE', 'RECONCILE')),
   target_kind text NOT NULL CHECK (target_kind IN ('EXECUTION_AUTHORITY', 'COMMERCIAL_INTENT')),
   target_id text NOT NULL CHECK (length(target_id) BETWEEN 1 AND 128),
   used_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  PRIMARY KEY (tenant_id, nonce, operation)
+  PRIMARY KEY (tenant_id, id),
+  UNIQUE (tenant_id, nonce, operation)
 );
 SELECT ub_make_append_only('broker_reference_uses');
