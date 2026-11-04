@@ -40,6 +40,8 @@ const sha = (s: string) => `sha256:${createHash('sha256').update(s).digest('hex'
 const nowIso = () => new Date().toISOString();
 const MAX_OUTPUT = 256 * 1024;
 const REQUEST_ID = /^req_[A-Za-z0-9_-]{1,120}$/;
+/** Shortest provider session lifetime worth creating (seconds). */
+export const MIN_SESSION_TTL_SECONDS = 60;
 
 type Run = { exitCode: number; json: Record<string, unknown> | null; digest: string | null; timedOut: boolean };
 
@@ -77,9 +79,11 @@ export class KitePassportAdapter implements PaidAdapter {
   }
 
   assessSession(scope: AuthorizedSessionScope): CapabilityAssessment {
-    return scope.currency === 'USD'
-      ? { kind: 'ELIGIBLE' }
-      : { kind: 'UNSUPPORTED', reasonCode: 'KITE_CURRENCY_UNSUPPORTED' };
+    if (scope.currency !== 'USD') return { kind: 'UNSUPPORTED', reasonCode: 'KITE_CURRENCY_UNSUPPORTED' };
+    // The provider session may never outlive the authority; too little lifetime left is refused, not rounded up.
+    if (!Number.isInteger(scope.remainingSeconds) || scope.remainingSeconds < MIN_SESSION_TTL_SECONDS)
+      return { kind: 'UNSUPPORTED', reasonCode: 'AUTHORITY_LIFETIME_TOO_SHORT' };
+    return { kind: 'ELIGIBLE' };
   }
 
   prepare(intent: AuthorizedIntent): PreparedRequest {
@@ -166,7 +170,17 @@ export class KitePassportAdapter implements PaidAdapter {
     _op: ClientOperation,
     hooks: SendHooks,
   ): Promise<AdapterOutcome> {
-    const ttl = Math.max(60, Math.floor((Date.parse(scope.expiresAt) - Date.now()) / 1000));
+    if (this.assessSession(scope).kind !== 'ELIGIBLE')
+      return {
+        kind: 'FAILED',
+        reasonCode: 'AUTHORITY_LIFETIME_TOO_SHORT',
+        effect: 'NO_EFFECT_PROVED',
+        notSent: true,
+        rawProviderStatus: null,
+        rawResponseDigest: null,
+        observedAt: nowIso(),
+      };
+    const ttl = scope.remainingSeconds; // database-clock remaining lifetime: never more than the authority
     const delegation = {
       task: { summary: `UptimeBuyer bounded authority ${scope.executionAuthorityId}` },
       payment_policy: {

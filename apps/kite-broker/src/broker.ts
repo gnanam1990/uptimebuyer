@@ -153,8 +153,9 @@ export class KiteBroker {
     const started = await this.tx(ctx, async (c) => {
       const x = (
         await c.query(
-          `SELECT *, expires_at > clock_timestamp() AS live FROM execution_authorities WHERE tenant_id = $1 AND id = $2
-            FOR NO KEY UPDATE`,
+          `SELECT *, expires_at > clock_timestamp() AS live,
+                  floor(extract(epoch FROM expires_at - clock_timestamp()))::int AS remaining_seconds
+             FROM execution_authorities WHERE tenant_id = $1 AND id = $2 FOR NO KEY UPDATE`,
           [ctx.tenantId, targetId],
         )
       ).rows[0];
@@ -228,6 +229,7 @@ export class KiteBroker {
       baseLimitMinor: BigInt(x.base_limit_minor),
       currency: x.currency,
       expiresAt: new Date(x.expires_at).toISOString(),
+      remainingSeconds: Math.max(0, Number(x.remaining_seconds)),
       providerAccountRevisionId: x.provider_account_revision_id,
     };
   }

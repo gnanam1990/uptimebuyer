@@ -28,6 +28,8 @@ export interface AuthorizedSessionScope {
   baseLimitMinor: bigint;
   currency: string;
   expiresAt: string;
+  /** Whole seconds of authority lifetime left, computed from the DATABASE clock (never the broker's wall clock). */
+  remainingSeconds: number;
   providerAccountRevisionId: string;
 }
 
