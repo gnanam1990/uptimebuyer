@@ -8,7 +8,10 @@ import { DomainError, newId, toApiErrorBody, type CorrelationId, type UtcInstant
 import {
   authenticateDevice,
   ingestTelemetryBatch,
+  peekMachineTokenSubject,
+  resolveDeviceCredentialKey,
   resolveTenantContext,
+  verifyMachineTokenOffline,
   verifyDeviceBodySignature,
   type CredentialResolver,
   type Db,
@@ -31,7 +34,7 @@ import {
   type LatenessPolicy,
 } from '@uptimebuyer/telemetry';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
-import { IngestScheduler, RateBuckets, type Priority, type RateBucketConfig } from './scheduler.js';
+import { IngestScheduler, KnownCredentials, RateBuckets, type Priority, type RateBucketConfig } from './scheduler.js';
 
 export interface GatewayLimits {
   maxBodyBytes: number;
@@ -41,8 +44,12 @@ export interface GatewayLimits {
   maxQueuedBackfill: number;
   liveRate: RateBucketConfig;
   backfillRate: RateBucketConfig;
-  /** Budget of failed authentications per source address; exhausted sources get 429 before any database work. */
+  /** Coarse budget of unauthenticated attempts per source address (only failures are kept; successes refund). */
   preAuthRate: RateBucketConfig;
+  /** Budget of failed authentications per claimed device credential (kid). */
+  credentialFailureRate: RateBucketConfig;
+  /** How long a credential learned from a successful authentication is recognised in memory. */
+  credentialCacheTtlMs: number;
 }
 
 export const DEFAULT_GATEWAY_LIMITS: GatewayLimits = Object.freeze({
@@ -54,6 +61,8 @@ export const DEFAULT_GATEWAY_LIMITS: GatewayLimits = Object.freeze({
   liveRate: { capacityMessages: 600, refillMessagesPerSecond: 20 },
   backfillRate: { capacityMessages: 400, refillMessagesPerSecond: 20 },
   preAuthRate: { capacityMessages: 60, refillMessagesPerSecond: 1, maxTrackedKeys: 50_000 },
+  credentialFailureRate: { capacityMessages: 10, refillMessagesPerSecond: 0.2, maxTrackedKeys: 100_000 },
+  credentialCacheTtlMs: 600_000,
 });
 
 export interface GatewayOptions {
@@ -64,6 +73,11 @@ export interface GatewayOptions {
   freshnessPolicy?: FreshnessPolicy;
   limits?: Partial<GatewayLimits>;
   logger?: boolean;
+  /**
+   * Proxy trust for the source address used by the per-source budget (Fastify `trustProxy`). Default false: the
+   * socket address. Set it explicitly to the proxy addresses when the gateway sits behind a load balancer.
+   */
+  trustProxy?: boolean | string | string[];
 }
 
 export interface GatewayMetrics {
@@ -113,6 +127,12 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
     BACKFILL: new RateBuckets(limits.backfillRate, clock),
   };
   const preAuth = new RateBuckets(limits.preAuthRate, clock);
+  const credentialFailures = new RateBuckets(limits.credentialFailureRate, clock);
+  const credentials = new KnownCredentials(clock, {
+    ttlMs: limits.credentialCacheTtlMs,
+    maxKeys: 100_000,
+    maxSeenTokens: 200_000,
+  });
   const m: Omit<GatewayMetrics, 'queue'> = {
     requests: 0,
     accepted: { LIVE: 0, LATE: 0, BACKFILL: 0 },
@@ -129,6 +149,7 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
   const app = Fastify({
     logger: opts.logger ?? false,
     bodyLimit: limits.maxBodyBytes,
+    trustProxy: opts.trustProxy ?? false,
     // never echo request content in framework errors
     return503OnClosing: true,
   });
@@ -193,32 +214,55 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
     if (!Buffer.isBuffer(body))
       throw new DomainError('VALIDATION_FAILED', 'Expected a JSON request body.', { reasonCode: 'BODY_MISSING' });
 
-    // 1. device identity (single-use short-lived token) and tenant from the device's own row. A source that keeps
-    //    failing authentication is refused before any credential lookup or audit write (bounded pre-auth work).
+    // 1. device identity (single-use short-lived token) and tenant from the device's own row.
+    //    Failure budgets bound the database work unauthenticated traffic can cause, and are reserved synchronously
+    //    BEFORE any await (no check-then-act window), refunded when authentication succeeds:
+    //    - a token not even shaped like a device token spends the coarse per-source budget only;
+    //    - a well-formed token that the gateway cannot already recognise as valid spends the budget of the
+    //      credential it claims (kid) and the per-source budget;
+    //    - a token verified in memory against a credential this gateway has already authenticated, with an unseen
+    //      token id, spends nothing: other clients' failures can never block a valid, known device.
     const source = req.ip || 'unknown';
-    if (!preAuth.has(source, 1)) {
-      m.rateLimited++;
-      throw new DomainError('RATE_LIMITED', 'Too many failed authentications; retry later.', {
-        reasonCode: 'AUTHENTICATION_RATE_EXCEEDED',
-        retryAfterMs: Math.ceil(1000 / limits.preAuthRate.refillMessagesPerSecond),
-      });
-    }
     const header = req.headers.authorization;
     const match = typeof header === 'string' ? /^Bearer ([A-Za-z0-9._-]{1,4096})$/.exec(header) : null;
-    if (!match) {
-      preAuth.take(source, 1);
-      throw unauthenticated();
+    const token = match ? match[1]! : null;
+    const kid = token ? peekMachineTokenSubject('DEVICE', token) : null;
+    let recognised = false;
+    if (token && kid) {
+      const known = credentials.get(kid);
+      const offline = known ? await verifyMachineTokenOffline('DEVICE', token, known) : null;
+      recognised = offline !== null && credentials.firstUse(offline.jti);
     }
+    const reserved: [RateBuckets, string][] = [];
+    if (!recognised) {
+      const refuse = () => {
+        for (const [b, k] of reserved) b.refund(k, 1);
+        m.rateLimited++;
+        return new DomainError('RATE_LIMITED', 'Too many failed authentications; retry later.', {
+          reasonCode: 'AUTHENTICATION_RATE_EXCEEDED',
+          retryAfterMs: Math.ceil(1000 / limits.preAuthRate.refillMessagesPerSecond),
+        });
+      };
+      if (kid) {
+        if (!credentialFailures.take(kid, 1).ok) throw refuse();
+        reserved.push([credentialFailures, kid]);
+      }
+      if (!preAuth.take(source, 1).ok) throw refuse();
+      reserved.push([preAuth, source]);
+    }
+    if (!token) throw unauthenticated();
     let auth;
     try {
-      auth = await authenticateDevice(opts.pool, opts.credentials, match[1]!);
+      auth = await authenticateDevice(opts.pool, opts.credentials, token);
     } catch (e) {
       if (e instanceof DomainError) {
-        preAuth.take(source, 1);
+        if (kid && recognised) credentials.forget(kid); // e.g. revoked since it was learned
         throw unauthenticated();
       }
+      for (const [b, k] of reserved) b.refund(k, 1);
       throw e;
     }
+    for (const [b, k] of reserved) b.refund(k, 1);
     const tenantHeader = req.headers['x-tenant-id'];
     const ctx = await resolveTenantContext(
       opts.pool,
@@ -230,6 +274,10 @@ export async function buildSensorGateway(opts: GatewayOptions): Promise<SensorGa
           : undefined,
       { correlationId: req.ubCorrelationId },
     );
+    if (!recognised && kid) {
+      const key = await resolveDeviceCredentialKey(opts.pool, ctx, opts.credentials);
+      if (key) credentials.remember(kid, key);
+    }
 
     // 2. body signature over the exact bytes, bounded signing-time skew
     const ts = parseTimestampHeader(req.headers[TIMESTAMP_HEADER]);

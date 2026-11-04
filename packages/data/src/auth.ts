@@ -221,6 +221,54 @@ async function authenticateMachine(
   return { row };
 }
 
+/**
+ * Structural pre-check of a machine token without any I/O: protected header (alg, typ, kid) only. Returns the claimed
+ * principal id, or null when the token is not even shaped like a token of this kind. Never proof of identity.
+ */
+export function peekMachineTokenSubject(kind: MachinePrincipalKind, token: string): string | null {
+  try {
+    const header = decodeProtectedHeader(token);
+    if (header.alg !== 'HS256' || header.typ !== MACHINE[kind].typ) return null;
+    return typeof header.kid === 'string' && /^[a-z]{2,5}_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/.test(header.kid)
+      ? header.kid
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * In-memory verification of a machine token against an already-known key (same parameters as authentication).
+ * Used by edge gateways to recognise a valid credential before spending failure budgets; it does NOT authenticate
+ * (no revocation check, no single-use jti) — the caller must still call the authenticate function.
+ */
+export async function verifyMachineTokenOffline(
+  kind: MachinePrincipalKind,
+  token: string,
+  key: Uint8Array,
+): Promise<{ subject: string; jti: string } | null> {
+  const m = MACHINE[kind];
+  const subject = peekMachineTokenSubject(kind, token);
+  if (!subject || !(key instanceof Uint8Array) || key.byteLength < MIN_KEY_BYTES) return null;
+  try {
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ['HS256'],
+      typ: m.typ,
+      issuer: m.issuer,
+      audience: m.audience,
+      subject,
+      clockTolerance: 5,
+      maxTokenAge: MAX_TTL_SECONDS + 60,
+      requiredClaims: ['sub', 'exp', 'iat', 'jti'],
+    });
+    return typeof payload.jti === 'string' && payload.jti.length >= 16 && payload.jti.length <= 64
+      ? { subject, jti: payload.jti }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function authenticateDevice(
   pool: Db,
   resolver: CredentialResolver,

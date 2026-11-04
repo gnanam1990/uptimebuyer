@@ -836,6 +836,25 @@ export async function verifyDeviceBodySignature(
   return verdict;
 }
 
+/**
+ * The credential key of the authenticated device in `ctx` (device principal only), for the gateway's in-memory
+ * credential recognition. Returns null when the device is revoked or its credential cannot be resolved.
+ */
+export async function resolveDeviceCredentialKey(
+  pool: Db,
+  ctx: TenantContext,
+  resolver: CredentialResolver,
+): Promise<Uint8Array | null> {
+  assertTenantContext(ctx);
+  if (ctx.principal.kind !== 'DEVICE') return null;
+  const { rows } = await pool.query<{ credential_ref: string }>(
+    `SELECT credential_ref FROM devices WHERE tenant_id = $1 AND id = $2 AND status <> 'REVOKED'`,
+    [ctx.tenantId, ctx.principal.id],
+  );
+  const key = rows[0] ? await resolver.resolveSigningKey(rows[0].credential_ref) : undefined;
+  return key && key.byteLength >= 32 ? key : null;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Reads (telemetry.read at the device's site; foreign and missing ids are indistinguishable)
 

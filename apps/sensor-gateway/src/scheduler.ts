@@ -94,6 +94,12 @@ export class RateBuckets {
     return Math.min(this.cfg.capacityMessages, b.tokens + (elapsed * this.cfg.refillMessagesPerSecond) / 1000);
   }
 
+  /** Return `n` previously taken tokens (a reservation that turned out not to be a failure). */
+  refund(key: string, n: number): void {
+    const b = this.buckets.get(key);
+    if (b) b.tokens = Math.min(this.cfg.capacityMessages, b.tokens + n);
+  }
+
   /** Take `n` tokens for `key`; on refusal, `retryAfterMs` is when enough tokens will exist (∞ if never). */
   take(key: string, n: number): { ok: true } | { ok: false; retryAfterMs: number } {
     const now = this.clock.now();
@@ -112,5 +118,48 @@ export class RateBuckets {
       return { ok: true };
     }
     return { ok: false, retryAfterMs: Math.ceil(((n - b.tokens) * 1000) / this.cfg.refillMessagesPerSecond) };
+  }
+}
+
+/**
+ * Bounded TTL cache of device credential keys learned from successful authentications, plus a bounded memory of
+ * token ids already presented. It lets the gateway recognise a valid, unreplayed credential without spending any
+ * failure budget; it is never a substitute for authentication (revocation and single-use jti stay in the database).
+ */
+export class KnownCredentials {
+  private readonly keys = new Map<string, { key: Uint8Array; expiresAt: number }>();
+  private readonly seen = new Map<string, number>();
+
+  constructor(
+    private readonly clock: Clock,
+    private readonly opts: { ttlMs: number; maxKeys: number; maxSeenTokens: number },
+  ) {}
+
+  get(kid: string): Uint8Array | null {
+    const e = this.keys.get(kid);
+    if (!e) return null;
+    if (e.expiresAt <= this.clock.now()) {
+      this.keys.delete(kid);
+      return null;
+    }
+    return e.key;
+  }
+
+  remember(kid: string, key: Uint8Array): void {
+    this.keys.delete(kid);
+    while (this.keys.size >= this.opts.maxKeys) this.keys.delete(this.keys.keys().next().value!);
+    this.keys.set(kid, { key, expiresAt: this.clock.now() + this.opts.ttlMs });
+  }
+
+  forget(kid: string): void {
+    this.keys.delete(kid);
+  }
+
+  /** Record a token id; returns false when it was already presented (a replay). */
+  firstUse(jti: string): boolean {
+    if (this.seen.has(jti)) return false;
+    while (this.seen.size >= this.opts.maxSeenTokens) this.seen.delete(this.seen.keys().next().value!);
+    this.seen.set(jti, this.clock.now());
+    return true;
   }
 }
