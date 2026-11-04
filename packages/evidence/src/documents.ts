@@ -435,6 +435,32 @@ async function withdrawTx(c: Tx, ctx: TenantContext, documentId: string, reasonC
 }
 
 /**
+ * System withdrawal of every consented COMMUNICATION document bound to `consentRefs`, inside the caller's
+ * transaction (used by M07 when processing consent is withdrawn). It is a consequence of the consent record, not a
+ * caller evidence write, so it is attributed to a WORKER system actor and needs no evidence.submit grant. Unbounded
+ * by design (one INSERT ... SELECT), idempotent: already-withdrawn documents are skipped. Returns the count withdrawn.
+ */
+export async function withdrawConsentedCommunicationsInTx(
+  c: Tx,
+  tenantId: string,
+  consentRefs: readonly string[],
+  input: { reasonCode: string; systemActorId: string },
+): Promise<number> {
+  if (!/^[A-Z][A-Z0-9_]{0,63}$/.test(input.reasonCode)) throw rejected('INVALID_REASON_CODE');
+  if (consentRefs.length === 0) return 0;
+  const r = await c.query(
+    `INSERT INTO evidence_document_events (tenant_id, id, document_id, event_type, reason_code, actor_kind, actor_id)
+     SELECT d.tenant_id, 'dve_' || gen_random_uuid(), d.id, 'WITHDRAWN', $3, 'WORKER', $4
+       FROM evidence_documents d
+      WHERE d.tenant_id = $1 AND d.source_kind = 'COMMUNICATION' AND d.consent_ref = ANY($2::text[])
+        AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
+     ON CONFLICT (tenant_id, document_id) DO NOTHING`,
+    [tenantId, [...consentRefs], input.reasonCode, input.systemActorId.slice(0, 128)],
+  );
+  return r.rowCount ?? 0;
+}
+
+/**
  * Remove a document from every future evidence revision (append-only WITHDRAWN event). Historical revisions keep it.
  * Registry snapshots follow the registry and cannot be withdrawn directly.
  */

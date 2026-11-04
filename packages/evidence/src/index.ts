@@ -24,6 +24,7 @@ export {
   DOCUMENT_SOURCE_KINDS,
   getDocument,
   ingestDocument,
+  withdrawConsentedCommunicationsInTx,
   withdrawDocument,
   type DocumentRecord,
   type DocumentRole,

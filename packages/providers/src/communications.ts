@@ -15,7 +15,7 @@ import {
   type TenantContext,
   type Tx,
 } from '@uptimebuyer/data';
-import { ingestDocument, withdrawDocument, type ObjectStorePort } from '@uptimebuyer/evidence';
+import { ingestDocument, withdrawConsentedCommunicationsInTx, type ObjectStorePort } from '@uptimebuyer/evidence';
 import { z } from 'zod';
 import { emitProviderEvent } from './events.js';
 import { hold, invalid } from './errors.js';
@@ -105,10 +105,13 @@ export async function recordConsent(
     resourceType: 'provider_contact_request',
     resourceId: input.contactRequestId,
   };
-  const result = await tenantCommand(pool, ctx, meta, async (c) => {
+  return tenantCommand(pool, ctx, meta, async (c) => {
     const req = await loadRequest(c, ctx.tenantId, input.contactRequestId);
     if (!req) throw unavailable(meta);
-    authorizeScoped(ctx, 'provider.contact', req.site_id, meta);
+    // Humans record consent as operators; the engine records provider-API-sourced consent.
+    if (ctx.principal.kind === 'HUMAN') authorizeScoped(ctx, 'provider.contact', req.site_id, meta);
+    else requireAuthorized(ctx, { action: 'provider.engine', siteId: null });
+    await lockConsent(c, ctx.tenantId, req.id);
     const consentId = await recordProviderConsentInTx(c, ctx, req, {
       consentKind: input.consentKind,
       purpose: input.purpose,
@@ -117,25 +120,38 @@ export async function recordConsent(
       disclosureText: input.disclosureText ?? null,
       sourceAttemptId: input.sourceAttemptId ?? null,
     });
-    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', reasonCode: `${input.consentKind}_${input.status}` });
-    // Excerpts promoted to M05 under this request's processing consents leave future evidence revisions.
-    const promoted =
-      input.consentKind === 'PROCESSING' && input.status !== 'GRANTED'
-        ? (
-            await c.query<{ id: string }>(
-              `SELECT d.id FROM evidence_documents d
-                WHERE d.tenant_id = $1 AND d.consent_ref IN (
-                  SELECT id FROM provider_consents WHERE tenant_id = $1 AND contact_request_id = $2 AND consent_kind = 'PROCESSING')
-                ORDER BY d.id LIMIT 100`,
-              [ctx.tenantId, req.id],
-            )
-          ).rows.map((r) => r.id)
-        : [];
-    return { consentId, promoted };
+    let withdrawn = 0;
+    if (input.consentKind === 'PROCESSING' && input.status !== 'GRANTED') {
+      // INV-13: in the same transaction, every excerpt promoted under this request's processing consents leaves
+      // future evidence revisions (system action, unbounded, idempotent).
+      const refs = (
+        await c.query<{ id: string }>(
+          `SELECT id FROM provider_consents WHERE tenant_id = $1 AND contact_request_id = $2 AND consent_kind = 'PROCESSING'`,
+          [ctx.tenantId, req.id],
+        )
+      ).rows.map((r) => r.id);
+      withdrawn = await withdrawConsentedCommunicationsInTx(c, ctx.tenantId, refs, {
+        reasonCode: 'PROCESSING_CONSENT_WITHDRAWN',
+        systemActorId: `provider-consent-withdrawal:${consentId}`,
+      });
+    }
+    await recordAudit(c, ctx, {
+      ...meta,
+      result: 'SUCCEEDED',
+      reasonCode: `${input.consentKind}_${input.status}`,
+      metadata: { evidenceWithdrawn: withdrawn },
+    });
+    return { consentId };
   });
-  for (const documentId of result.promoted)
-    await withdrawDocument(pool, ctx, documentId, { reasonCode: 'PROCESSING_CONSENT_WITHDRAWN' });
-  return { consentId: result.consentId };
+}
+
+/**
+ * Serializes consent changes with excerpt promotion for one contact request (transaction-scoped here; promotion
+ * holds the same key as a session lock across its check-and-ingest), so a withdrawal can never miss a promotion.
+ */
+const consentLockKey = (tenantId: string, requestId: string) => `provider-consent:${tenantId}:${requestId}`;
+async function lockConsent(c: Tx, tenantId: string, requestId: string) {
+  await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [consentLockKey(tenantId, requestId)]);
 }
 
 async function latestConsent(c: Tx, tenantId: string, requestId: string, kind: 'RECORDING' | 'PROCESSING') {
@@ -476,34 +492,47 @@ export async function promoteExcerptToEvidence(
     resourceType: 'provider_communication',
     resourceId: input?.communicationId,
   };
-  const prepared = await tenantCommand(pool, ctx, meta, async (c) => {
-    const { m, consentId } = await excerptFor(c, ctx, String(input.communicationId), meta, (siteId) =>
-      authorizeScoped(ctx, 'provider.contact', siteId, { ...meta, resourceId: String(input.communicationId) }),
-    );
-    const req = (await loadRequest(c, ctx.tenantId, m.contact_request_id))!;
-    const asset = await c.query<{ manufacturer: string; model: string }>(
-      `SELECT manufacturer, model FROM asset_revisions WHERE tenant_id = $1 AND id = $2`,
-      [ctx.tenantId, req.asset_revision_id],
-    );
-    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { excerptDigest: m.excerpt_digest } });
-    return { excerpt: m.minimum_excerpt as string, consentId, req, asset: asset.rows[0]! };
-  });
-  const doc = await ingestDocument(pool, ctx, store, {
-    role: 'TRANSCRIPT',
-    mediaType: 'text/plain',
-    bytes: Buffer.from(`${prepared.excerpt}\n`, 'utf8'),
-    title: `Provider quote excerpt ${input.communicationId}`,
-    documentRevision: String(input.communicationId),
-    applicability: {
-      manufacturer: prepared.asset.manufacturer,
-      model: prepared.asset.model,
-      assetId: prepared.req.asset_id as never,
-    },
-    sourceKind: 'COMMUNICATION',
-    sourceRef: `provider-communication:${input.communicationId}`,
-    communication: { consentRef: prepared.consentId, purposes: ['EVIDENCE_REASONING'] },
-  });
-  return { documentId: doc.documentId };
+  // Resolve the request id without revealing anything (scope is authorized inside excerptFor before any check).
+  const scope = await pool.query<{ contact_request_id: string }>(
+    `SELECT contact_request_id FROM provider_communications WHERE tenant_id = $1 AND id = $2`,
+    [ctx.tenantId, String(input?.communicationId)],
+  );
+  const lock = await pool.connect();
+  const key = consentLockKey(ctx.tenantId, scope.rows[0]?.contact_request_id ?? 'none');
+  try {
+    await lock.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [key]);
+    const prepared = await tenantCommand(pool, ctx, meta, async (c) => {
+      const { m, consentId } = await excerptFor(c, ctx, String(input.communicationId), meta, (siteId) =>
+        authorizeScoped(ctx, 'provider.contact', siteId, { ...meta, resourceId: String(input.communicationId) }),
+      );
+      const req = (await loadRequest(c, ctx.tenantId, m.contact_request_id))!;
+      const asset = await c.query<{ manufacturer: string; model: string }>(
+        `SELECT manufacturer, model FROM asset_revisions WHERE tenant_id = $1 AND id = $2`,
+        [ctx.tenantId, req.asset_revision_id],
+      );
+      await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { excerptDigest: m.excerpt_digest } });
+      return { excerpt: m.minimum_excerpt as string, consentId, req, asset: asset.rows[0]! };
+    });
+    const doc = await ingestDocument(pool, ctx, store, {
+      role: 'TRANSCRIPT',
+      mediaType: 'text/plain',
+      bytes: Buffer.from(`${prepared.excerpt}\n`, 'utf8'),
+      title: `Provider quote excerpt ${input.communicationId}`,
+      documentRevision: String(input.communicationId),
+      applicability: {
+        manufacturer: prepared.asset.manufacturer,
+        model: prepared.asset.model,
+        assetId: prepared.req.asset_id as never,
+      },
+      sourceKind: 'COMMUNICATION',
+      sourceRef: `provider-communication:${input.communicationId}`,
+      communication: { consentRef: prepared.consentId, purposes: ['EVIDENCE_REASONING'] },
+    });
+    return { documentId: doc.documentId };
+  } finally {
+    await lock.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]).catch(() => {});
+    lock.release();
+  }
 }
 
 /** Privacy erasure of raw content (admin); refused under an active legal hold. The redacted record remains. */
