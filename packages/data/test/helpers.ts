@@ -65,7 +65,7 @@ export class TestIdentityProvider {
   readonly issuer = 'https://idp.test.invalid/';
   readonly audience = 'uptimebuyer-api';
   private constructor(
-    private readonly privateKey: CryptoKey,
+    private readonly privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'],
     readonly jwks: { keys: JWK[] },
   ) {}
 

@@ -300,7 +300,7 @@ describe('T-012 outbox restart recovery', () => {
       causationId: input.causationId,
       schemaVersion: 1,
       payload: input.payload,
-    } as DomainEventEnvelope;
+    } as unknown as DomainEventEnvelope;
     await expect(consumeOnce(db.pool, 't012-forged', forged, async () => {})).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });

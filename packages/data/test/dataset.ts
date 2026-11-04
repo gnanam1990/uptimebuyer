@@ -240,7 +240,7 @@ export async function seedRepresentativeDataset(
     for (let v = 1; v <= 3; v++)
       ids.push(
         await appendOutboxEvent(client, admin, {
-          eventType: 'device.asset_assignment_changed.v1',
+          eventType: 'telemetry.accepted.v1',
           aggregateType: 'device',
           aggregateId: device.deviceId,
           aggregateVersion: v,

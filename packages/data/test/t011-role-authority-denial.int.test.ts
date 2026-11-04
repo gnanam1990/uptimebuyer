@@ -461,7 +461,7 @@ describe('T-011 role and approval authority denial', () => {
   it('revoked roles and revoked devices lose authority on the next resolution', async () => {
     const viewer = ctx.viewer!;
     const grant = viewer.grants.find((g) => g.role === 'viewer')!;
-    await revokeRole(db.pool, t.admin, grant.assignmentId);
+    await revokeRole(db.pool, t.admin, grant.assignmentId!);
     const fresh = await humanContext(db.pool, idp, subjects.viewer!, t.tenantId);
     expect(authorize(fresh, requestFor('registry.read'), policy).allowed).toBe(false);
 

@@ -124,7 +124,7 @@ describe('T-010 cross-tenant access denial', () => {
     }
     const { rows: keys } = await db.admin(`
       SELECT c.conrelid::regclass::text AS t,
-             array_agg(a.attname ORDER BY k.ord) AS cols
+             array_agg(a.attname::text ORDER BY k.ord) AS cols
         FROM pg_constraint c
         CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
@@ -309,8 +309,8 @@ describe('T-010 cross-tenant access denial', () => {
       ],
       [
         'assignment to foreign asset revision',
-        `INSERT INTO device_asset_assignments (tenant_id, id, device_id, asset_id, asset_revision_id, revision, valid_from, assignment_digest, actor_kind, actor_id, source)
-         VALUES ($1, 'dasg_probe-0001', $2, $3, $4, 9, now() + interval '1 day', 'device-assignment.v1:sha256:${'0'.repeat(64)}', 'HUMAN', $5, 'API')`,
+        `INSERT INTO device_asset_assignments (tenant_id, id, device_id, asset_id, asset_revision_id, revision, valid_from, valid_to, assignment_digest, actor_kind, actor_id, source)
+         VALUES ($1, 'dasg_probe-0001', $2, $3, $4, 9, '2000-01-01T00:00:00Z', '2000-01-02T00:00:00Z', 'device-assignment.v1:sha256:${'0'.repeat(64)}', 'HUMAN', $5, 'API')`,
         [a.tenantId, A.device.deviceId, B.asset.assetId, B.revised.assetRevisionId, a.adminUserId],
       ],
       [
