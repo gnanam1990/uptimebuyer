@@ -20,7 +20,14 @@ import type {
 import { unsupported } from './port.js';
 
 export type RecordedMode =
-  'SETTLE' | 'ACCEPT_ONLY' | 'DECLINE' | 'DROP_RESPONSE' | 'TIMEOUT_BEFORE_HANDOFF' | 'REFUSE_NOT_SENT' | 'HANG';
+  | 'SETTLE'
+  | 'ACCEPT_ONLY'
+  | 'DECLINE'
+  | 'DROP_RESPONSE'
+  | 'TIMEOUT_BEFORE_HANDOFF'
+  | 'REFUSE_NOT_SENT'
+  | 'REFUSE_AFTER_HANDOFF'
+  | 'HANG';
 
 interface Effect {
   ref: string;

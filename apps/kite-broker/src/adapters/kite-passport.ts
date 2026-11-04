@@ -154,6 +154,8 @@ export class KitePassportAdapter implements PaidAdapter {
         kind: 'FAILED',
         reasonCode: 'KPASS_LOCAL_REFUSAL',
         effect: 'NO_EFFECT_PROVED',
+        // A local CLI refusal only says this invocation sent nothing; the broker honours it only on a first send.
+        notSent: true,
         ...this.obs(r, 'local_refusal'),
       };
     // Policy refusals, pending outcomes (exit 7) and everything else stay UNKNOWN: Kite's no-effect semantics are unverified.

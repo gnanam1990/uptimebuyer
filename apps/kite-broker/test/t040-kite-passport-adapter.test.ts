@@ -249,4 +249,20 @@ if (args[0] === 'session' && args[1] === 'status') {
     expect(ttl).toBeLessThanOrEqual(120);
     expect(ttl).toBe(120);
   });
+
+  it('a local kpass refusal is marked not-sent (never authoritative no-effect for an earlier send)', async () => {
+    const k = fakeKpass(`
+if (args[1] === 'status') { process.stdout.write(JSON.stringify({ session: { id: 'ses_A', status: 'active' } })); process.exit(0); }
+process.stdout.write(JSON.stringify({ status: 'error', error: { code: 'local_protocol_refusal' } })); process.exit(8);
+`);
+    const adapter = new KitePassportAdapter({
+      kpassBinary: k.bin,
+      stateRoot: k.dir,
+      timeoutMs: 5_000,
+      sameKeyReplayVerified: true,
+      merchantEndpoints: { 'mer_weather-0001': { url: 'https://x402.dev.gokite.ai/api/weather', method: 'GET' } },
+    });
+    const out = await adapter.execute(adapter.prepare(intent), op, { onHandoff: () => {} });
+    expect(out).toMatchObject({ kind: 'FAILED', reasonCode: 'KPASS_LOCAL_REFUSAL', notSent: true });
+  });
 });

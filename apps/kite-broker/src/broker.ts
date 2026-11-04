@@ -275,6 +275,21 @@ export class KiteBroker {
           });
       };
       const now = Date.parse(await dbNow(c));
+      if (o.kind === 'FAILED' && o.notSent === true) {
+        if (s.transport_state === 'SEND_STARTED' && s.external_outcome_state === 'AUTHORIZED') {
+          // First activation refused before anything was handed off: definite no effect, never REQUESTED.
+          s = await patch(c, 'execution_authority_sessions', s, {
+            transport_state: 'DEFINITE_NO_EFFECT',
+            ...obs,
+            send_lease_expires_at: null,
+            next_reconcile_at: null,
+            reason_code: o.reasonCode,
+          });
+          await emitSessionChanged(c, ctx, s);
+          return;
+        }
+        o = { ...o, kind: 'RECONCILIATION_UNSUPPORTED' } as AdapterOutcome;
+      }
       switch (o.kind) {
         case 'CONFIRMED':
         case 'ACCEPTED': {
@@ -667,7 +682,17 @@ export class KiteBroker {
         }
         case 'FAILED':
         case 'CANCELLED': {
-          const neverSent = o.kind === 'FAILED' && o.notSent === true && a.external_outcome_state === 'AUTHORIZED';
+          // A not-sent refusal is no-effect proof ONLY for the first execute of an attempt never handed off.
+          const neverSent =
+            o.kind === 'FAILED' &&
+            o.notSent === true &&
+            source === 'EXECUTE' &&
+            a.external_outcome_state === 'AUTHORIZED' &&
+            a.transport_state === 'SEND_STARTED';
+          if (o.kind === 'FAILED' && o.notSent === true && !neverSent) {
+            await this.toManual(c, ctx, i, a, o.reasonCode, obs, events, now);
+            break;
+          }
           await moveAttempt(neverSent ? [] : externalPath(a.external_outcome_state, o.kind), {
             ...(sent ? { transport_state: 'DEFINITE_NO_EFFECT' } : {}),
             ...obs,
@@ -900,7 +925,8 @@ export class KiteBroker {
         },
         { onHandoff: () => {} },
       );
-      return out;
+      // "Refused to send now" says nothing about the earlier send: never no-effect proof on replay.
+      return out.kind === 'FAILED' && out.notSent ? refused(out.reasonCode) : out;
     });
   }
 
