@@ -60,7 +60,7 @@ describe('T-036 deterministic ranking tie break', () => {
     for (const a of ranked)
       for (const b of ranked) {
         const ab = compareRankedCandidates(a, b);
-        expect(Math.sign(ab)).toBe(-Math.sign(compareRankedCandidates(b, a)));
+        expect(Math.sign(ab) + Math.sign(compareRankedCandidates(b, a))).toBe(0);
         if (a === b) expect(ab).toBe(0);
         else expect(ab).not.toBe(0);
       }
