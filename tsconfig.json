@@ -53,6 +53,12 @@
       "path": "./packages/compatibility/test"
     },
     {
+      "path": "./packages/providers"
+    },
+    {
+      "path": "./packages/providers/test"
+    },
+    {
       "path": "./apps/sensor-gateway"
     },
     {
