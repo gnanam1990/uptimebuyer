@@ -13,6 +13,9 @@ Owner: M02 (`packages/data`). Runner: `scripts/db.mjs` (`pnpm db:migrate`). Proo
   History is never rewritten to "undo" a change.
 - Every tenant-owned table has `tenant_id`, a `(tenant_id, id)` key and composite tenant foreign keys. Append-only tables
   call `ub_make_append_only(...)` so the database rejects `UPDATE`/`DELETE`/`TRUNCATE` (SQLSTATE `UB001`).
+- Every trigger guard that raises must be **NULL-safe** (`docs/adr/0004-sql-guard-null-safety.md`): a NULL condition
+  must refuse, never skip the `RAISE`. Prefer `IF coalesce(<allowed>, false) IS NOT TRUE THEN RAISE`, `IF NOT EXISTS`
+  or `IS [NOT] DISTINCT FROM`; a guard fix ships as a new `CREATE OR REPLACE FUNCTION` migration.
 - Changes must be safe for rolling deployment: additive first (nullable or defaulted columns, `NOT VALID` constraints
   then `VALIDATE`), destructive steps only in a later release once no running code reads the old shape.
 
