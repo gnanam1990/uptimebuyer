@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
     devDependencies:
       '@eslint/js':
         specifier: 10.0.1
@@ -23,9 +27,6 @@ importers:
       globals:
         specifier: 17.14.0
         version: 17.14.0
-      pg:
-        specifier: 8.23.1
-        version: 8.23.1
       prettier:
         specifier: 3.9.10
         version: 3.9.10
@@ -190,7 +191,16 @@ importers:
       fastify:
         specifier: 5.12.7
         version: 5.12.7
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       '@uptimebuyer/sensor-agent':
         specifier: workspace:*
         version: link:../../edge/sensor-agent

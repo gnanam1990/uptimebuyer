@@ -5,7 +5,8 @@
 // The browser therefore sees API truth; nothing in the page comes from a fixture file. Fails (never skips) without
 // DATABASE_URL or without a built bundle.
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { generateKeyPairSync } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -68,6 +69,18 @@ export default async function globalSetup() {
   );
   const manifest = JSON.parse(await waitFor(stack, 'M12_STACK_READY ', 600_000, stackLog));
 
+  // M14: apps/api reads its secrets from files the environment only references. The harness generates a throwaway
+  // Ed25519 authority signer and an empty webhook verifier root at runtime (0600/0700, never committed).
+  const secretDir = mkdtempSync(join(tmpdir(), 'ub-e2e-secrets-'));
+  const signerFile = join(secretDir, 'authority-signer.pem');
+  writeFileSync(
+    signerFile,
+    generateKeyPairSync('ed25519').privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+  );
+  chmodSync(signerFile, 0o600);
+  const verifierRoot = join(secretDir, 'webhook-verifiers');
+  mkdirSync(verifierRoot, { mode: 0o700 });
+
   const apiLog: string[] = [];
   const api = spawn(process.execPath, [...nodeArgs, join(repo, 'apps', 'api', 'src', 'main.ts')], {
     cwd: join(repo, 'apps', 'api'),
@@ -85,6 +98,9 @@ export default async function globalSetup() {
       UB_ENVIRONMENT_LABEL: 'SEEDED_TEST_DATA',
       UB_WEB_ROOT: webRoot,
       UB_OBJECT_STORE_ROOT: manifest.storeRoot,
+      UB_AUTHORITY_SIGNER_KEY_ID: 'e2e-authority-k1',
+      UB_AUTHORITY_SIGNER_KEY_FILE: signerFile,
+      UB_WEBHOOK_VERIFIER_ROOT: verifierRoot,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -101,5 +117,6 @@ export default async function globalSetup() {
     api.kill('SIGTERM');
     stack.kill('SIGTERM');
     await new Promise((r) => stack.once('exit', r));
+    rmSync(secretDir, { recursive: true, force: true });
   };
 }

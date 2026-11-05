@@ -33,6 +33,18 @@ const BROKER_CONTEXT = [
     message: 'The broker worker context is importable only by apps/kite-broker/src (INV-06).',
   },
 ];
+// M14: the platform worker's per-tenant context issuer is importable only by apps/worker/src (INV-06).
+const WORKER_CONTEXT = [
+  {
+    group: [
+      '@uptimebuyer/data/worker',
+      '**/data/src/worker-context',
+      '**/data/src/worker-context.js',
+      '**/data/src/worker-context.ts',
+    ],
+    message: 'The worker tenant context is importable only by apps/worker/src (INV-06).',
+  },
+];
 // M13 SAST: product source never spawns processes or evaluates code (the Kite adapter's execFile is the one
 // sanctioned exception, below).
 const PROCESS_AND_VM = [
@@ -70,7 +82,7 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
       eqeqeq: ['error', 'always'],
       // INV-06: the credential-bearing broker (adapters, secret config) is importable only inside apps/kite-broker.
-      'no-restricted-imports': imports([...BROKER, ...RECOVERY_HOOK, ...BROKER_CONTEXT]),
+      'no-restricted-imports': imports([...BROKER, ...RECOVERY_HOOK, ...BROKER_CONTEXT, ...WORKER_CONTEXT]),
     },
   },
   // M13 SAST rules over product source (offline; ADR 0008 failure policy).
@@ -81,7 +93,10 @@ export default tseslint.config(
       'no-implied-eval': 'error',
       'no-new-func': 'error',
       'no-script-url': 'error',
-      'no-restricted-imports': imports([...BROKER, ...RECOVERY_HOOK, ...BROKER_CONTEXT], PROCESS_AND_VM),
+      'no-restricted-imports': imports(
+        [...BROKER, ...RECOVERY_HOOK, ...BROKER_CONTEXT, ...WORKER_CONTEXT],
+        PROCESS_AND_VM,
+      ),
       'no-restricted-properties': [
         'error',
         { object: 'Math', property: 'random', message: 'Use node:crypto randomness in product source (M13 SAST).' },
@@ -118,31 +133,40 @@ export default tseslint.config(
   // The broker may import itself and its worker context; it is still not allowed to reach M04's recovery hook.
   {
     files: ['apps/kite-broker/**'],
-    rules: { 'no-restricted-imports': imports([...RECOVERY_HOOK, ...BROKER_CONTEXT]) },
+    rules: { 'no-restricted-imports': imports([...RECOVERY_HOOK, ...BROKER_CONTEXT, ...WORKER_CONTEXT]) },
   },
   {
     files: ['apps/kite-broker/src/**'],
-    rules: { 'no-restricted-imports': imports([...RECOVERY_HOOK], PROCESS_AND_VM) },
+    rules: { 'no-restricted-imports': imports([...RECOVERY_HOOK, ...WORKER_CONTEXT], PROCESS_AND_VM) },
   },
   // The Kite Passport adapter drives the provider CLI with execFile (argument vector, no shell): the one sanctioned
   // process spawn in product source.
   {
     files: ['apps/kite-broker/src/adapters/kite-passport.ts'],
-    rules: { 'no-restricted-imports': imports([...RECOVERY_HOOK]) },
+    rules: { 'no-restricted-imports': imports([...RECOVERY_HOOK, ...WORKER_CONTEXT]) },
   },
   // The hook's home (M04 source and its test-only fake evaluator) and its single sanctioned caller keep only the
   // INV-06 broker boundaries.
   {
     files: ['packages/incidents/**', 'packages/recovery/src/closeout.ts'],
-    rules: { 'no-restricted-imports': imports([...BROKER, ...BROKER_CONTEXT]) },
+    rules: { 'no-restricted-imports': imports([...BROKER, ...BROKER_CONTEXT, ...WORKER_CONTEXT]) },
   },
   {
     files: ['packages/incidents/src/**', 'packages/recovery/src/closeout.ts'],
-    rules: { 'no-restricted-imports': imports([...BROKER, ...BROKER_CONTEXT], PROCESS_AND_VM) },
+    rules: { 'no-restricted-imports': imports([...BROKER, ...BROKER_CONTEXT, ...WORKER_CONTEXT], PROCESS_AND_VM) },
   },
   // The operator web app runs in the browser (M12); it reaches the API only through @uptimebuyer/api-client.
   {
     files: ['apps/web/src/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser } },
+  },
+  // The worker may import its tenant fan-out (and nothing of the broker); its source keeps the SAST process ban.
+  {
+    files: ['apps/worker/**'],
+    rules: { 'no-restricted-imports': imports([...BROKER, ...RECOVERY_HOOK, ...BROKER_CONTEXT]) },
+  },
+  {
+    files: ['apps/worker/src/**'],
+    rules: { 'no-restricted-imports': imports([...BROKER, ...RECOVERY_HOOK, ...BROKER_CONTEXT], PROCESS_AND_VM) },
   },
 );

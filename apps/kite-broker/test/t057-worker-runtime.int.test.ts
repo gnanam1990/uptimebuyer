@@ -11,7 +11,14 @@ import { handlePlanningEvent } from '@uptimebuyer/planning';
 import { handleBrokerResultEvent, handleNotificationEvent } from '@uptimebuyer/providers';
 import { handleIncidentReopenedEvent, handleOrderFactEvent } from '@uptimebuyer/recovery';
 import { MetricsRegistry, platformMetrics } from '@uptimebuyer/observability';
-import { DEFAULT_CONSUMERS, PgAdvisoryLocks, RUNNER_NAMES, Scheduler, buildRunners } from '@uptimebuyer/worker';
+import {
+  ConsumerSink,
+  DEFAULT_CONSUMERS,
+  PgAdvisoryLocks,
+  RUNNER_NAMES,
+  Scheduler,
+  buildRunners,
+} from '@uptimebuyer/worker';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createRecoveryWorld, recoveredIncident, type RecoveryWorld } from './m11-helpers.js';
@@ -111,16 +118,29 @@ describe('T-057 worker runtime: runners execute against a real seeded database',
   });
 
   it('consumer delivery is idempotent: re-delivering a published event changes nothing', async () => {
+    // published_at is a one-shot stamp (the outbox is append-only), so re-delivery is what a publisher crash between
+    // delivery and acknowledgement produces: the sink sees the same envelopes again.
     const before = (await w.db.pool.query(`SELECT count(*)::int AS n FROM outbox_consumer_receipts`)).rows[0].n;
-    await w.db.pool.query(
-      `UPDATE outbox_events SET published_at = NULL WHERE id IN (SELECT id FROM outbox_events ORDER BY seq LIMIT 25)`,
-    );
-    const s = schedulerFor(poolA, 'm14-redeliver');
-    for (let i = 0; i < 5 && (await unpublished()) > 0; i++) await s.tick('outbox.publish');
+    const { rows } = await w.db.pool.query(`SELECT * FROM outbox_events ORDER BY seq LIMIT 25`);
+    expect(rows.length).toBe(25);
+    const sink = new ConsumerSink(poolA);
+    for (const r of rows)
+      await sink.publish({
+        eventId: r.id,
+        eventType: r.event_type,
+        occurredAt: r.occurred_at.toISOString(),
+        tenantId: r.tenant_id,
+        aggregateType: r.aggregate_type,
+        aggregateId: r.aggregate_id,
+        aggregateVersion: r.aggregate_version,
+        correlationId: r.correlation_id,
+        causationId: r.causation_id,
+        schemaVersion: 1,
+        payload: r.payload,
+      } as never);
     expect(await unpublished()).toBe(0);
     const after = (await w.db.pool.query(`SELECT count(*)::int AS n FROM outbox_consumer_receipts`)).rows[0].n;
     expect(after).toBe(before);
-    await s.stop();
   });
 });
 

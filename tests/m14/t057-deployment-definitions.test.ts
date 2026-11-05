@@ -94,7 +94,7 @@ describe('T-057 compose definition for the local production-like bring-up', () =
     for (const s of core) expect(services[s], s).toBeDefined();
     for (const [name, s] of Object.entries(services))
       if (!core.includes(name)) expect(s.profiles, `${name} must be profile-gated`).toBeDefined();
-    expect(services.api.environment.UB_WEB_ROOT).toBe('/app/apps/web/dist');
+    expect(services.api!.environment.UB_WEB_ROOT).toBe('/app/apps/web/dist');
   });
 
   it('hardens every application container', () => {
@@ -111,7 +111,7 @@ describe('T-057 compose definition for the local production-like bring-up', () =
   it('declares health checks and ordered startup through the migrate job', () => {
     for (const name of ['postgres', 'api', 'worker', BROKER, 'sensor-gateway'])
       expect(services[name]!.healthcheck?.test, name).toBeDefined();
-    expect(services.migrate.depends_on.postgres.condition).toBe('service_healthy');
+    expect(services.migrate!.depends_on.postgres.condition).toBe('service_healthy');
     for (const name of ['api', 'worker', BROKER, 'sensor-gateway'])
       expect(services[name]!.depends_on.migrate.condition, name).toBe('service_completed_successfully');
   });
@@ -133,8 +133,8 @@ describe('T-057 compose definition for the local production-like bring-up', () =
         expect(p, name).toMatch(/^127\.0\.0\.1:/);
         expect(p, name).not.toMatch(/:(9464|9465|9466)$/);
       }
-    expect(services.api.environment.UB_OPS_HOST).toBe('127.0.0.1');
-    expect(services.worker.environment.UB_WORKER_OPS_HOST).toBe('127.0.0.1');
+    expect(services.api!.environment.UB_OPS_HOST).toBe('127.0.0.1');
+    expect(services.worker!.environment.UB_WORKER_OPS_HOST).toBe('127.0.0.1');
   });
 
   it('delivers Kite credential references to the broker only, and every secret as a file', () => {

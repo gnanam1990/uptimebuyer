@@ -6,7 +6,8 @@
   "description": "PostgreSQL storage: migrations, tenant-scoped repositories, principal authentication, RBAC authority checks, transactional outbox and jobs.",
   "exports": {
     ".": "./src/index.ts",
-    "./broker": "./src/broker-context.ts"
+    "./broker": "./src/broker-context.ts",
+    "./worker": "./src/worker-context.ts"
   },
   "dependencies": {
     "@uptimebuyer/contracts": "workspace:*",

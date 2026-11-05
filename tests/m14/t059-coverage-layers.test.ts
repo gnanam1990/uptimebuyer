@@ -16,7 +16,11 @@ const vitestReport = (files: Record<string, 'passed' | 'failed'>) => ({
   })),
 });
 const entry = (report: { entries: { id: string }[] }, id: string) =>
-  report.entries.find((e) => e.id === id) as { status: string; localStatus: string; externalEvidence: string };
+  report.entries.find((e) => e.id === id) as unknown as {
+    status: string;
+    localStatus: string;
+    externalEvidence: string;
+  };
 
 describe('T-059 coverage layers', () => {
   it('a passing local T-058 test leaves T-058 NOT_RUN with localStatus PASS', () => {
