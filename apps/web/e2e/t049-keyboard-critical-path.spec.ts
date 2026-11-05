@@ -133,7 +133,7 @@ test('T-049 keyboard and screen-reader critical path', async ({ page }) => {
   const conflict = page.getByRole('alert').filter({ hasText: 'changed while you were working' });
   await expect(conflict).toBeVisible();
   await expect(conflict).toContainText('reloaded');
-  await press(page, owner.getByRole('button', { name: 'Hand off incident' }));
+  await press(page, handoff.getByRole('button', { name: 'Hand off incident' }));
   await expect.poll(() => announcements(page)).toContain('Handed off to operator2');
   const history = page.getByRole('table', { name: 'Assignment history' });
   await expect(history).toContainText('Handoff');

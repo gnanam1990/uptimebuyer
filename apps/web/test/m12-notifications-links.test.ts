@@ -29,7 +29,14 @@ describe('M12 notification deep links and dedupe', () => {
   });
 
   it('collapses repeats of the same trigger, incident and reason, newest first, with a count', () => {
-    const n = (id: string, kind: string, inc: string, reason: string, at: string, state = 'DELIVERED') => ({
+    const n = (
+      id: string,
+      kind: string,
+      inc: string,
+      reason: string,
+      at: string,
+      state: 'DELIVERED' | 'UNKNOWN' = 'DELIVERED',
+    ) => ({
       notificationId: id,
       triggerKind: kind,
       titleCode: kind,

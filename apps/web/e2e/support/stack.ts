@@ -1,5 +1,5 @@
 // Playwright global setup/teardown for the M12 browser tests (T-049..T-052). Starts two separate processes:
-// 1. the seed harness (apps/kite-broker/test/support/m12-e2e-stack.ts): a throwaway database seeded through the real
+// 1. the seed harness (m12-e2e-stack.ts in the broker app test support folder): a throwaway database seeded through the real
 //    module packages, a test-only OIDC provider and a labelled SIMULATOR feed;
 // 2. apps/api (src/main.ts) over that database, serving the built web app (apps/web/dist) from the same origin.
 // The browser therefore sees API truth; nothing in the page comes from a fixture file. Fails (never skips) without

@@ -25,6 +25,7 @@ import {
   type NotificationTrigger,
 } from '@uptimebuyer/providers';
 import { getCandidateAction } from '@uptimebuyer/compatibility';
+import { buildSensorGateway } from '@uptimebuyer/sensor-gateway';
 import { message, post, provisionDevice, temp, type TestDevice } from '../../../sensor-gateway/test/helpers.js';
 import { issue, sessionRef } from '../helpers.js';
 import { brokerDeps, orderFor, paidActionOf } from '../m10-helpers.js';
@@ -36,7 +37,6 @@ import {
   readings,
   recoveredIncident,
   verifyingIncident,
-  type RecoveryWorld,
 } from '../m11-helpers.js';
 import { pendingApproval } from '../m12-helpers.js';
 
@@ -47,30 +47,76 @@ const CLIENT_ID = 'uptimebuyer-web';
 const REDIRECT_URI = `${WEB_ORIGIN}/auth/callback`;
 
 let seq = 900_000;
-async function livePost(w: RecoveryWorld, device: TestDevice, atMs: number, valueInt: number, quality = 'GOOD') {
-  w.clock.set(atMs);
-  const res = await post(w, device, [
-    message(++seq, atMs, [temp(device.channels.temp!, valueInt, { quality } as never)]),
+/** A dedicated gateway with its own real-time clock, so the background feed never races the world's manual clock. */
+type Feed = { gw: Awaited<ReturnType<typeof buildSensorGateway>>; clock: { now(): number } };
+async function livePost(f: Feed, device: TestDevice, valueInt: number, quality = 'GOOD') {
+  const res = await post(f as never, device, [
+    message(++seq, f.clock.now(), [temp(device.channels.temp!, valueInt, { quality } as never)]),
   ]);
-  if (res.status !== 200) throw new Error(`seed reading refused: ${res.status} ${JSON.stringify(res.body)}`);
+  const r = res.body.results?.[0];
+  if (res.status !== 200 || !r || r.status !== 'ACCEPTED')
+    throw new Error(`seed reading refused: ${res.status} ${JSON.stringify(res.body)}`);
 }
 
 async function main() {
   const w = await createRecoveryWorld('m12e2e');
+  // Every seeded device is a labelled SIMULATOR with one temperature channel (a device's freshness is its worst
+  // channel, so a channel that never reports would make it OFFLINE).
   const sim = (assetId: string) =>
-    provisionDevice(w, { siteId: w.siteId, assetId: assetId as never, inputClass: 'SIMULATOR' });
+    provisionDevice(w, {
+      siteId: w.siteId,
+      assetId: assetId as never,
+      inputClass: 'SIMULATOR',
+      channels: [{ name: 'temp', kind: 'TEMPERATURE', sourceUnit: 'CELSIUS' }],
+    });
+  // Registry effective dates come from the database clock (which may run slightly ahead of this host), so the feed
+  // stamps readings one second ahead of host time, well inside the gateway's future-skew bound.
+  const feedNow = () => Date.now() + 1_000;
+  const feed: Feed = {
+    clock: { now: feedNow },
+    gw: await buildSensorGateway({ pool: w.db.pool, credentials: w.creds, clock: { now: feedNow } }),
+  };
+  const mkAsset = async (label: string) =>
+    (
+      await registerAsset(w.db.pool, w.admin, {
+        siteId: w.siteId,
+        identity: {
+          manufacturer: 'True',
+          model: 'T-49',
+          serial: `M12-${label}-${randomBytes(2).toString('hex')}`,
+          safetyClass: 'STANDARD',
+          bomRevision: 'BOM-3',
+        },
+        source: 'API',
+      })
+    ).assetId;
 
   // --- T-049 critical path: an AWAITING_APPROVAL incident with evidence, compatibility, a plan and a pending request.
   const approval = await pendingApproval(w);
   const approval2 = await pendingApproval(w, 21_000n);
   const approvalDevice = await sim(approval.assetId);
-  const now = Date.now();
-  // 20 minutes of history every 30 s, with a 3-minute excursion above the pinned 8.0 °C threshold (anomaly cue).
-  for (let t = now - 20 * 60_000; t <= now; t += 30_000) {
-    const minutesAgo = (now - t) / 60_000;
-    const value = minutesAgo > 9 && minutesAgo < 12 ? 9_400 : 4_000 + Math.round(Math.sin(t / 90_000) * 300);
-    await livePost(w, approvalDevice, t, value);
-  }
+  // Freshness states (bindings start now, so history cannot be backdated): STALE needs a reading older than the
+  // 120 s freshness threshold, so the stale device reports once now and the harness waits before READY.
+  const staleAsset = await mkAsset('STALE');
+  const offlineAsset = await mkAsset('OFFLINE');
+  const invalidAsset = await mkAsset('INVALID');
+  const noSignalAsset = await mkAsset('NOSIGNAL');
+  const staleDevice = await sim(staleAsset);
+  await sim(offlineAsset); // bound, never reports: OFFLINE (NO_LIVE_TELEMETRY)
+  const invalidDevice = await sim(invalidAsset);
+  await livePost(feed, staleDevice, 4_200);
+  await livePost(feed, invalidDevice, 4_300, 'SENSOR_FAULT');
+  const t0 = Date.now();
+  // Live feed for the approval asset every 3 s, with a 30 s excursion above the pinned 8.0 °C threshold (anomaly cue).
+  let feeding = true;
+  const feedLoop = (async () => {
+    while (feeding) {
+      const since = Date.now() - t0;
+      const value = since > 40_000 && since < 70_000 ? 9_400 : 4_000 + Math.round(Math.sin(Date.now() / 20_000) * 300);
+      await livePost(feed, approvalDevice, value).catch(() => {});
+      await new Promise((r) => setTimeout(r, 3_000));
+    }
+  })();
 
   // --- Recovery proof: one RECOVERED incident (closeout) and one VERIFYING incident with an OBSERVING evaluation.
   const recovered = await recoveredIncident(w);
@@ -116,32 +162,6 @@ async function main() {
   await w.broker.activateSession(sessionRef(w, sfAuth.authority.executionAuthorityId)).catch(() => {});
   const sessionPending = await paidActionOf(w, 'PART_PURCHASE');
   const spAuth = await issue(w, sessionPending);
-
-  // --- Freshness states on separate assets (every device a labelled SIMULATOR).
-  const mkAsset = async (label: string) =>
-    (
-      await registerAsset(w.db.pool, w.admin, {
-        siteId: w.siteId,
-        identity: {
-          manufacturer: 'True',
-          model: 'T-49',
-          serial: `M12-${label}-${randomBytes(2).toString('hex')}`,
-          safetyClass: 'STANDARD',
-          bomRevision: 'BOM-3',
-        },
-        source: 'API',
-      })
-    ).assetId;
-  const staleAsset = await mkAsset('STALE');
-  const offlineAsset = await mkAsset('OFFLINE');
-  const invalidAsset = await mkAsset('INVALID');
-  const noSignalAsset = await mkAsset('NOSIGNAL');
-  const staleDevice = await sim(staleAsset);
-  const offlineDevice = await sim(offlineAsset);
-  const invalidDevice = await sim(invalidAsset);
-  await livePost(w, offlineDevice, Date.now() - 15 * 60_000, 4_100);
-  await livePost(w, staleDevice, Date.now() - 200_000, 4_200);
-  await livePost(w, invalidDevice, Date.now() - 5_000, 4_300, 'SENSOR_FAULT');
 
   // --- Notifications (FR-20): route the real outbox events through M07, plus the triggers M09/M10/M11 own.
   for (const type of [
@@ -318,17 +338,14 @@ async function main() {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   const idpOrigin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  // --- Labelled simulator: keep the approval asset FRESH, the stale asset ~200 s behind and the invalid asset faulted.
-  let base = 0;
-  const tick = setInterval(() => {
-    void (async () => {
-      const t = Date.now();
-      base = (base + 1) % 1_000;
-      await livePost(w, approvalDevice, t, 4_000 + Math.round(Math.sin(t / 90_000) * 300));
-      await livePost(w, staleDevice, t - 200_000, 4_200);
-      await livePost(w, invalidDevice, t - 2_000, 4_300, 'SENSOR_FAULT');
-    })().catch(() => {});
-  }, 4_000);
+  // --- Wait until the stale device's only reading is past the 120 s threshold (and well short of 600 s offline).
+  while (Date.now() < t0 + 125_000) await new Promise((r) => setTimeout(r, 1_000));
+  const tick = setInterval(
+    () => void livePost(feed, approvalDevice, 4_000 + Math.round(Math.sin(Date.now() / 20_000) * 300)).catch(() => {}),
+    4_000,
+  );
+  feeding = false;
+  await feedLoop;
 
   const manifest = {
     databaseUrl: w.db.url,
@@ -384,6 +401,7 @@ async function main() {
   const stop = async () => {
     clearInterval(tick);
     server.close();
+    await feed.gw.close().catch(() => {});
     await w.close().catch(() => {});
     process.exit(0);
   };

@@ -4,12 +4,12 @@
 // ingestion, quality, origin, anomaly) reachable by keyboard; a pause/resume control that really stops polling and
 // resumes from the server; anomaly cues that are distinct in shape and text, not color alone; and no animation or
 // transition under prefers-reduced-motion.
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 import { apiGet, expectAccessible, manifest, press, signIn, tabTo } from './support/fixtures.js';
 
 test.describe.configure({ mode: 'serial' });
 
-async function toOverview(page: import('@playwright/test').Page, incidentId: string) {
+async function toOverview(page: Page, incidentId: string) {
   await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Incidents' }).click();
   await page
     .getByRole('link', { name: `Open incident ${incidentId}` })
@@ -69,22 +69,23 @@ test('T-052 accessible table, current-value summary, pause/resume and anomaly cu
   await expect(chart.locator('[data-threshold-line]')).toHaveCount(1);
   await expectAccessible(page, 'telemetry with table');
 
-  // Pause really stops polling; resume fetches again.
+  // Pause really stops polling; resume fetches again. The toggle keeps one name and reports its state with
+  // aria-pressed (pressed = paused), the WAI-ARIA toggle-button pattern.
   const pause = panel.getByRole('button', { name: 'Pause live updates' });
   await tabTo(page, pause);
   await expect(pause).toHaveAttribute('aria-pressed', 'false');
   await page.keyboard.press('Enter');
-  const resume = panel.getByRole('button', { name: 'Resume live updates' });
-  await expect(resume).toHaveAttribute('aria-pressed', 'true');
+  await expect(pause).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#announcer')).toContainText('Live updates paused');
   let calls = 0;
-  const count = (r: import('@playwright/test').Request) => {
+  const count = (r: Request) => {
     if (r.url().includes(`/v1/assets/${inc.assetId}/telemetry`)) calls++;
   };
   page.on('request', count);
   await page.waitForTimeout(7_000);
   expect(calls, 'no telemetry polling while paused').toBe(0);
-  await press(page, resume);
+  await press(page, pause);
+  await expect(pause).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#announcer')).toContainText('Live updates resumed');
   await expect.poll(() => calls, { timeout: 15_000 }).toBeGreaterThan(0);
   page.off('request', count);

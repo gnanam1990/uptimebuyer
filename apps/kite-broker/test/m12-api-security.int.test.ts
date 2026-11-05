@@ -80,7 +80,7 @@ describe('M12 API authentication', () => {
             'content-type': 'application/json',
             'idempotency-key': 'm12-auth-probe-0001',
           },
-          payload: method === 'POST' ? '{}' : undefined,
+          ...(method === 'POST' ? { payload: '{}' } : {}),
           remoteAddress: `10.9.${ROUTES.findIndex((x) => x[1] === url)}.${tokens.indexOf(token)}`,
         });
         expect(r.statusCode, `${method} ${url}`).toBe(401);
@@ -194,9 +194,11 @@ describe('M12 API strict request parsing', () => {
     const p = await pendingApproval(w);
     const d = (await call(w, w.subjects.operator!, 'GET', `/v1/incidents/${p.incidentId}`)).json();
     const v0 = d.incident.version as number;
+    const winningKey = `m12-winner-${Date.now()}`;
     const first = await call(w, w.subjects.operator!, 'POST', `/v1/incidents/${p.incidentId}:assign`, {
       body: { assigneeUserId: w.people.operator2!.userId, reasonCode: 'SHIFT_PLAN' },
       version: v0,
+      key: winningKey,
     });
     expect(first.statusCode).toBe(200);
     const stale = await call(w, w.subjects.operator!, 'POST', `/v1/incidents/${p.incidentId}:assign`, {
@@ -213,7 +215,7 @@ describe('M12 API strict request parsing', () => {
     const replay = await call(w, w.subjects.operator!, 'POST', `/v1/incidents/${p.incidentId}:assign`, {
       body: { assigneeUserId: w.people.operator2!.userId, reasonCode: 'SHIFT_PLAN' },
       version: v0,
-      key: first.request.headers['idempotency-key'] as string,
+      key: winningKey,
     });
     expect(replay.statusCode).toBe(200);
     expect(replay.json().version).toBe(v0 + 1);

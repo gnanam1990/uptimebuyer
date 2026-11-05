@@ -5,12 +5,25 @@ import { createHash, randomBytes } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
 
+/** Seeded ids per scenario; a scenario carries only the ids that apply to it. */
+export interface SeededIncident {
+  incidentId: string;
+  assetId: string;
+  planId: string;
+  approvalRequestId: string;
+  merchantId: string;
+  purpose: string;
+  amountMinor: string;
+  currency: string;
+  orderId: string;
+  authorityId: string;
+}
 export interface Manifest {
   tenantId: string;
   siteId: string;
   idp: { authorizationEndpoint: string; tokenEndpoint: string; clientId: string };
   users: Record<string, { userId: string }>;
-  incidents: Record<string, Record<string, string>>;
+  incidents: Record<string, SeededIncident>;
   assets: Record<string, string>;
 }
 
