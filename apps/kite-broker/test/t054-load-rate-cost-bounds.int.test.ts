@@ -18,6 +18,7 @@ import {
   FulfillmentAdapterRegistry,
   POLL_LIMITS,
   RecordedFulfillmentAdapter,
+  dispatchOrder,
   pollFulfillmentStatus,
 } from '@uptimebuyer/orders';
 import { SEARCH_LIMITS, runProviderSearch } from '@uptimebuyer/providers';
@@ -26,10 +27,11 @@ import { TELEMETRY_LIMITS } from '@uptimebuyer/telemetry';
 import { ALERT_RULES, MetricsRegistry, SloTracker, evaluateAlerts, platformMetrics } from '@uptimebuyer/observability';
 import { MANUAL_C, ingestAs, nwrAsset, openIncident, proposalFor } from '../../../packages/evidence/test/helpers.js';
 import { exactCandidate, incidentWithEvidence, merchant } from '../../../packages/compatibility/test/helpers.js';
-import { message, post, provisionDevice, temp } from '../../sensor-gateway/test/helpers.js';
+import { message, post, provisionDevice, syncClock, temp } from '../../sensor-gateway/test/helpers.js';
 import { RecordedContractAdapter } from '../src/adapters/recorded.js';
 import { inProcessBroker, intentRef, readyIntent } from './helpers.js';
 import { buildApiFor, call, createApiWorld, type ApiWorld } from './m12-helpers.js';
+import { brokerDeps, orderFor } from './m10-helpers.js';
 import { verifyingIncident, type VerifyingIncident } from './m11-helpers.js';
 
 let w: ApiWorld;
@@ -57,7 +59,8 @@ describe('T-054 telemetry bounds through the real gateway', () => {
     });
     try {
       const device = await provisionDevice(w, { siteId: w.siteId, assetId: v.assetId as never });
-      const at = w.clock.now();
+      // Readings must postdate the binding, whose effective time comes from the (leading) database clock.
+      const at = syncClock(w, 2_000);
       const one = (i: number) => message(++seq, at + i, [temp(device.channels.temp!, 4_000)]);
       const burst = await post({ gw, clock: w.clock }, device, [0, 1, 2, 3, 4].map(one));
       expect(burst.status).toBe(200);
@@ -73,12 +76,13 @@ describe('T-054 telemetry bounds through the real gateway', () => {
 
   it('accepts a batch of exactly 200 messages and refuses 201; refuses a body one byte over the limit', async () => {
     const device = await provisionDevice(w, { siteId: w.siteId, assetId: v.assetId as never });
-    const at = w.clock.now() - 60_000;
+    const at = syncClock(w, 5_000) - 3_000;
     const batch = (n: number) =>
       Array.from({ length: n }, (_, i) => message(++seq, at + i * 10, [temp(device.channels.temp!, 4_000)]));
     const ok = await post(w, device, batch(200));
     expect(ok.status).toBe(200);
     expect(ok.body.results).toHaveLength(200);
+    expect(ok.body.results!.every((r) => r.status === 'ACCEPTED')).toBe(true);
     const tooMany = await post(w, device, batch(201));
     expect([400, 413]).toContain(tooMany.status);
     const huge = await post(w, device, batch(1), { extra: { pad: 'p'.repeat(TELEMETRY_LIMITS.maxBodyBytes) } });
@@ -86,8 +90,9 @@ describe('T-054 telemetry bounds through the real gateway', () => {
     const t0 = Date.now();
     for (let i = 0; i < 6; i++) {
       const s = Date.now();
-      const r = await post(w, device, [message(++seq, w.clock.now(), [temp(device.channels.temp!, 4_000)])]);
+      const r = await post(w, device, [message(++seq, syncClock(w, 1_000), [temp(device.channels.temp!, 4_000)])]);
       expect(r.status).toBe(200);
+      expect(r.body.results![0]!.status).toBe('ACCEPTED');
       slo.record('telemetry_acceptance', Date.now() - s);
     }
     expect(Date.now() - t0).toBeLessThan(60_000);
@@ -205,7 +210,7 @@ describe('T-054 provider and reconciliation bounds', () => {
     const base = {
       incidentId: v.incidentId,
       providerAccountId: 'pac_00000000-0000-4000-8000-000000000000',
-      query: { providerKinds: ['REFRIGERATION_TECHNICIAN'], country: 'GB' },
+      query: { providerKinds: ['TECHNICIAN'], country: 'GB' },
       idempotencyKey: w.key('search'),
     };
     const reason = (bounds: object) =>
@@ -220,40 +225,41 @@ describe('T-054 provider and reconciliation bounds', () => {
   });
 
   it('stops polling an order after exactly maxPollsPerOrder lookups', async () => {
-    const adapter = new RecordedFulfillmentAdapter({
-      providerKey: (
-        await w.db.pool.query(`SELECT a.provider_key FROM provider_accounts a WHERE a.tenant_id = $1 AND a.id = $2`, [
-          w.tenant.tenantId,
-          w.account.providerAccountId,
-        ])
-      ).rows[0].provider_key,
-    });
+    // A live (non-terminal) order: dispatched through the broker and accepted, nothing delivered yet.
+    const o = await orderFor(w, 'PART_PURCHASE');
+    await dispatchOrder(w.db.pool, w.operator, o.orderId, brokerDeps(w));
+    const providerKey = (
+      await w.db.pool.query(`SELECT provider_key FROM provider_accounts WHERE tenant_id = $1 AND id = $2`, [
+        w.tenant.tenantId,
+        w.account.providerAccountId,
+      ])
+    ).rows[0].provider_key;
+    const adapter = new RecordedFulfillmentAdapter({ providerKey });
     const reg = new FulfillmentAdapterRegistry([adapter]);
-    const set = (n: number) =>
+    const row = async () =>
+      (await w.db.pool.query(`SELECT state, poll_count, next_poll_at FROM purchase_orders WHERE id = $1`, [o.orderId]))
+        .rows[0];
+    expect(['ACCEPTED', 'REQUESTED']).toContain((await row()).state);
+    const due = (n?: number) =>
       w.db.pool.query(
-        `UPDATE purchase_orders SET poll_count = $3, next_poll_at = clock_timestamp() - interval '1 minute' WHERE tenant_id = $1 AND id = $2`,
-        [w.tenant.tenantId, v.orderId, n],
+        `UPDATE purchase_orders SET poll_count = coalesce($2, poll_count), next_poll_at = clock_timestamp() - interval '1 minute'
+          WHERE tenant_id = $1 AND id = $3`,
+        [w.tenant.tenantId, n ?? null, o.orderId],
       );
-    await set(POLL_LIMITS.maxPollsPerOrder - 2);
+    await due(POLL_LIMITS.maxPollsPerOrder - 2);
     await pollFulfillmentStatus(w.db.pool, w.service, { adapters: reg });
-    const mid = (
-      await w.db.pool.query(`SELECT poll_count, next_poll_at FROM purchase_orders WHERE id = $1`, [v.orderId])
-    ).rows[0];
+    const mid = await row();
     expect(mid.poll_count).toBe(POLL_LIMITS.maxPollsPerOrder - 1);
     expect(mid.next_poll_at).not.toBeNull();
-    await w.db.pool.query(
-      `UPDATE purchase_orders SET next_poll_at = clock_timestamp() - interval '1 minute' WHERE id = $1`,
-      [v.orderId],
-    );
+    expect(adapter.calls).toBe(1);
+    await due();
     await pollFulfillmentStatus(w.db.pool, w.service, { adapters: reg });
-    const last = (
-      await w.db.pool.query(`SELECT poll_count, next_poll_at FROM purchase_orders WHERE id = $1`, [v.orderId])
-    ).rows[0];
+    const last = await row();
     expect(last.poll_count).toBe(POLL_LIMITS.maxPollsPerOrder);
     expect(last.next_poll_at).toBeNull();
-    const calls = adapter.calls;
+    expect(adapter.calls).toBe(2);
     await pollFulfillmentStatus(w.db.pool, w.service, { adapters: reg });
-    expect(adapter.calls).toBe(calls);
+    expect(adapter.calls).toBe(2);
   });
 
   it('an ambiguous payment enters reconciliation within the 60 s objective', async () => {
@@ -342,7 +348,7 @@ describe('T-054 API body bound and NFR-08 latency objectives', () => {
       get(target, prop, receiver) {
         if (prop === 'query')
           return async (...args: unknown[]) => {
-            await new Promise((r) => setTimeout(r, 120));
+            await new Promise((r) => setTimeout(r, 600));
             return (target.query as (...a: unknown[]) => unknown).apply(target, args);
           };
         const value = Reflect.get(target, prop, receiver);

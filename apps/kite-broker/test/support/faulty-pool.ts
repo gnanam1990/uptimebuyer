@@ -72,14 +72,12 @@ export class FaultyPool {
   async connect(): Promise<pg.PoolClient> {
     if (this.tripped) throw killed();
     const client = await this.inner.connect();
-    const self = this;
+    const run = this.run.bind(this);
     return new Proxy(client, {
       get(target, prop, receiver) {
         if (prop === 'query')
           return (...args: unknown[]) =>
-            self.run(sqlOf(args), () =>
-              (target.query as (...a: unknown[]) => Promise<pg.QueryResult>).apply(target, args),
-            );
+            run(sqlOf(args), () => (target.query as (...a: unknown[]) => Promise<pg.QueryResult>).apply(target, args));
         const v = Reflect.get(target, prop, receiver);
         return typeof v === 'function' ? v.bind(target) : v;
       },

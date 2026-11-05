@@ -64,6 +64,10 @@ const jobsOf = (orderId: string) =>
     `SELECT * FROM jobs WHERE tenant_id = $1 AND kind = 'orders.fulfillment_observation' AND payload->>'orderId' = $2`,
     [orderId],
   ).then((r) => r.rows);
+/** Webhook observations carry a raw body; broker/operator observations never do. */
+const withBody = async (orderId: string) => (await observationsOf(orderId)).filter((o) => o.raw_body !== null).length;
+const webhookObservations = async (orderId: string) =>
+  (await observationsOf(orderId)).filter((o) => o.source === 'WEBHOOK').length;
 const tombstones = () =>
   q(`SELECT * FROM redaction_tombstones WHERE tenant_id = $1 ORDER BY redacted_at, id`).then((r) => r.rows);
 
@@ -84,7 +88,8 @@ afterAll(async () => {
 
 describe('T-053 FR-23 retention sweep', () => {
   it('scrubs only the transient job copies of raw bodies while nothing is past retention', async () => {
-    expect((await observationsOf(first.inc.orderId)).every((o) => o.raw_body !== null)).toBe(true);
+    expect(await withBody(first.inc.orderId)).toBe(await webhookObservations(first.inc.orderId));
+    expect(await webhookObservations(first.inc.orderId)).toBeGreaterThanOrEqual(3);
     expect((await jobsOf(first.inc.orderId)).some((j) => typeof j.payload.rawBody === 'string')).toBe(true);
     const r = await runRetentionSweep(w.db.pool, w.service);
     expect(r.erased).toEqual({ fulfillment_observations: 0, recovery_evidence: 0, provider_communication_bodies: 0 });
@@ -94,7 +99,7 @@ describe('T-053 FR-23 retention sweep', () => {
       expect(j.payload.rawBodyErased).toBe(true);
       expect(j.payload.rawBodyDigest).toMatch(/^sha256:/);
     }
-    expect((await observationsOf(first.inc.orderId)).every((o) => o.raw_body !== null)).toBe(true);
+    expect(await withBody(first.inc.orderId)).toBe(await webhookObservations(first.inc.orderId));
   });
 
   it('erases expired raw bodies, skips legally held ones, and keeps ledger, seals and decisions reproducible', async () => {
@@ -116,8 +121,12 @@ describe('T-053 FR-23 retention sweep', () => {
     expect(r.erased.recovery_evidence).toBeGreaterThanOrEqual(1);
     expect(r.heldSkipped).toBeGreaterThanOrEqual(2);
 
+    // Every observation that carried a raw body (webhook-sourced) is erased; broker/operator observations never had one.
+    const hadBody = new Set(obsBefore.filter((o) => o.raw_body !== null).map((o) => o.id));
+    expect(hadBody.size).toBeGreaterThanOrEqual(3);
     for (const o of await observationsOf(first.inc.orderId)) {
       expect(o.raw_body).toBeNull();
+      if (!hadBody.has(o.id)) continue;
       expect(o.raw_body_erased_at).not.toBeNull();
       expect(o.raw_body_digest).toMatch(/^sha256:/);
     }
@@ -127,7 +136,7 @@ describe('T-053 FR-23 retention sweep', () => {
       expect(evidenceSealValid(w.recoverySigning, e)).toBe(true);
     }
     // The held incident's raw bodies are untouched.
-    expect((await observationsOf(second.orderId)).every((o) => o.raw_body !== null)).toBe(true);
+    expect(await withBody(second.orderId)).toBe(await webhookObservations(second.orderId));
     expect((await cmmsOf(second.incidentId)).every((e) => e.body_erased_at === null)).toBe(true);
 
     const ts = await tombstones();
@@ -183,7 +192,7 @@ describe('T-053 FR-23 retention sweep', () => {
       scopeId: second.assetId,
       reasonCode: 'REGULATOR',
     });
-    const target = (await observationsOf(second.orderId))[0]!;
+    const target = (await observationsOf(second.orderId)).find((o) => o.raw_body !== null)!;
     const tomb = await q(
       `INSERT INTO redaction_tombstones (tenant_id, id, target_table, target_id, reason_code, basis, retention_policy_revision_id)
        SELECT $1, 'rdt_' || gen_random_uuid(), 'fulfillment_observations', $2, 'RETENTION_EXPIRED', 'RETENTION_EXPIRED', r.id
@@ -222,13 +231,13 @@ describe('T-053 FR-23 privacy requests', () => {
     });
     const blocked = await executePrivacyRequest(w.db.pool, w.admin, req.privacyRequestId);
     expect(blocked.state).toBe('BLOCKED_LEGAL_HOLD');
-    expect((await observationsOf(second.orderId)).every((o) => o.raw_body !== null)).toBe(true);
+    expect(await withBody(second.orderId)).toBe(await webhookObservations(second.orderId));
     await releaseLegalHold(w.db.pool, w.admin, hold.legalHoldId);
     const done = await executePrivacyRequest(w.db.pool, w.admin, req.privacyRequestId);
     expect(done.state).toBe('COMPLETED');
     expect(done.erased.fulfillment_observations).toBeGreaterThanOrEqual(3);
     expect(done.erased.recovery_evidence).toBeGreaterThanOrEqual(1);
-    expect((await observationsOf(second.orderId)).every((o) => o.raw_body === null)).toBe(true);
+    expect(await withBody(second.orderId)).toBe(0);
     const ts = (await tombstones()).filter((t) => t.privacy_request_id === req.privacyRequestId);
     expect(ts.length).toBe(done.erased.fulfillment_observations + done.erased.recovery_evidence);
     expect(ts.every((t) => t.basis === 'PRIVACY_REQUEST')).toBe(true);

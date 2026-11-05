@@ -6,12 +6,7 @@
 // effect per client operation, the gross/settlement conservation equations at account, intent and capture level, no
 // duplicate authority/session/intent, and no autonomous retry without a reconciliation capability.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  authorityReference,
-  exportAuthorityPublicKey,
-  importAuthorityPublicKey,
-  issueExecutionAuthority,
-} from '@uptimebuyer/commerce';
+import { exportAuthorityPublicKey, importAuthorityPublicKey, issueExecutionAuthority } from '@uptimebuyer/commerce';
 import { RetryPolicy } from '@uptimebuyer/resilience';
 import { KiteBroker, type BrokerHooks, type BrokerPoint } from '../src/broker.js';
 import { RecordedContractAdapter } from '../src/adapters/recorded.js';

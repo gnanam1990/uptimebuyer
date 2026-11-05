@@ -19,8 +19,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { KiteBrokerPort, authorityReference } from '@uptimebuyer/commerce';
 import { authenticateHuman, exportEvidenceLedger, resolveTenantContext, type TenantContext } from '@uptimebuyer/data';
 import { dispatchOrder, recordFulfillmentVerification, requestOrder, syncIncidentForOrder } from '@uptimebuyer/orders';
-import { MemoryExporter, MemorySink, MetricsRegistry, StructuredLogger, Tracer } from '@uptimebuyer/observability';
-import { buildIncidentTrace, TRACE_STAGES } from '@uptimebuyer/operations';
+import {
+  ALERT_RULES,
+  HealthRegistry,
+  MemoryExporter,
+  MemorySink,
+  MetricsRegistry,
+  StructuredLogger,
+  Tracer,
+  evaluateAlerts,
+  platformMetrics,
+} from '@uptimebuyer/observability';
+import { buildIncidentTrace, collectPlatformSignals, readinessChecks, TRACE_STAGES } from '@uptimebuyer/operations';
 import { newId, type CorrelationId } from '@uptimebuyer/contracts';
 import { provisionDevice } from '../../sensor-gateway/test/helpers.js';
 import { humanContext } from '../../../packages/data/test/helpers.js';
@@ -213,9 +223,15 @@ describe('T-055 the incident trace and ledger export', () => {
     for (const s of t.spans) expect(s.correlationId, `${s.name}:${s.source.table}`).toMatch(/^corr_/);
     const firstAt = (stage: string) =>
       Math.min(...t.spans.filter((s) => s.stage === stage).map((s) => Date.parse(s.at)));
-    const order = ['evidence', 'decision', 'plan', 'approval', 'payment', 'provider', 'order', 'recovery'];
-    for (let i = 1; i < order.length; i++)
-      expect(firstAt(order[i]!), order[i]).toBeGreaterThanOrEqual(firstAt(order[i - 1]!));
+    const lastAt = (stage: string) =>
+      Math.max(...t.spans.filter((s) => s.stage === stage).map((s) => Date.parse(s.at)));
+    // Causal order of the workflow: evidence -> decision -> plan -> approval; the order request creates the intent
+    // (payment) after approval; the provider attempt follows the intent; recovery follows the provider and the order.
+    const chain = ['evidence', 'decision', 'plan', 'approval', 'payment', 'provider'];
+    for (let i = 1; i < chain.length; i++)
+      expect(firstAt(chain[i]!), chain[i]).toBeGreaterThanOrEqual(firstAt(chain[i - 1]!));
+    expect(firstAt('order')).toBeGreaterThanOrEqual(firstAt('approval'));
+    expect(firstAt('recovery')).toBeGreaterThanOrEqual(Math.max(lastAt('provider'), firstAt('order')));
     expect(t.spans.find((s) => s.name === 'incident.close')).toBeDefined();
     expect(t.correlationIds).toEqual(expect.arrayContaining([trail.approveCorr, trail.issueCorr, trail.orderCorr]));
   });
@@ -246,5 +262,35 @@ describe('T-055 the incident trace and ledger export', () => {
     await expect(buildIncidentTrace(w.db.pool, w.viewerCtx, trail.incidentId)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
+  });
+});
+
+describe('T-055 platform signals for the alert rules', () => {
+  it('collects gauges from durable state without tenant labels and reports readiness from the database', async () => {
+    const m = new MetricsRegistry();
+    const p = platformMetrics(m);
+    await collectPlatformSignals(w.db.pool, p);
+    const unpublished = (
+      await w.db.pool.query(`SELECT count(*)::int AS n FROM outbox_events WHERE published_at IS NULL`)
+    ).rows[0].n;
+    expect(m.value('ub_outbox_unpublished')).toBe(unpublished);
+    expect(m.value('ub_incidents_closed_without_evidence')).toBe(0);
+    const text = m.exposition();
+    expect(text).not.toMatch(/ten_|inc_|usr_|pur_|cin_/);
+    // The backlog alert follows the collected gauges exactly (this test database never runs its publisher/workers).
+    const outboxAge = m.value('ub_outbox_oldest_unpublished_age_seconds')!;
+    const jobAge = m.value('ub_jobs_oldest_runnable_age_seconds')!;
+    expect(evaluateAlerts(ALERT_RULES, m).some((a) => a.id === 'outbox_or_queue_age')).toBe(
+      outboxAge > 60 || jobAge > 300,
+    );
+    const h = new HealthRegistry();
+    readinessChecks(h, w.db.pool, {
+      expectedLatestMigration: '0021_m13_separation_of_duties.sql',
+      outboxWarnSeconds: 1e9,
+    });
+    expect(await h.ready()).toMatchObject({ status: 'ready' });
+    const wrong = new HealthRegistry();
+    readinessChecks(wrong, w.db.pool, { expectedLatestMigration: '9999_future.sql' });
+    expect((await wrong.ready()).status).toBe('unavailable');
   });
 });

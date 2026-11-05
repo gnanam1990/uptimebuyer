@@ -51,7 +51,7 @@ describe('T-053 tenant escape on every child table (catalog)', () => {
     const tables = (
       await w.db.pool.query<{ relname: string; pk: string[] | null; has_tenant_fk: boolean }>(
         `SELECT c.relname,
-                (SELECT array_agg(a.attname ORDER BY k.ord) FROM pg_constraint p,
+                (SELECT array_agg(a.attname::text ORDER BY k.ord) FROM pg_constraint p,
                         unnest(p.conkey) WITH ORDINALITY k(attnum, ord), pg_attribute a
                   WHERE p.conrelid = c.oid AND p.contype = 'p' AND a.attrelid = c.oid AND a.attnum = k.attnum) AS pk,
                 EXISTS (SELECT 1 FROM pg_constraint f WHERE f.conrelid = c.oid AND f.contype = 'f'

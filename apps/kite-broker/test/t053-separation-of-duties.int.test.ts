@@ -128,21 +128,26 @@ describe('T-053 separation of duties: spend', () => {
   it('the database refuses an authority whose issuer is its approver under a SoD rule', async () => {
     const p = await paidPlanAction(w, 18_500n);
     const issued = await issueAs(w.financeCtx, p.approvalId, p.candidateActionId);
-    const p2 = await paidPlanAction(w, 18_500n);
-    const err = await w.db.pool
-      .query(
-        `INSERT INTO execution_authorities
-           SELECT (r).* FROM (
-             SELECT jsonb_populate_record(a, jsonb_build_object(
-               'id', 'xau_' || gen_random_uuid(), 'approval_id', $3::text, 'issued_by_id', $4::text)) AS r
-               FROM execution_authorities a WHERE a.tenant_id = $1 AND a.id = $2) s`,
-        [w.tenant.tenantId, issued.authority.executionAuthorityId, p2.approvalId, w.people.approver!.userId],
-      )
-      .then(
-        () => null,
-        (e: { code?: string; message?: string }) => e,
-      );
-    expect(err?.code).toBe('UB130');
+    // A copy of the valid row (every other guard passes) whose issuer is the approval's own actor, as a service-layer
+    // bypass would write it. The BEFORE INSERT SoD guard refuses it before any uniqueness check.
+    const insertCopy = (issuedBy: string, kind = 'HUMAN') =>
+      w.db.pool
+        .query(
+          `INSERT INTO execution_authorities
+             SELECT (r).* FROM (
+               SELECT jsonb_populate_record(a, jsonb_build_object(
+                 'id', 'xau_' || gen_random_uuid(), 'issued_by_id', $3::text, 'issued_by_kind', $4::text)) AS r
+                 FROM execution_authorities a WHERE a.tenant_id = $1 AND a.id = $2) s`,
+          [w.tenant.tenantId, issued.authority.executionAuthorityId, issuedBy, kind],
+        )
+        .then(
+          () => null,
+          (e: { code?: string }) => e,
+        );
+    expect((await insertCopy(w.people.approver!.userId))?.code).toBe('UB130');
+    expect((await insertCopy('svc_worker-0001', 'SERVICE'))?.code).toBe('UB130');
+    // Control: the same copy with a different human issuer passes the SoD guard and stops at the one-per-approval key.
+    expect((await insertCopy(finance2.userId))?.code).toBe('23505');
   });
 
   it('a budget adjustment is refused for the issuer and allowed for an uninvolved finance approver', async () => {
