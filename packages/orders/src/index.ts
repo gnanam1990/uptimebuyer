@@ -16,7 +16,7 @@ export {
   type FulfillmentGate,
   type RequestOrderResult,
 } from './orders.js';
-export { dispatchOrder, mirrorOrder, reconcileOrder, type DispatchDeps, type OrderBrokerPort } from './dispatch.js';
+export { dispatchOrder, reconcileOrder, type DispatchDeps, type OrderBrokerPort } from './dispatch.js';
 export { recordFulfillmentVerification, revokeOrder } from './changes.js';
 export {
   FULFILLMENT_OBSERVATION_JOB,

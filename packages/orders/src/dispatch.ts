@@ -5,10 +5,12 @@
 // operation key, or provider-guaranteed same-key replay) with all of M09's rules: an UNSUPPORTED adapter leaves the
 // effect UNKNOWN for manual review and nothing here ever retries autonomously or reads a "not sent" refusal as proof.
 // Every path then mirrors the intent onto the order/job under the global lock order.
+import type { SiteId } from '@uptimebuyer/contracts';
 import { issueReference, type ReferenceSigner } from '@uptimebuyer/commerce';
 import { requireAuthorized, tenantCommand, type Db, type TenantContext } from '@uptimebuyer/data';
 import { mirrorIntentInTx } from './apply.js';
-import { lockOrder, readOrder } from './internal.js';
+import { KIND, lockOrder, readOrder } from './internal.js';
+import type { OrderKind } from './vocabulary.js';
 import { loadOrderViewInTx, type OrderView } from './views.js';
 
 /** The broker port subset M10 uses (KiteBrokerPort in production; the in-process broker in tests). */
@@ -25,18 +27,23 @@ type Action = 'orders.request' | 'orders.engine';
 const actionFor = (ctx: TenantContext): Action =>
   ctx.principal.kind === 'WORKER' || ctx.principal.kind === 'SERVICE' ? 'orders.engine' : 'orders.request';
 
-async function prepare(pool: Db, ctx: TenantContext, orderId: string, action: string) {
-  const meta = { action, resourceType: 'order', resourceId: String(orderId).slice(0, 128) };
+/**
+ * The one authorization gate for the dispatch/reconcile/mirror paths: HUMAN principals need orders.request at the
+ * order's own site; engine principals (service/worker) need orders.engine. Called inside the transaction, after the
+ * order is resolved (or locked) and before any write or view load.
+ */
+function authorizeOrderAccess(ctx: TenantContext, kind: OrderKind, row: { id: string; site_id: SiteId }): void {
+  const resource = { type: KIND[kind].aggregateType, id: row.id };
+  if (actionFor(ctx) === 'orders.engine')
+    requireAuthorized(ctx, { action: 'orders.engine', siteId: null }, undefined, resource);
+  else requireAuthorized(ctx, { action: 'orders.request', siteId: row.site_id }, undefined, resource);
+}
+
+async function prepare(pool: Db, ctx: TenantContext, orderId: string) {
+  const meta = { action: actionFor(ctx), resourceType: 'order', resourceId: String(orderId).slice(0, 128) };
   return tenantCommand(pool, ctx, meta, async (c) => {
     const { kind, row } = await readOrder(c, ctx, meta, orderId);
-    if (action === 'orders.engine')
-      requireAuthorized(ctx, { action: 'orders.engine', siteId: null }, undefined, { type: 'order', id: row.id });
-    else
-      requireAuthorized(ctx, { action: 'orders.request', siteId: row.site_id }, undefined, {
-        type: 'order',
-        id: row.id,
-      });
-    void kind;
+    authorizeOrderAccess(ctx, kind, row);
     const i = (
       await c.query(`SELECT state FROM commercial_intents WHERE tenant_id = $1 AND id = $2`, [
         ctx.tenantId,
@@ -47,11 +54,16 @@ async function prepare(pool: Db, ctx: TenantContext, orderId: string, action: st
   });
 }
 
-/** Mirror the current intent onto the order and return its view. */
+/**
+ * Mirror the current intent onto the order and return its view. Module-internal (not exported from the package
+ * index): reached only through dispatchOrder/reconcileOrder, and it re-authorizes in its own transaction because the
+ * caller's earlier authorization does not carry over.
+ */
 export async function mirrorOrder(pool: Db, ctx: TenantContext, orderId: string): Promise<OrderView> {
-  const meta = { action: 'orders.mirror', resourceType: 'order', resourceId: String(orderId).slice(0, 128) };
+  const meta = { action: actionFor(ctx), resourceType: 'order', resourceId: String(orderId).slice(0, 128) };
   return tenantCommand(pool, ctx, meta, async (c) => {
     const { kind, row } = await lockOrder(c, ctx, meta, orderId);
+    authorizeOrderAccess(ctx, kind, row);
     await mirrorIntentInTx(c, ctx, kind, row);
     return (await loadOrderViewInTx(c, ctx.tenantId, kind, row.id))!;
   });
@@ -64,7 +76,7 @@ async function viaBroker(
   deps: DispatchDeps,
   op: 'execute' | 'reconcile',
 ): Promise<OrderView> {
-  const p = await prepare(pool, ctx, orderId, actionFor(ctx));
+  const p = await prepare(pool, ctx, orderId);
   const shouldCall = op === 'execute' ? p.intentState === 'CREATED' : p.intentState === 'UNKNOWN';
   let failure: unknown = null;
   if (shouldCall) {
