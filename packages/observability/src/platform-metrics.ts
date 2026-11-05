@@ -24,7 +24,20 @@ export const SLO_NAMES = [
   'api_availability',
 ] as const;
 
+// One handle set per registry (M14): the API's request instrumentation and its operations listener both ask for the
+// platform metrics of the same registry; registering them twice would fail.
+const handleSets = new WeakMap<MetricsRegistry, ReturnType<typeof createPlatformMetrics>>();
+
 export function platformMetrics(m: MetricsRegistry) {
+  let h = handleSets.get(m);
+  if (!h) {
+    h = createPlatformMetrics(m);
+    handleSets.set(m, h);
+  }
+  return h;
+}
+
+function createPlatformMetrics(m: MetricsRegistry) {
   const handles = {
     httpRequests: m.counter('ub_http_requests_total', 'HTTP requests by route class and status class', {
       route_class: ROUTE_CLASSES,
@@ -94,4 +107,4 @@ export function platformMetrics(m: MetricsRegistry) {
   return { ...handles, names: () => m.names() };
 }
 
-export type PlatformMetrics = ReturnType<typeof platformMetrics>;
+export type PlatformMetrics = ReturnType<typeof createPlatformMetrics>;
