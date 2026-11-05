@@ -47,6 +47,8 @@ const M06_MIGRATIONS = ['0011_m06_compatibility_policy.sql'];
 const M07_MIGRATIONS = ['0012_m07_provider_comms.sql', '0013_m07_contact_point_review.sql'];
 const M08_MIGRATIONS = ['0014_m08_planning.sql', '0015_m08_plan_hash_open_scope.sql'];
 const M09_MIGRATIONS = ['0016_m09_kite_broker.sql'];
+// Forward fixes that land after later modules keep their own module prefix and their lexical position.
+const FORWARD_FIX_MIGRATIONS = ['0017_m07_contact_point_guard_null_safe.sql'];
 const M10_MIGRATIONS = ['0018_m10_orders_jobs.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
@@ -117,6 +119,7 @@ describe('T-009 migration and rollback on seeded tenant', () => {
       ...M07_MIGRATIONS,
       ...M08_MIGRATIONS,
       ...M09_MIGRATIONS,
+      ...FORWARD_FIX_MIGRATIONS,
       ...M10_MIGRATIONS,
     ]);
     expect(await migrate(db.url)).toEqual([]);

@@ -46,7 +46,7 @@
     "apps/kite-broker/test/m10-helpers.ts and t041/t042/t043/t044/t043-t044-security-review/t010-t011-orders-scope tests; apps/kite-broker/test/tsconfig.json, apps/kite-broker/package.json (devDependency @uptimebuyer/orders)",
     "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
     "tsconfig.json, pnpm-lock.yaml (workspace links only)",
-    "docs/adr/0004-orders-jobs-reconciliation.md, docs/handoffs/M10.json"
+    "docs/adr/0005-orders-jobs-reconciliation.md (renumbered from 0004 at merge; main took 0004 for SQL guard NULL-safety), docs/handoffs/M10.json"
   ],
   "diffSummary": "Migration 0018: purchase_orders and service_jobs (separate state CHECKs and SQL edge functions, one row per commercial intent, UNIQUE (tenant, digest, authority), partial unique (tenant, digest) WHERE no_effect_proven_at IS NULL, provider-ref uniqueness per account, poll scheduling columns), append-only fulfillment_observations (namespaced event key, raw body bytes, composite FK pinning the order's provider-account revision), per-kind transition tables, append-only fulfillment_change_proposals (auto_accepted constrained false), insert/update guards UB101-UB104. @uptimebuyer/orders: per-kind vocabulary and pure observation planner, requestOrder/getOrder/listIncidentOrders/getFulfillmentGate, dispatchOrder/reconcileOrder through the broker port (internal authorized mirror), applyObservation with material-change handling, verified fulfillment webhooks + job applier, bounded polling with RECORDED and LIVE-shaped HTTPS adapters, revokeOrder (linearization point), recordFulfillmentVerification, syncIncidentForOrder and two outbox consumers.",
   "configChanges": [
@@ -128,7 +128,7 @@
     "A pre-egress revocation is definite no effect: it does not invalidate the plan or move the incident, so a fresh approval can create the INV-07 linked successor; a post-egress revocation blocks, invalidates the executing plan (in-flight) and escalates.",
     "VERIFIED/DISPUTED are operator outcomes (receiving inspection / work verification), never provider words; a blocked order cannot be VERIFIED.",
     "Incident VERIFYING is driven when every live order/job of the plan reports completion; plan COMPLETED when every one is VERIFIED and its payment is CONFIRMED/REFUNDED/REVERSED. RECOVERED stays M11's.",
-    "Fulfillment webhooks for broker-paid accounts are verified in M10 with webhook_verifier_ref only (ADR 0004); superseded verifiers stay valid 30 days, only for orders pinned to that revision.",
+    "Fulfillment webhooks for broker-paid accounts are verified in M10 with webhook_verifier_ref only (ADR 0005); superseded verifiers stay valid 30 days, only for orders pinned to that revision.",
     "Polling needs a separately provisioned status credential; the paid credential_ref is never resolved outside the broker (HTTPS adapter is UNSUPPORTED without one)."
   ],
   "securityReview": [

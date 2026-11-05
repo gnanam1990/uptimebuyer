@@ -1,4 +1,4 @@
-# ADR 0004 — Order, service-job and external-outcome reconciliation (M10)
+# ADR 0005 — Order, service-job and external-outcome reconciliation (M10)
 
 Status: accepted (M10, 2026-11-05)
 

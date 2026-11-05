@@ -1,4 +1,4 @@
-// Bounded fulfillment polling (NFR-02, NFR-04 shape, NFR-11; ADR 0004). Due orders/jobs are claimed with
+// Bounded fulfillment polling (NFR-02, NFR-04 shape, NFR-11; ADR 0005). Due orders/jobs are claimed with
 // FOR NO KEY UPDATE SKIP LOCKED (one poller per order at a time, any number of workers) and leased forward with an
 // exponential, capped backoff and a per-order poll budget; terminal orders are never polled. The lookup target is
 // built ONLY from the order's pinned provider-account revision (provider key, environment, endpoint policy digest)

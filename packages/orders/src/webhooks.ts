@@ -1,4 +1,4 @@
-// Verified fulfillment webhooks (NFR-02, NFR-03, INV-12; ADR 0004). The tenant comes only from the server-side
+// Verified fulfillment webhooks (NFR-02, NFR-03, INV-12; ADR 0005). The tenant comes only from the server-side
 // endpoint binding (/v1/fulfillment-webhooks/{binding}); the raw body is size-bounded before anything else, and its
 // HMAC-SHA256 over `<timestamp>.<raw body bytes>` is compared in constant time against the verifiers of the account's
 // current revision and of superseded revisions inside a bounded window, with a timestamp tolerance. ONLY
