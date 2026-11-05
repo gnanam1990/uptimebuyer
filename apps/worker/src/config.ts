@@ -53,7 +53,7 @@ export function cmmsAdapterFrom(cfg: WorkerConfig): CmmsAdapter {
       `unusable secret reference UB_CMMS_TOKEN_FILE: ${(e as { reasonCode?: string }).reasonCode ?? 'UNREADABLE'}`,
     );
   }
-  return HttpsCmmsAdapter.fromEnv({ UB_CMMS_BASE_URL: cfg.UB_CMMS_BASE_URL, UB_CMMS_TOKEN: token });
+  return HttpsCmmsAdapter.fromToken(cfg.UB_CMMS_BASE_URL, token);
 }
 
 export function operationsToken(cfg: WorkerConfig): string | null {

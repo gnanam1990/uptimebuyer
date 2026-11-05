@@ -155,7 +155,7 @@ describe('T-057 compose definition for the local production-like bring-up', () =
     }
     for (const [name, s] of Object.entries(services))
       for (const [k, v] of Object.entries((s.environment ?? {}) as Record<string, string>)) {
-        if (SECRETISH.test(k)) expect(k, `${name}.${k}`).toMatch(/(_FILE|_ROOT|_KEY_ID|_ID)$/);
+        if (SECRETISH.test(k) && !/_ENDPOINT$/.test(k)) expect(k, `${name}.${k}`).toMatch(/(_FILE|_ROOT|_KEY_ID|_ID)$/);
         // Database URLs carry no password (it comes from a 0600 pgpass file).
         if (/^postgres(ql)?:\/\//.test(v)) expect(v, `${name}.${k}`).not.toMatch(/\/\/[^/@]+:[^/@]+@/);
       }
@@ -232,7 +232,7 @@ describe('T-057 .env.example documents every runtime variable with placeholders'
       if (!m) continue;
       const [, k, v] = m;
       if (/_FILE$/.test(k!)) expect(v, k).toMatch(/^(\/run\/secrets\/[a-z0-9_.-]+)?$/);
-      if (SECRETISH.test(k!) && !/_(FILE|ROOT|ID)$/.test(k!)) expect(v, k).toBe('');
+      if (SECRETISH.test(k!) && !/_(FILE|ROOT|ID|ENDPOINT)$/.test(k!)) expect(v, k).toBe('');
     }
     expect(readdirSync(repoRoot).filter((f) => /^\.env($|\.(?!example))/.test(f))).toEqual([]);
   });

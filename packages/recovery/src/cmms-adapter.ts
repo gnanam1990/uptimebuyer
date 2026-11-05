@@ -147,6 +147,11 @@ export class HttpsCmmsAdapter implements CmmsAdapter {
     return new HttpsCmmsAdapter({ baseUrl: url, token, timeoutMs: 10_000 });
   }
 
+  /** M14: build from a base URL and a token read from a secret file (the worker never reads the token from env). */
+  static fromToken(baseUrl: string, token: string): HttpsCmmsAdapter {
+    return HttpsCmmsAdapter.fromEnv({ UB_CMMS_BASE_URL: baseUrl, UB_CMMS_TOKEN: token });
+  }
+
   capability(): 'ELIGIBLE' | 'UNSUPPORTED' {
     return this.cfg ? 'ELIGIBLE' : 'UNSUPPORTED';
   }

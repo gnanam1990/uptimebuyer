@@ -23,7 +23,12 @@
     "db:migrate": "node scripts/db.mjs migrate",
     "db:seed": "node scripts/db.mjs seed",
     "bootstrap": "node scripts/bootstrap.mjs",
-    "verify": "pnpm lint && pnpm security:check && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e && pnpm check:pack && pnpm secrets:scan"
+    "verify": "pnpm lint && pnpm security:check && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e && pnpm check:pack && pnpm secrets:scan",
+    "release:smoke": "node scripts/release/smoke.mjs --record",
+    "release:check": "node scripts/release/claim-check.mjs",
+    "release:gates": "node scripts/release/release-gate.mjs status",
+    "release:journey": "node scripts/release/journey-gate.mjs",
+    "demo:local": "pnpm --filter @uptimebuyer/web exec playwright test -c playwright.demo.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

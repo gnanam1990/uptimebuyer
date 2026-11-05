@@ -95,7 +95,7 @@ export default async function globalSetup() {
       UB_OIDC_AUTHORIZATION_ENDPOINT: manifest.idp.authorizationEndpoint,
       UB_OIDC_TOKEN_ENDPOINT: manifest.idp.tokenEndpoint,
       UB_OIDC_CLIENT_ID: manifest.idp.clientId,
-      UB_ENVIRONMENT_LABEL: 'SEEDED_TEST_DATA',
+      UB_ENVIRONMENT_LABEL: process.env.UB_E2E_ENVIRONMENT_LABEL ?? 'SEEDED_TEST_DATA',
       UB_WEB_ROOT: webRoot,
       UB_OBJECT_STORE_ROOT: manifest.storeRoot,
       UB_AUTHORITY_SIGNER_KEY_ID: 'e2e-authority-k1',
