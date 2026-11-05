@@ -1,0 +1,22 @@
+{
+  "name": "@uptimebuyer/recovery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Recovery verification and CMMS closeout (M11): authorized intervention evidence and milestones, revision-pinned recovery evaluations over a continuous LIVE telemetry window strictly after the frozen observation boundary, installed-part and work-order signoff gates, the one transactional closeout that is the only path to RECOVERED (through M04's internal hook), reopen/escalation on repeat fault, disputed evidence or lost signal, and a replay-safe CMMS adapter fed by closeouts and M10 order/job facts. Model output, provider completion, receipts and unattested text never close anything.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/orders": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

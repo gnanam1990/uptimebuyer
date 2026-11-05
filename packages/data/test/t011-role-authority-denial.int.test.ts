@@ -233,6 +233,23 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'orders.verify': ['operator', 'maintenance_approver', 'engineer'],
   'orders.manage': ['maintenance_approver', 'finance_approver', 'admin', 'site_admin'],
   'orders.engine': ['service'],
+  'recovery.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+    'service',
+  ],
+  'recovery.evidence': ['operator', 'maintenance_approver', 'engineer', 'service'],
+  'recovery.dispute': ['operator', 'maintenance_approver', 'engineer'],
+  'recovery.engine': ['service'],
+  'recovery.policy_publish': ['admin', 'site_admin'],
+  'recovery.cmms_manage': ['admin', 'site_admin'],
+  'recovery.cmms_ingest': ['integration'],
 };
 
 function requestFor(action: ActionName, siteId: SiteId | null = s1): AuthorizationRequest {

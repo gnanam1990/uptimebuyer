@@ -540,6 +540,57 @@ export async function reopenIncident(
   );
 }
 
+const EngineReopenSchema = z.strictObject({
+  ...base,
+  reasonCode: Code,
+  guardRef: z.string().regex(/^[a-z]{2,5}_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/),
+});
+/**
+ * Engine reopen of a RECOVERED incident requested by the recovery module (M11: lost recovery signal, disputed recovery
+ * evidence): RECOVERED -> REOPENED -> TRIAGING with the reason and the M11 record as guard reference. History is kept;
+ * this is the conservative direction and never reaches RECOVERED. Worker/service principals only.
+ */
+export async function reopenRecoveredIncident(
+  pool: Db,
+  ctx: TenantContext,
+  incidentId: string,
+  raw: z.input<typeof EngineReopenSchema>,
+): Promise<IncidentCommandResult> {
+  const input = parseInput(EngineReopenSchema, raw);
+  return command(
+    pool,
+    ctx,
+    incidentId,
+    { action: 'incident.reopen_engine', commandType: 'incident.reopen_engine.v1', authorize: 'incident.engine' },
+    input,
+    async (c, row) => {
+      if (row.state !== 'RECOVERED')
+        throw new DomainError('STATE_TRANSITION_INVALID', 'Only a recovered incident can be reopened.', {
+          reasonCode: 'NOT_RECOVERED',
+          currentState: row.state,
+        });
+      await c.query('SAVEPOINT engine_reopen');
+      try {
+        const updated = await reopenRow(c, ctx, row, input.reasonCode, 'RECOVERY_ENGINE', input.guardRef);
+        await c.query('RELEASE SAVEPOINT engine_reopen');
+        return resultOf(updated);
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') {
+          await c.query('ROLLBACK TO SAVEPOINT engine_reopen');
+          throw new DomainError(
+            'STATE_TRANSITION_INVALID',
+            'Another incident is already active for this fault window.',
+            {
+              reasonCode: 'ACTIVE_INCIDENT_EXISTS',
+            },
+          );
+        }
+        throw e;
+      }
+    },
+  );
+}
+
 /** Engine-path edges (owning modules enforce their guards; M04 enforces legality, CAS and the recovery reference). */
 const ENGINE_TARGETS = [
   'AWAITING_EVIDENCE',

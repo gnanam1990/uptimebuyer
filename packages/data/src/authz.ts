@@ -216,6 +216,34 @@ export const ACTIONS = Object.freeze({
   'orders.manage': human(['maintenance_approver', 'finance_approver', 'admin'], 'REQUIRED'),
   /** Server-side order engine: apply provider observations, poll, mirror broker results, drive incidents (M10). */
   'orders.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** Recovery evidence, milestones, evaluations, closeouts, metrics and CMMS updates at the incident's site (M11). */
+  'recovery.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /**
+   * Record post-intervention evidence at the incident's site (M11): operators record notes/technician records and,
+   * when the recovery policy names their role, attestations and installed-part scans; workers record provider,
+   * receipt and model facts (always labelled, never authority).
+   */
+  'recovery.evidence': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Dispute recorded recovery evidence (fails an open evaluation / reopens a closed incident; M11). */
+  'recovery.dispute': human(['operator'], 'REQUIRED'),
+  /** Deterministic recovery engine: milestones, assessment/closeout, lost-signal sweep, CMMS writes (M11). */
+  'recovery.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** Publish a versioned recovery policy (tenant-wide needs a tenant-wide grant; FR-21, M11). */
+  'recovery.policy_publish': human(['admin'], 'OPTIONAL'),
+  /** Bind or revoke a CMMS integration for a site (M11). */
+  'recovery.cmms_manage': human(['admin'], 'OPTIONAL'),
+  /** Signed CMMS record ingestion by an authenticated CMMS integration identity (M11). */
+  'recovery.cmms_ingest': { principals: ['INTEGRATION'], roles: ['integration'], site: 'TENANT' },
 } as const satisfies Record<string, ActionSpec>);
 export type ActionName = keyof typeof ACTIONS;
 

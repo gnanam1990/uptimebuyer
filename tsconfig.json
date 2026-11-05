@@ -74,6 +74,12 @@
       "path": "./packages/orders/test"
     },
     {
+      "path": "./packages/recovery"
+    },
+    {
+      "path": "./packages/recovery/test"
+    },
+    {
       "path": "./apps/kite-broker"
     },
     {

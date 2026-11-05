@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M11",
+  "status": "PASS",
+  "startingCommit": "3f1458b",
+  "endingCommit": "26bb38b",
+  "branch": "feat/m11-recovery-verification-cmms",
+  "workingTree": "clean at handoff (this handoff file and ADR 0006 are committed on top of endingCommit)",
+  "localCommits": [
+    "26bb38b fix(m11): composite (tenant_id, id) keys on the recovery pin and receipt tables",
+    "7bc4382 fix(m11): security review S7 - PASSED re-checks attester role and membership under share locks",
+    "8100bd5 test(m11): security review S7 - PASSED ignores attester role revocation and membership suspension (red)",
+    "59f01e0 fix(m11): security review S4-S6 - verified milestone seals, live attester roles, durable dispute effects",
+    "84cbd53 test(m11): security review S4-S6 - milestone seal, attester revocation, dispute effect durability (red)",
+    "1e604f5 fix(m11): security review S1-S3 - bound policy pins, PASSED re-checks disputes/revocation, attester roles",
+    "7b94c16 test(m11): security review S1-S3 - policy pin, PASSED TOCTOU, attestation role (red)",
+    "5ab3cfd test(m11): correct test-side mistakes found on the first green run",
+    "38af1a4 feat(m11): @uptimebuyer/recovery evidence, milestones, evaluation, closeout, reopen and CMMS adapter",
+    "270d0f7 feat(m11): engine reopen of a RECOVERED incident for recovery (coordinated M04 addition)",
+    "dd40ed2 feat(m11): migration 0019 recovery verification/CMMS tables and recovery.* RBAC actions",
+    "ee74605 test(m11): T-045..T-048, closeout race, structural RECOVERED reachability, T-006/T-009/T-010/T-011 recovery scope (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-14", "FR-15", "FR-16", "FR-17"],
+    "nonfunctional": [],
+    "invariants": ["INV-01", "INV-02", "INV-03", "INV-14"],
+    "tests": ["T-045", "T-046", "T-047", "T-048"]
+  },
+  "jointlyEnforced": [
+    "T-006 re-run: ub_recovery_evaluation_edge_ok equals the RECOVERY_EVALUATION machine pair by pair; the CMMS outbox reuses M09's ub_external_outcome_edge_ok, which still equals EXTERNAL_ACTION (packages/recovery/test/t006-recovery-sql-edges.int.test.ts)",
+    "T-009 migration list extended with 0019_m11_recovery_verification_cmms.sql (M11_MIGRATIONS after M10_MIGRATIONS); ADR 0004 tripwire passes on 0019",
+    "T-010 re-run: every M11 table tenant-leading with (tenant_id, id) and tenant-leading FKs (also the M02 table-shape sweep, which caught missing (tenant_id, id) keys on the pin/receipt tables); another tenant's admin, worker and CMMS integration get the same RESOURCE_UNAVAILABLE as absence on every read/write; tenant-wide sweeps of another tenant see nothing (apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts)",
+    "T-010/T-011 cross-site sweep: far-site operator, approver and engineer are refused on every human-callable recovery command/query with nothing written",
+    "T-011 action catalogue extended with recovery.read, recovery.evidence, recovery.dispute, recovery.engine, recovery.policy_publish, recovery.cmms_manage, recovery.cmms_ingest; role matrix exercised (viewers read, operators record/dispute, policy-named roles attest, engine assesses/sweeps/writes CMMS, admins publish policy and bind CMMS)",
+    "M04 recovery hook contract: RECOVERED only via packages/recovery/src/closeout.ts (structural test packages/recovery/test/t046-recovered-reachability.test.ts + ESLint boundary); advanceIncident(RECOVERED) still POLICY_HOLD for every caller"
+  ],
+  "changedFiles": [
+    "apps/kite-broker/package.json (modified)",
+    "apps/kite-broker/test/m11-helpers.ts (new)",
+    "apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts (new)",
+    "apps/kite-broker/test/t045-recovery-window.int.test.ts (new)",
+    "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts (new)",
+    "apps/kite-broker/test/t045-t047-security-review-3.int.test.ts (new)",
+    "apps/kite-broker/test/t045-t047-security-review.int.test.ts (new)",
+    "apps/kite-broker/test/t045-t048-security-review-2.int.test.ts (new)",
+    "apps/kite-broker/test/t046-completion-not-recovery.int.test.ts (new)",
+    "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts (new)",
+    "apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts (new)",
+    "apps/kite-broker/test/tsconfig.json (modified)",
+    "eslint.config.mjs (modified)",
+    "packages/data/migrations/0019_m11_recovery_verification_cmms.sql (new)",
+    "packages/data/src/authz.ts (modified)",
+    "packages/data/src/identity.ts (modified)",
+    "packages/data/src/index.ts (modified)",
+    "packages/data/test/t009-migration-forward-fix.int.test.ts (modified)",
+    "packages/data/test/t011-role-authority-denial.int.test.ts (modified)",
+    "packages/incidents/src/commands.ts (modified)",
+    "packages/incidents/src/engine.ts (modified)",
+    "packages/incidents/src/events.ts (modified)",
+    "packages/incidents/src/index.ts (modified)",
+    "packages/recovery/package.json (new)",
+    "packages/recovery/src/assess.ts (new)",
+    "packages/recovery/src/closeout.ts (new)",
+    "packages/recovery/src/cmms-adapter.ts (new)",
+    "packages/recovery/src/cmms.ts (new)",
+    "packages/recovery/src/evaluation.ts (new)",
+    "packages/recovery/src/evidence.ts (new)",
+    "packages/recovery/src/facts.ts (new)",
+    "packages/recovery/src/index.ts (new)",
+    "packages/recovery/src/internal.ts (new)",
+    "packages/recovery/src/milestones.ts (new)",
+    "packages/recovery/src/policy.ts (new)",
+    "packages/recovery/src/read.ts (new)",
+    "packages/recovery/src/reopen.ts (new)",
+    "packages/recovery/src/window.ts (new)",
+    "packages/recovery/test/t006-recovery-sql-edges.int.test.ts (new)",
+    "packages/recovery/test/t045-stable-window.test.ts (new)",
+    "packages/recovery/test/t046-recovered-reachability.test.ts (new)",
+    "packages/recovery/test/t047-cmms-adapter.test.ts (new)",
+    "packages/recovery/test/tsconfig.json (new)",
+    "packages/recovery/tsconfig.json (new)",
+    "pnpm-lock.yaml (modified)",
+    "tsconfig.json (modified)",
+    "docs/adr/0006-recovery-verification-cmms.md (new)",
+    "docs/handoffs/M11.json (new)"
+  ],
+  "diffSummary": "New @uptimebuyer/recovery package and forward-only migration 0019: signed CMMS record ingestion and authorized-operator attestations with sealed evidence; immutable action-bound intervention milestones that freeze observation_boundary_at; revision-pinned recovery evaluations with a pure stable-window evaluator and installed-part/signoff gates; the single transactional closeout through M04's non-exported hook; dispute/lost-signal/recurrence reopen and escalation that never rewrites closeouts; replay-safe CMMS outbox and adapters (CONTRACT_FAKE, env-gated HTTPS UNSUPPORTED without credentials) fed by closeouts and M10 order/job facts.",
+  "configChanges": [
+    "Root tsconfig.json references packages/recovery and packages/recovery/test; apps/kite-broker test project references packages/recovery and devDepends on @uptimebuyer/recovery (workspace link only).",
+    "eslint.config.mjs: no-restricted-imports forbids **/incidents/src/recovery outside packages/incidents/** and packages/recovery/src/closeout.ts (the INV-06 broker boundary is kept on those files).",
+    "No new external dependency (zod 4.6.7, pg 8.23.1 at existing exact pins).",
+    "Runtime configuration (not provisioned here): RECOVERY_SIGNING_KEY_ID / RECOVERY_SIGNING_KEY (base64url >= 32 bytes) for recoverySigningFromEnv; UB_CMMS_BASE_URL (https) + UB_CMMS_TOKEN enable the real HTTPS CMMS adapter, otherwise it is UNSUPPORTED."
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run --project unit packages/recovery; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration packages/recovery apps/kite-broker/test/t04[5-8]* apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts packages/data/test/t009-migration-forward-fix.int.test.ts packages/data/test/t011-role-authority-denial.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "ee74605",
+      "exitCode": 1,
+      "testCounts": {
+        "unitFailedFiles": 3,
+        "integrationFailedFiles": 9,
+        "integrationFailed": 5,
+        "integrationPassed": 13
+      },
+      "resultSummary": "RED: all new suites failed to load (no @uptimebuyer/recovery source); T-006 lacked ub_recovery_evaluation_edge_ok; T-009 lacked 0019; T-011 lacked the recovery.* actions"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/kite-broker/test/t045-t047-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "7b94c16",
+      "exitCode": 1,
+      "testCounts": {
+        "failed": 7,
+        "passed": 1
+      },
+      "resultSummary": "RED (coordinator S1-S3): forged weaker/foreign/superseded policy pins accepted; PASSED accepted with disputed or revoked evidence; viewer/plain-operator attestations accepted; no attester columns. The dispute-vs-closeout race test already passed (both paths lock the incident row first)."
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/kite-broker/test/t045-t048-security-review-2.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "84cbd53",
+      "exitCode": 1,
+      "testCounts": {
+        "failed": 5
+      },
+      "resultSummary": "RED (coordinator S4-S6): unsealed milestone rows bound and closed the incident; revoked attester's milestone passed; dispute had no fault hook and its effect/receipt was not durable"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/kite-broker/test/t045-t047-security-review-3.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "8100bd5",
+      "exitCode": 1,
+      "testCounts": {
+        "failed": 4
+      },
+      "resultSummary": "RED (coordinator S7): PASSED committed after attester role revocation / membership suspension; no lock serialized a racing revocation"
+    },
+    {
+      "command": "DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "7bc4382",
+      "exitCode": 1,
+      "testCounts": {
+        "unit": 812,
+        "integration": 450,
+        "integrationFailed": 1
+      },
+      "resultSummary": "RED (jointly enforced T-010 table shape): recovery pin/receipt tables lacked UNIQUE (tenant_id, id); fixed in the next commit"
+    },
+    {
+      "command": "pnpm format && DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "26bb38b",
+      "exitCode": 0,
+      "testCounts": {
+        "unit": 812,
+        "integration": 450
+      },
+      "resultSummary": "lint, format:check, typecheck, unit, integration (local PostgreSQL, throwaway databases), build, pack check and history secret scan passed"
+    }
+  ],
+  "redEvidence": "All owned tests were committed red first (ee74605). The first green run found only test-side mistakes (unordered fixture webhook jobs, an assessed-event count, short idempotency keys, explicit CMMS keyring, collation-dependent sort), corrected in 5ab3cfd without loosening an assertion. Coordinator security findings S1-S7 were each committed red (7b94c16, 84cbd53, 8100bd5) and fixed separately (1e604f5, 59f01e0, 7bc4382). The full verify then caught the T-010 (tenant_id, id) shape on four new tables, fixed in the following commit.",
+  "evidence": [
+    "T-045 (unit packages/recovery/test/t045-stable-window.test.ts, integration apps/kite-broker/test/t045-recovery-window.int.test.ts): a continuous LIVE window strictly after the boundary closes the incident; the evaluation pins asset/plan/action/evidence/policy/rule revisions, milestone, boundary = milestone occurred time, exact channel/assignment revisions, exact sample ids (all > boundary, LIVE) and signoff evidence; the RECOVERED edge names the evaluation; manifest/decision signed; ledger RECOVERY_DECISION; re-assessment is ALREADY_RECOVERED. Boundary-equal (excluded), pre-work, wrong milestone type, LATE, backfill+fresh tail, stale tail, excursion, gap, wrong asset, recalibrated channel (supersedes, new revision pinned), revoked device (FAILED, ESCALATED) and expiry (EXPIRED, ESCALATED) all fail; the database refuses non-qualifying sample pins, a forged boundary and binding changes (UB201).",
+    "T-046 (apps/kite-broker/test/t046-completion-not-recovery.int.test.ts + structural t046-recovered-reachability.test.ts): delivered/verified orders, confirmed receipts, reported service completion, model assertions and free operator text are recorded with labels and refused as milestones; transient readings and an attested operator without the required CMMS signoff leave the incident VERIFYING with the gate closed; advanceIncident(RECOVERED) is POLICY_HOLD for service/admin/operator; assessment is engine-only. The structural scan proves only M04 and closeout.ts touch the hook and nothing writes RECOVERED in SQL.",
+    "T-047 (apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts, unit t047-cmms-adapter.test.ts): forged, tampered, stale and future-signed records refused (nothing stored); replay is DUPLICATE, same record id with another body is CMMS_RECORD_REPLAYED; other-site integration and non-integration principals refused; revoked integrations refused and their records lose authority; cross-action, forged action, sibling-incident, wrong-asset, future-skewed, backdated-beyond-policy, pre-execution and disputed evidence refused as milestones; unauthorized attesters refused; milestones immutable and idempotent; wrong MPN blocks closeout, conflicting claims fail closed until a linked CMMS correction; closeout/order facts reach the CMMS exactly once across UNKNOWN, crash-after-send and retries (CONTRACT_FAKE), the HTTPS adapter writes nothing without credentials; payloads immutable (UB203).",
+    "T-048 (apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts): a repeat breach inside the watch window is reopened by M04 and linked to the closeout (one-shot stamp, CMMS REOPEN queued, evaluation/samples/manifest byte-identical, metrics move the closeout to reopened); lost signal reopens via the new engine command; disputed evidence after closeout reopens, before closeout fails the evaluation and escalates; deletes/rewrites refused; a second closeout per cycle refused.",
+    "Concurrency/restart (apps/kite-broker/test/t045-t047-closeout-race.int.test.ts): 8 assessors racing 4 new signoffs converge on one closeout whose manifest equals the PASSED evaluation's pinned samples and signoffs; a crash inside the closeout transaction leaves nothing and the retry closes once; idempotent replay; concurrent first assessments open one evaluation.",
+    "Security review regressions (apps/kite-broker/test/t045-t047-security-review*.int.test.ts, t045-t048-security-review-2.int.test.ts): S1-S7 as listed under securityReview, including real concurrent races (dispute vs closeout, revocation vs PASSED)."
+  ],
+  "verification": ["pnpm verify exit 0 at 26bb38b (unit 812, integration 450)"],
+  "externalEvidence": {
+    "realCmms": "NOT_RUN (CONTRACT_FAKE adapter only; HttpsCmmsAdapter is UNSUPPORTED without UB_CMMS_BASE_URL/UB_CMMS_TOKEN and was never pointed at a CMMS)",
+    "realCmmsInbound": "NOT_RUN (CMMS records signed with runtime test keys by a test integration identity)",
+    "physicalSensor": "NOT_RUN (synthetic devices through the M03 reference gateway with a manual clock, throwaway databases)",
+    "physicalRecovery": "NOT_RUN (no real asset was repaired or observed recovering)",
+    "realTechnician": "NOT_RUN",
+    "realOrdersOrPayments": "NOT_RUN (M10/M09 RECORDED_CONTRACT broker in-process)"
+  },
+  "notRun": [
+    "Real CMMS integration (outbound writes and inbound signed records)",
+    "Physical sensor telemetry",
+    "Physical recovery of a refrigeration asset",
+    "Real technician/provider completion",
+    "Real Kite payment or provider order behind the closeout"
+  ],
+  "schemaOrApiChanges": [
+    "Migration 0019_m11_recovery_verification_cmms.sql: recovery_policy_revisions, cmms_integrations, recovery_evidence (+ attester_user_id/attester_role), recovery_evidence_disputes, intervention_milestones, recovery_evaluations, recovery_evaluation_transitions/channels/samples/signoffs, recovery_assessments, recovery_closeouts, recovery_command_receipts, cmms_work_order_updates, cmms_write_attempts; functions ub_recovery_evaluation_edge_ok, ub_intervention_milestone_guard, ub_recovery_evaluation_guard, ub_recovery_channel_pin_guard, ub_recovery_sample_pin_guard, ub_recovery_signoff_pin_guard, ub_recovery_closeout_guard, ub_recovery_closeout_commit_guard (deferred), ub_cmms_update_guard; SQLSTATEs UB201 (evaluation), UB202 (closeout), UB203 (CMMS outbox), UB204 (milestone).",
+    "RBAC (@uptimebuyer/data): recovery.read, recovery.evidence, recovery.dispute, recovery.engine, recovery.policy_publish, recovery.cmms_manage, recovery.cmms_ingest; setMembershipStatus (admin) and exports assertTenantSecretRef/isTenantSecretRef.",
+    "@uptimebuyer/incidents (coordinated additive): reopenRecoveredIncident(pool, ctx, incidentId, {expectedVersion, idempotencyKey, reasonCode, guardRef}) engine-only RECOVERED -> REOPENED -> TRIAGING; incident.reopened.v1 trigger gains RECOVERY_ENGINE. The recovery hook remains unexported.",
+    "@uptimebuyer/recovery API: publishRecoveryPolicy, registerCmmsIntegration, revokeCmmsIntegration, ingestCmmsRecord(pool, integrationCtx, {signature, rawBody}, {credentials}, signing), signCmmsRecord, verifyCmmsSignature, recordRecoveryEvidence(..., signing), recordInterventionMilestone(..., signing), assessRecovery(pool, engineCtx, {incidentId, idempotencyKey, asOf?}, signing, {faults?}) -> {outcome NOT_READY|OBSERVING|PASSED|FAILED|EXPIRED|ALREADY_RECOVERED, reasonCodes, recoveryEvaluationId, closeoutId, manifestDigest, incidentState, incidentVersion, window}, disputeRecoveryEvidence(..., {faults?}), monitorRecoveredIncidents, handleIncidentReopenedEvent (consumer recovery-closeout-reopen.v1), handleOrderFactEvent (consumer recovery-cmms-facts.v1), runCmmsWrites(pool, engineCtx, {adapter, workerId, limit?, leaseMs?, reconcileDelayMs?, faults?}), ContractFakeCmmsAdapter, HttpsCmmsAdapter.fromEnv, getRecoveryStatus, getRecoveryGate, getCloseout, recoveryMetrics, evaluateStableWindow, recoverySigningFromEnv.",
+    "Events emitted: intervention.milestone_recorded.v1, recovery.assessed.v1 (PENDING->OBSERVING, OBSERVING->PASSED|FAILED|EXPIRED), incident.recovered.v1 (payload incidentId, recoveryEvaluationId, closeoutId, recoveryCycle, actionDigest, manifestDigest); consumes purchase_order/service_job.state_changed.v1 and incident.reopened.v1."
+  ],
+  "migrationOrRollback": [
+    "0019 is additive (new tables, functions, triggers; no change to existing tables). Forward-only: before release, revert the M11 commits on a database that never ran 0019; once applied, ship a forward fix. 0019 was amended in place inside this unreleased branch for the S1-S3/S7 security fixes, the unsealed-digest split and the T-010 key shape, before any shared database applied it. Closeouts, milestones, evidence, assessments and attempts are append-only and must not be rewritten."
+  ],
+  "specAmbiguitiesResolved": [
+    "Recovery policy is M11's own effective-dated table (site over tenant), not an M02 policy key; an evaluation is governed by the revision its milestone pinned (in force for the incident's scope at the observed time), so later revisions apply to later milestones only.",
+    "Approved action = an M10 order/job of the incident's EXECUTING/COMPLETED plan that has no definite-no-effect stamp and is not REJECTED/CANCELLED/FAILED; installed-part identity = the action candidate's manufacturer + MPN (or the plan's part-purchase action when the milestone names a service action), plus the purchase order VERIFIED.",
+    "Stable window duration = max(policy stableWindowMs, pinned rule recoveryWindowMs); safe range from the pinned incident rule (comparator, threshold, hysteresis); every pinned channel must hold the window.",
+    "Evaluation instant = database clock or a later asOf at most 1 h ahead (only stricter freshness / earlier expiry); future samples beyond 5 s are flagged.",
+    "Supersession (milestone/evidence/policy/channel binding change) FAILS the open evaluation with a *_SUPERSEDED reason and opens a new one without escalating; revoked binding, disputed evidence and expiry escalate.",
+    "CMMS work orders are keyed by the UptimeBuyer incident id; a CMMS integration is an M02 INTEGRATION identity bound to one site with a separate record-verifier secret.",
+    "Disputes by a human use M04's operator commands (escalateIncident / reopenIncident); the lost-signal sweep uses the new engine reopen."
+  ],
+  "securityReview": [
+    "Forged/replayed signatures: CMMS HMAC over exact raw bytes, 300 s tolerance both ways, >= 32-byte keys, strict schema without tenant/URL fields, replay identity (tenant, integration, record id); authority-capable evidence and milestones sealed with the recovery keyring and re-verified before use.",
+    "Clock skew/backdating: policy future-skew and backdate bounds against database observed time, no work before the cycle entered EXECUTING, ingestion bounds +1 h/-30 d, asOf bounded to +1 h and stricter-only.",
+    "IDOR: every exported command authorizes against the resource's site inside its transaction; foreign/out-of-site ids are RESOURCE_UNAVAILABLE; CMMS integration site must equal the incident site (also by FK).",
+    "Races: incident -> evaluation -> evidence -> integration/role/membership lock order; one open evaluation and one PASSED per cycle; closeout uniqueness and the RECOVERED transition in one transaction; dispute and revocation races tested.",
+    "Fail-open on NULL/missing evidence: all 0019 guards NULL-safe (ADR 0004 tripwire), PASSED requires samples and every required signoff; the gate fails closed on disputed pinned evidence.",
+    "False proof: model/provider/receipt/free text refused by kind in SQL and code; boundary equality excluded; non-LIVE/flagged/simulated/sibling samples cannot be pinned.",
+    "FIXED S1 (red 7b94c16, fix 1e604f5): evaluation could pin a weaker policy/window/expiry; milestone could pin a foreign-site/superseded/less specific policy.",
+    "FIXED S2 (7b94c16 / 1e604f5): PASSED ignored disputes and CMMS revocation landing after assessment; now locked and re-checked; dispute locks incident -> evaluation first.",
+    "FIXED S3 (7b94c16 / 1e604f5): any human could attest; attester user/role stored with FK and checked against the pinned policy and current assignment in DB guards and service layer.",
+    "FIXED S4 (red 84cbd53, fix 59f01e0): milestones bound without verifying their signature; forged/unknown-key rows are now skipped, also at closeout.",
+    "FIXED S5 (84cbd53 / 59f01e0): operator-attested milestones survived attester role revocation; now re-checked at evaluation and closeout.",
+    "FIXED S6 (84cbd53 / 59f01e0): dispute receipt claimed the reopen before it committed; receipt now written after the durable effect, effects re-derived on replay, gate fails closed.",
+    "FIXED S7 (red 8100bd5, fix 7bc4382): PASSED ignored attester role revocation/membership suspension; now share-locked and re-checked; setMembershipStatus updates the locked row.",
+    "Self review: the jointly enforced T-010 sweep found missing (tenant_id, id) keys on four new tables (fixed); no further findings."
+  ],
+  "unresolvedRisks": [
+    "The incidents table has no database trigger requiring a closeout for RECOVERED (M04 tests drive the hook with a test-only fake evaluator); the guarantee rests on the unexported hook, the lint boundary, the structural test and the closeout commit guard.",
+    "Engine workers can choose asOf up to 1 h ahead, which can expire an evaluation early (escalation only; workers can already escalate via advanceIncident).",
+    "Milestone and evidence seals use a runtime HMAC keyring; key rotation must keep retired keys in the ring to verify history.",
+    "Scheduling (monitorRecoveredIncidents, runCmmsWrites, the two outbox consumers, assessRecovery) must be wired by the deployment (M14); nothing runs on a timer.",
+    "The HTTPS CMMS adapter's request/response shape is illustrative and must be mapped to a real CMMS vendor before enabling.",
+    "Raw CMMS record bodies are stored in recovery_evidence without a retention/erasure worker (FR-23 belongs to M13/M02)."
+  ],
+  "nextModuleInputs": [
+    "M12 (UI): getRecoveryStatus/getRecoveryGate/getCloseout/recoveryMetrics for recovery proof and closeout review; show evaluation reasonCodes, evidence trust labels and dispute state; recordRecoveryEvidence (operator notes, attestations by policy roles) and disputeRecoveryEvidence are the human commands; never present provider completion or CONTRACT_FAKE CMMS writes as recovery.",
+    "M13: add CMMS record forgery/replay, milestone seal tampering and recovery IDOR to T-053; load bounds for windowSamples (20 000 rows) and CMMS writer leases to T-054.",
+    "M14: provision RECOVERY_SIGNING_KEY(_ID); schedule assessRecovery (engine), monitorRecoveredIncidents, runCmmsWrites (with a real adapter only after credentials exist), handleOrderFactEvent and handleIncidentReopenedEvent on the outbox; expose ingestCmmsRecord to authenticated CMMS integration identities."
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M11 completed and locally verified recovery verification and CMMS closeout code (evidence, milestones, revision-pinned evaluations, the single transactional closeout through M04's hook, reopen/escalation and a replay-safe CMMS outbox) against a local PostgreSQL with synthetic devices and a CONTRACT_FAKE CMMS; no real CMMS, physical sensor, technician, provider, payment or physical recovery evidence exists, and all of it remains NOT_RUN."
+}

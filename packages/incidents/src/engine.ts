@@ -521,7 +521,8 @@ export async function reopenRow(
   ctx: TenantContext,
   row: IncidentRow,
   reasonCode: string,
-  trigger: 'TELEMETRY_RULE' | 'MANUAL_REPORT' | 'OPERATOR_COMMAND',
+  trigger: 'TELEMETRY_RULE' | 'MANUAL_REPORT' | 'OPERATOR_COMMAND' | 'RECOVERY_ENGINE',
+  guardRef: string | null = null,
 ): Promise<IncidentRow> {
   // A reopened incident never presents a deadline that already passed as running (or met): under the pinned procedure
   // the ledger records EXPIRE first; the original deadline and its basis are untouched.
@@ -534,6 +535,7 @@ export async function reopenRow(
       role: null,
     });
   const reopened = await transitionRow(c, ctx, row, 'REOPENED', reasonCode, {
+    guardRef,
     extraSet:
       'recovered_at = NULL, reopen_count = reopen_count + 1, acknowledged_at = NULL, acknowledged_by_user_id = NULL',
   });

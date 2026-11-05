@@ -230,6 +230,29 @@ export async function revokeRole(pool: Db, ctx: TenantContext, assignmentId: Rol
 
 const WORKLOADS = ['api', 'general-worker', 'kite-broker', 'sensor-gateway', 'serv-agent'] as const;
 
+/**
+ * Suspend, reactivate or remove a tenant membership (tenant-wide administrators). This UPDATEs the membership row, so
+ * it serializes with any decision that share-locked that membership (M11 recovery PASSED re-checks its attesters).
+ */
+export async function setMembershipStatus(
+  pool: Db,
+  ctx: TenantContext,
+  userId: UserId | string,
+  status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED',
+): Promise<void> {
+  if (!['ACTIVE', 'SUSPENDED', 'REMOVED'].includes(status)) throw validation('INVALID_MEMBERSHIP_STATUS');
+  const meta = { action: 'membership.status', resourceType: 'tenant_membership', resourceId: String(userId) };
+  await tenantCommand(pool, ctx, meta, async (c) => {
+    requireAuthorized(ctx, { action: 'role.assign', siteId: null });
+    const { rowCount } = await c.query(
+      `UPDATE tenant_memberships SET status = $3, updated_at = clock_timestamp() WHERE tenant_id = $1 AND user_id = $2`,
+      [ctx.tenantId, userId, status],
+    );
+    if (rowCount !== 1) throw unavailable(meta);
+    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { status } });
+  });
+}
+
 export async function registerServiceIdentity(
   pool: Db,
   ctx: TenantContext,
