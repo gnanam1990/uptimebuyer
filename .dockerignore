@@ -1,0 +1,21 @@
+# Build context for infra/docker/Dockerfile (M14). Nothing secret, generated or local enters an image layer.
+.git
+.github
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/test-results
+**/playwright-report
+coverage
+tmp
+tmp-*
+evidence/raw
+spikes/f0/.secrets
+docs/release/screenshots
+**/.DS_Store
+*.pem
+*.key

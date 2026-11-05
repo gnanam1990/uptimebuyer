@@ -1,11 +1,13 @@
 // apps/api entry point: configuration from the environment, a bounded PostgreSQL pool, OIDC bearer verification
-// against the issuer's JWKS, the local object store for citations, and (optionally) the built web app. Authority
-// issuance and webhook verifier secrets are not configured from the environment; without them issuance answers
-// DEPENDENCY_FAILED and every fulfillment webhook is refused (M14 provisions the secret channel).
+// against the issuer's JWKS, the local object store for citations, and (optionally) the built web app. M14 wires the
+// secret channel: the authority signer, the webhook verifier store and (with a broker socket) the execution-reference
+// signer are read from FILES the environment only references (apps/api/src/secrets.ts). A missing or unusable
+// reference, like invalid configuration, stops startup with EX_CONFIG (78) before the database is opened, naming the
+// variable and never its value.
 import { readFileSync, statSync } from 'node:fs';
 import { createRemoteJWKSet } from 'jose';
 import pg from 'pg';
-import { HumanOidcVerifier, InMemoryCredentialResolver } from '@uptimebuyer/data';
+import { HumanOidcVerifier } from '@uptimebuyer/data';
 import { LocalFilesystemObjectStore } from '@uptimebuyer/evidence';
 import {
   HealthRegistry,
@@ -20,8 +22,20 @@ import { collectPlatformSignals, readinessChecks } from '@uptimebuyer/operations
 import { buildApiServer } from './app.js';
 import { loadApiConfig } from './config.js';
 import { buildOperationsServer } from './ops.js';
+import { ApiSecretConfigError, loadApiSecrets } from './secrets.js';
 
-const cfg = loadApiConfig(process.env);
+let loaded;
+try {
+  loaded = { cfg: loadApiConfig(process.env), secretWiring: loadApiSecrets(process.env) };
+} catch (e) {
+  const reason =
+    e instanceof ApiSecretConfigError || (e instanceof Error && e.message.startsWith('invalid API configuration'))
+      ? e.message
+      : 'invalid API configuration';
+  process.stderr.write(`${JSON.stringify({ service: 'api', event: 'api.config_rejected', reason })}\n`);
+  process.exit(78);
+}
+const { cfg, secretWiring } = loaded;
 const pool = new pg.Pool({ connectionString: cfg.DATABASE_URL, max: 16 });
 pool.on('error', () => {});
 // M13 observability: structured JSON logs to stdout (the database URL is registered as a secret so it can never be
@@ -57,7 +71,8 @@ const app = await buildApiServer({
     environmentLabel: cfg.UB_ENVIRONMENT_LABEL ?? null,
   },
   store: new LocalFilesystemObjectStore(cfg.UB_OBJECT_STORE_ROOT),
-  credentials: new InMemoryCredentialResolver(),
+  credentials: secretWiring.credentials,
+  authority: secretWiring.authority,
   ...(cfg.UB_WEB_ROOT ? { webRoot: cfg.UB_WEB_ROOT } : {}),
   trustProxy: cfg.UB_TRUST_PROXY === 'true',
   observability: { logger, metrics, tracer: new Tracer({ service: 'api', secrets }), slo, health },

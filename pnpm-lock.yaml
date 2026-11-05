@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
     devDependencies:
       '@eslint/js':
         specifier: 10.0.1
@@ -23,9 +27,6 @@ importers:
       globals:
         specifier: 17.14.0
         version: 17.14.0
-      pg:
-        specifier: 8.23.1
-        version: 8.23.1
       prettier:
         specifier: 3.9.10
         version: 3.9.10
@@ -166,6 +167,9 @@ importers:
       '@uptimebuyer/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
+      '@uptimebuyer/worker':
+        specifier: workspace:*
+        version: link:../worker
       fastify:
         specifier: 5.12.7
         version: 5.12.7
@@ -187,7 +191,16 @@ importers:
       fastify:
         specifier: 5.12.7
         version: 5.12.7
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       '@uptimebuyer/sensor-agent':
         specifier: workspace:*
         version: link:../../edge/sensor-agent
@@ -222,6 +235,49 @@ importers:
       vite:
         specifier: 8.3.5
         version: 8.3.5(@types/node@22.20.5)
+
+  apps/worker:
+    dependencies:
+      '@uptimebuyer/compatibility':
+        specifier: workspace:*
+        version: link:../../packages/compatibility
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@uptimebuyer/data':
+        specifier: workspace:*
+        version: link:../../packages/data
+      '@uptimebuyer/incidents':
+        specifier: workspace:*
+        version: link:../../packages/incidents
+      '@uptimebuyer/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@uptimebuyer/operations':
+        specifier: workspace:*
+        version: link:../../packages/operations
+      '@uptimebuyer/orders':
+        specifier: workspace:*
+        version: link:../../packages/orders
+      '@uptimebuyer/planning':
+        specifier: workspace:*
+        version: link:../../packages/planning
+      '@uptimebuyer/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@uptimebuyer/recovery':
+        specifier: workspace:*
+        version: link:../../packages/recovery
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
 
   edge/sensor-agent:
     dependencies:

@@ -1,0 +1,5 @@
+{
+  "schema": "release-authorizers.v1",
+  "note": "Ed25519 public keys (DER SPKI, base64url) of the people who may authorize an external action. The private keys never enter this repository. Empty: nobody has registered a key, so every release gate refuses.",
+  "authorizers": {}
+}

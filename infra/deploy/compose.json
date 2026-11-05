@@ -1,0 +1,323 @@
+{
+  "name": "uptimebuyer",
+  "x-notes": [
+    "Local production-like bring-up for T-057 (M14). Configuration only: no cloud account, no registry push, no hosted deployment (NOT_RUN).",
+    "Secrets are files under UB_SECRETS_DIR delivered as compose secrets or read-only bind mounts; the environment carries only their paths. DATABASE_URL carries no password: it comes from a 0600 pgpass file (PGPASSFILE).",
+    "Networks: 'data' is internal (no egress); 'edge' carries loopback-published ingress for api and sensor-gateway (a Docker bridge cannot separate ingress from egress, see infra/deploy/kubernetes for the enforced egress policy); 'paid-egress' is attached to the kite-broker only.",
+    "Operations listeners (api 9464, worker 9465) bind 127.0.0.1 inside their containers and are never published; probes and scrapes run inside the container network namespace.",
+    "The kite-broker is the only service that receives the broker secret document (database URL for its own role, verification keys and the paid-endpoint credential reference). Locally its adapter is NONE: no Kite credential exists here.",
+    "Run: UB_SECRETS_DIR=... docker compose -f infra/deploy/compose.json -p <project> up -d (see scripts/release/smoke.mjs, which generates throwaway secrets)."
+  ],
+  "services": {
+    "postgres": {
+      "image": "postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "environment": {
+        "POSTGRES_USER": "uptimebuyer",
+        "POSTGRES_DB": "uptimebuyer",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/postgres_password"
+      },
+      "secrets": ["postgres_password"],
+      "volumes": ["pgdata:/var/lib/postgresql/data"],
+      "networks": {
+        "data": {}
+      },
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "pg_isready -U uptimebuyer -d uptimebuyer"],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 24,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped"
+    },
+    "migrate": {
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "init": true,
+      "image": "${UB_IMAGE_REGISTRY:-}ub-migrate:${UB_IMAGE_TAG:-local}",
+      "build": {
+        "context": "../..",
+        "dockerfile": "infra/docker/Dockerfile",
+        "target": "migrate"
+      },
+      "command": ["sh", "-c", "node scripts/db.mjs migrate && node scripts/db.mjs seed"],
+      "environment": {
+        "DATABASE_URL": "postgres://uptimebuyer@postgres:5432/uptimebuyer",
+        "PGPASSFILE": "/run/secrets/pgpass"
+      },
+      "secrets": ["pgpass"],
+      "networks": {
+        "data": {}
+      },
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy"
+        }
+      },
+      "restart": "no"
+    },
+    "kite-broker": {
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "init": true,
+      "image": "${UB_IMAGE_REGISTRY:-}ub-kite-broker:${UB_IMAGE_TAG:-local}",
+      "build": {
+        "context": "../..",
+        "dockerfile": "infra/docker/Dockerfile",
+        "target": "kite-broker"
+      },
+      "secrets": ["broker_config"],
+      "volumes": ["broker-socket:/run/ub-broker"],
+      "networks": {
+        "data": {},
+        "paid-egress": {}
+      },
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "require('node:http').get({socketPath:'/run/ub-broker/broker.sock',path:'/health/live'},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 24,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped"
+    },
+    "api": {
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "init": true,
+      "image": "${UB_IMAGE_REGISTRY:-}ub-api:${UB_IMAGE_TAG:-local}",
+      "build": {
+        "context": "../..",
+        "dockerfile": "infra/docker/Dockerfile",
+        "target": "api"
+      },
+      "environment": {
+        "DATABASE_URL": "postgres://uptimebuyer@postgres:5432/uptimebuyer",
+        "PGPASSFILE": "/run/secrets/pgpass",
+        "UB_API_HOST": "0.0.0.0",
+        "UB_API_PORT": "8080",
+        "UB_OIDC_ISSUER": "${UB_OIDC_ISSUER:?set UB_OIDC_ISSUER}",
+        "UB_OIDC_AUDIENCE": "${UB_OIDC_AUDIENCE:?set UB_OIDC_AUDIENCE}",
+        "UB_OIDC_JWKS_URL": "${UB_OIDC_JWKS_URL:?set UB_OIDC_JWKS_URL}",
+        "UB_OIDC_AUTHORIZATION_ENDPOINT": "${UB_OIDC_AUTHORIZATION_ENDPOINT:?set UB_OIDC_AUTHORIZATION_ENDPOINT}",
+        "UB_OIDC_TOKEN_ENDPOINT": "${UB_OIDC_TOKEN_ENDPOINT:?set UB_OIDC_TOKEN_ENDPOINT}",
+        "UB_OIDC_CLIENT_ID": "${UB_OIDC_CLIENT_ID:-uptimebuyer-web}",
+        "UB_OIDC_ALGORITHMS": "${UB_OIDC_ALGORITHMS:-ES256}",
+        "UB_ENVIRONMENT_LABEL": "${UB_ENVIRONMENT_LABEL:-LOCAL PRODUCTION-LIKE (NOT A DEPLOYMENT)}",
+        "UB_WEB_ROOT": "/app/apps/web/dist",
+        "UB_OBJECT_STORE_ROOT": "/var/lib/uptimebuyer/objects",
+        "UB_TRUST_PROXY": "${UB_TRUST_PROXY:-false}",
+        "UB_AUTHORITY_SIGNER_KEY_ID": "${UB_AUTHORITY_SIGNER_KEY_ID:-authority-k1}",
+        "UB_AUTHORITY_SIGNER_KEY_FILE": "/run/secrets/authority_signer_key",
+        "UB_REFERENCE_SIGNER_KEY_ID": "${UB_REFERENCE_SIGNER_KEY_ID:-reference-k1}",
+        "UB_REFERENCE_SIGNER_KEY_FILE": "/run/secrets/reference_signer_key",
+        "UB_WEBHOOK_VERIFIER_ROOT": "/run/ub-secrets/webhook-verifiers",
+        "UB_KITE_BROKER_SOCKET": "/run/ub-broker/broker.sock",
+        "UB_OPS_HOST": "127.0.0.1",
+        "UB_OPS_PORT": "9464",
+        "UB_OPS_TOKEN_FILE": "/run/secrets/api_ops_token"
+      },
+      "secrets": ["pgpass", "authority_signer_key", "reference_signer_key", "api_ops_token"],
+      "volumes": [
+        "objects:/var/lib/uptimebuyer/objects",
+        "broker-socket:/run/ub-broker",
+        "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/webhook-verifiers:/run/ub-secrets/webhook-verifiers:ro"
+      ],
+      "ports": ["127.0.0.1:${UB_API_PUBLISH_PORT:-18080}:8080"],
+      "networks": {
+        "data": {},
+        "edge": {}
+      },
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        },
+        "kite-broker": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 24,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped"
+    },
+    "worker": {
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "init": true,
+      "image": "${UB_IMAGE_REGISTRY:-}ub-worker:${UB_IMAGE_TAG:-local}",
+      "build": {
+        "context": "../..",
+        "dockerfile": "infra/docker/Dockerfile",
+        "target": "worker"
+      },
+      "environment": {
+        "DATABASE_URL": "postgres://uptimebuyer@postgres:5432/uptimebuyer",
+        "PGPASSFILE": "/run/secrets/pgpass",
+        "UB_WORKER_ID": "${UB_WORKER_ID:-worker-1}",
+        "UB_WORKER_OPS_HOST": "127.0.0.1",
+        "UB_WORKER_OPS_PORT": "9465",
+        "UB_WORKER_OPS_TOKEN_FILE": "/run/secrets/worker_ops_token"
+      },
+      "secrets": ["pgpass", "worker_ops_token"],
+      "networks": {
+        "data": {}
+      },
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:9465/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 24,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped",
+      "stop_grace_period": "40s"
+    },
+    "sensor-gateway": {
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "init": true,
+      "image": "${UB_IMAGE_REGISTRY:-}ub-sensor-gateway:${UB_IMAGE_TAG:-local}",
+      "build": {
+        "context": "../..",
+        "dockerfile": "infra/docker/Dockerfile",
+        "target": "sensor-gateway"
+      },
+      "environment": {
+        "DATABASE_URL": "postgres://uptimebuyer@postgres:5432/uptimebuyer",
+        "PGPASSFILE": "/run/secrets/pgpass",
+        "UB_GATEWAY_HOST": "0.0.0.0",
+        "UB_GATEWAY_PORT": "8081",
+        "UB_DEVICE_SECRET_ROOT": "/run/ub-secrets/devices",
+        "UB_TRUST_PROXY": "${UB_TRUST_PROXY:-false}"
+      },
+      "secrets": ["pgpass"],
+      "volumes": ["${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/devices:/run/ub-secrets/devices:ro"],
+      "ports": ["127.0.0.1:${UB_GATEWAY_PUBLISH_PORT:-18081}:8081"],
+      "networks": {
+        "data": {},
+        "edge": {}
+      },
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8081/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 24,
+        "start_period": "10s"
+      },
+      "restart": "unless-stopped"
+    },
+    "test-idp": {
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:size=16m,mode=1777"],
+      "init": true,
+      "profiles": ["smoke"],
+      "x-note": "Smoke-only loopback JWKS server sharing the api container's network namespace. Never deployed.",
+      "image": "${UB_IMAGE_REGISTRY:-}ub-api:${UB_IMAGE_TAG:-local}",
+      "network_mode": "service:api",
+      "command": ["node", "/idp/jwks-server.mjs"],
+      "volumes": [
+        "./test-idp/jwks-server.mjs:/idp/jwks-server.mjs:ro",
+        "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/idp/jwks.json:/idp/jwks.json:ro"
+      ],
+      "depends_on": {
+        "api": {
+          "condition": "service_started"
+        }
+      }
+    }
+  },
+  "networks": {
+    "data": {
+      "internal": true
+    },
+    "edge": {},
+    "paid-egress": {}
+  },
+  "volumes": {
+    "pgdata": {},
+    "objects": {},
+    "broker-socket": {}
+  },
+  "secrets": {
+    "postgres_password": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/postgres_password"
+    },
+    "pgpass": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/pgpass"
+    },
+    "authority_signer_key": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/authority_signer_key"
+    },
+    "reference_signer_key": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/reference_signer_key"
+    },
+    "api_ops_token": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/api_ops_token"
+    },
+    "worker_ops_token": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/worker_ops_token"
+    },
+    "broker_config": {
+      "file": "${UB_SECRETS_DIR:?set UB_SECRETS_DIR}/broker_config"
+    }
+  }
+}

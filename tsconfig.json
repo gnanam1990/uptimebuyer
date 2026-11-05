@@ -132,6 +132,12 @@
     },
     {
       "path": "./packages/operations"
+    },
+    {
+      "path": "./apps/worker"
+    },
+    {
+      "path": "./apps/worker/test"
     }
   ]
 }

@@ -1,9 +1,9 @@
 {
   "schema": "coverage-report.v1",
   "generatedFrom": {
-    "commit": "916f305",
+    "commit": "3c72390",
     "resultFiles": 3,
-    "testFilesWithResults": 166
+    "testFilesWithResults": 182
   },
   "statusVocabulary": [
     "PASS",
@@ -30,6 +30,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/registry-core.ts",
@@ -58,6 +59,7 @@
         "M03"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/data/src/registry.ts",
@@ -87,6 +89,7 @@
         "M04"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/incidents/src/engine.ts",
@@ -114,6 +117,7 @@
         "M05"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/incidents/src/commands.ts",
@@ -146,6 +150,7 @@
         "M05"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/evidence/src/documents.ts",
@@ -175,6 +180,7 @@
         "M06"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/compatibility/src/decisions.ts",
@@ -205,6 +211,7 @@
         "M07"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/providers/src/normalize.ts",
@@ -230,6 +237,7 @@
         "M07"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/providers/src/broker.ts",
@@ -259,6 +267,7 @@
         "M08"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/authz.ts",
@@ -291,6 +300,7 @@
         "M09"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/approvals.ts",
@@ -327,6 +337,7 @@
         "M09"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/commerce/src/approvals.ts",
@@ -356,6 +367,7 @@
         "M09"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/commerce/src/intents.ts",
@@ -379,6 +391,7 @@
         "M10"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/orders/src/apply.ts",
@@ -405,6 +418,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/recovery/src/evidence.ts",
@@ -431,6 +445,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/recovery/src/assess.ts",
@@ -463,6 +478,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/incidents/src/commands.ts",
@@ -496,6 +512,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/recovery/src/cmms-adapter.ts",
@@ -530,6 +547,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/approvals.ts",
@@ -569,6 +587,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "apps/api/src/routes/commerce.ts",
@@ -599,6 +618,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/incidents/src/events.ts",
@@ -637,6 +657,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/compatibility/src/invalidation.ts",
@@ -683,6 +704,7 @@
         "M14"
       ],
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/data/src/registry-core.ts",
@@ -691,10 +713,13 @@
         "packages/telemetry/src/policy.ts",
         "edge/sensor-agent/src/simulator.ts",
         "packages/data/migrations/0008_m03_telemetry.sql",
-        "scripts/coverage-report.mjs"
+        "scripts/coverage-report.mjs",
+        "scripts/release/journey-gate.mjs"
       ],
       "testRefs": [
-        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts"
+        "apps/kite-broker/test/t058-journey-gate-db.int.test.ts",
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts",
+        "tests/m14/t058-journey-gate.test.ts"
       ],
       "governingTests": [
         "T-013",
@@ -716,6 +741,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/authz.ts",
@@ -753,6 +779,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/auth.ts",
@@ -794,8 +821,11 @@
         "M14"
       ],
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
-      "codeRefs": [],
+      "codeRefs": [
+        "scripts/release/smoke.mjs"
+      ],
       "testRefs": [],
       "governingTests": [
         "T-001",
@@ -819,6 +849,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/jobs.ts",
@@ -870,6 +901,7 @@
         "M10"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/jobs.ts",
@@ -933,6 +965,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/auth.ts",
@@ -993,6 +1026,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/auth.ts",
@@ -1038,6 +1072,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/data/src/erasure.ts",
@@ -1082,6 +1117,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "apps/web/src/components/AxisBadge.tsx",
@@ -1112,6 +1148,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/incidents/src/engine.ts",
@@ -1121,6 +1158,7 @@
         "packages/operations/src/index.ts",
         "apps/api/src/app.ts",
         "apps/api/src/routes/fleet.ts",
+        "apps/worker/src/scheduler.ts",
         "packages/data/migrations/0009_m04_incidents.sql",
         "scripts/coverage-report.mjs"
       ],
@@ -1159,6 +1197,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/audit.ts",
@@ -1171,7 +1210,8 @@
         "apps/api/src/app.ts",
         "apps/api/src/ops.ts",
         "apps/kite-broker/src/log.ts",
-        "packages/data/migrations/0004_m02_outbox_jobs_audit.sql"
+        "apps/worker/src/ops.ts",
+        "apps/worker/src/scheduler.ts"
       ],
       "testRefs": [
         "packages/observability/test/t055-alerts-health-slo.test.ts",
@@ -1200,6 +1240,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/evidence/src/reasoning/run.ts",
@@ -1237,6 +1278,7 @@
         "M10"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/evidence/src/reasoning/port.ts",
@@ -1287,13 +1329,17 @@
         "M14"
       ],
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
-        "scripts/coverage-report.mjs"
+        "scripts/coverage-report.mjs",
+        "scripts/release/claim-check.mjs"
       ],
       "testRefs": [
         "tests/m13/coverage-report.test.ts",
-        "tests/m13/security-tooling.test.ts"
+        "tests/m13/security-tooling.test.ts",
+        "tests/m14/t059-claim-check.test.ts",
+        "tests/m14/t059-coverage-layers.test.ts"
       ],
       "governingTests": [
         "T-001",
@@ -1318,6 +1364,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/data/src/telemetry.ts",
@@ -1364,6 +1411,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/approvals.ts",
@@ -1424,6 +1472,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/approvals.ts",
@@ -1489,6 +1538,7 @@
         "M08"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/compatibility/src/candidates.ts",
@@ -1532,6 +1582,7 @@
         "M09"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/authorities.ts",
@@ -1561,27 +1612,31 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "codeRefs": [
         "packages/commerce/src/index.ts",
         "packages/commerce/src/signing.ts",
         "packages/data/src/broker-context.ts",
+        "packages/data/src/secret-files.ts",
         "packages/data/src/secret-ref.ts",
+        "packages/data/src/worker-context.ts",
         "packages/orders/src/dispatch.ts",
         "packages/providers/src/adapters/candidates.ts",
         "packages/providers/src/broker.ts",
         "packages/providers/src/internal.ts",
         "packages/providers/src/ports.ts",
-        "apps/api/src/app.ts",
-        "apps/kite-broker/src/config.ts",
-        "apps/kite-broker/src/server.ts"
+        "apps/api/src/app.ts"
       ],
       "testRefs": [
         "packages/data/test/m13-broker-context-subpath.test.ts",
+        "packages/data/test/m14-file-secret-store.test.ts",
+        "packages/data/test/m14-worker-context-subpath.test.ts",
         "packages/data/test/t010-webhook-secret-refs.int.test.ts",
         "packages/providers/test/t029-adapter-contract.int.test.ts",
         "packages/providers/test/t030-idempotent-contact.int.test.ts",
         "apps/kite-broker/test/t053-adversarial-corpus.int.test.ts",
+        "apps/kite-broker/test/t057-worker-runtime.int.test.ts",
         "tests/m13/security-tooling.test.ts"
       ],
       "governingTests": [
@@ -1604,6 +1659,7 @@
         "M10"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/intents.ts",
@@ -1644,6 +1700,7 @@
         "M10"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/manual.ts",
@@ -1688,6 +1745,7 @@
         "M04"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/incidents/src/engine.ts",
@@ -1713,6 +1771,7 @@
         "M05"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/compatibility/src/decisions.ts",
@@ -1763,6 +1822,7 @@
         "M12"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/telemetry.ts",
@@ -1812,6 +1872,7 @@
         "M14"
       ],
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/api-client/src/index.ts",
@@ -1834,9 +1895,12 @@
         "packages/recovery/test/t047-cmms-adapter.test.ts",
         "apps/kite-broker/test/m12-api-security.int.test.ts",
         "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
+        "apps/kite-broker/test/t058-journey-gate-db.int.test.ts",
         "apps/web/e2e/t049-keyboard-critical-path.spec.ts",
         "apps/web/e2e/t051-honest-states.spec.ts",
-        "apps/web/test/t051-axis-honesty.test.ts"
+        "apps/web/test/t051-axis-honesty.test.ts",
+        "tests/m14/t058-journey-gate.test.ts",
+        "tests/m14/t059-claim-check.test.ts"
       ],
       "governingTests": [
         "T-029",
@@ -1872,6 +1936,7 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/data/src/authz.ts",
@@ -1923,6 +1988,7 @@
         "M11"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/incidents/src/commands.ts",
@@ -1965,6 +2031,7 @@
         "M09"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/commerce/src/approvals.ts",
@@ -2011,23 +2078,25 @@
         "M13"
       ],
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "codeRefs": [
         "packages/contracts/src/commands.ts",
         "packages/data/src/command.ts",
         "packages/data/src/context.ts",
         "packages/data/src/registry.ts",
+        "packages/data/src/secret-files.ts",
         "packages/data/src/secret-ref.ts",
         "packages/data/src/telemetry.ts",
         "packages/data/src/tenant-scope.ts",
         "packages/evidence/src/scope.ts",
         "packages/observability/src/index.ts",
         "packages/operations/src/index.ts",
-        "packages/planning/src/assemble.ts",
-        "packages/recovery/src/read.ts"
+        "packages/planning/src/assemble.ts"
       ],
       "testRefs": [
         "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
+        "packages/data/test/m14-file-secret-store.test.ts",
         "packages/data/test/t010-cross-tenant-denial.int.test.ts",
         "packages/data/test/t010-webhook-secret-refs.int.test.ts",
         "packages/evidence/test/t010-evidence-cross-tenant.int.test.ts",
@@ -2037,8 +2106,7 @@
         "packages/planning/test/t010-t011-planning-scope.int.test.ts",
         "apps/kite-broker/test/m12-api-security.int.test.ts",
         "apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts",
-        "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
-        "apps/kite-broker/test/t010-t011-orders-scope.int.test.ts"
+        "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts"
       ],
       "governingTests": [
         "T-009",
@@ -2057,6 +2125,7 @@
       "title": "Clean checkout bootstrap",
       "module": "M00",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "tests/m00/t001-bootstrap.test.ts",
@@ -2074,6 +2143,7 @@
       "title": "Dirty worktree intake stop",
       "module": "M00",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "tests/m00/t002-intake.test.ts"
@@ -2090,6 +2160,7 @@
       "title": "Secret baseline and history scan",
       "module": "M00",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "tests/m00/t003-secret-scan.test.ts"
@@ -2106,6 +2177,7 @@
       "title": "Canonical quality-command smoke",
       "module": "M00",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "tests/m00/t004-quality-smoke.test.ts"
@@ -2122,6 +2194,7 @@
       "title": "Contract schema round trip",
       "module": "M01",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/contracts/test/t005-schema-round-trip.test.ts",
@@ -2139,6 +2212,7 @@
       "title": "Illegal state transition rejection",
       "module": "M01",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/domain/test/t006-illegal-transition-rejection.test.ts",
@@ -2158,6 +2232,7 @@
       "title": "Revision and action digest stability",
       "module": "M01",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/domain/test/t007-digest-stability.test.ts"
@@ -2174,6 +2249,7 @@
       "title": "Money and measurement precision",
       "module": "M01",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/contracts/test/t008-money-measurement-precision.test.ts"
@@ -2190,6 +2266,7 @@
       "title": "Migration and rollback on seeded tenant",
       "module": "M02",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/data/test/t009-guard-null-safety.test.ts",
@@ -2208,6 +2285,7 @@
       "title": "Cross-tenant access denial",
       "module": "M02",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
@@ -2237,6 +2315,7 @@
       "title": "Role and approval authority denial",
       "module": "M02",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
@@ -2266,6 +2345,7 @@
       "title": "Outbox restart recovery",
       "module": "M02",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/data/test/t012-outbox-restart-recovery.int.test.ts"
@@ -2282,6 +2362,7 @@
       "title": "Authenticated telemetry acceptance",
       "module": "M03",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/telemetry/test/t013-body-signature.test.ts",
@@ -2301,6 +2382,7 @@
       "title": "Duplicate and out-of-order sequence handling",
       "module": "M03",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts"
@@ -2317,6 +2399,7 @@
       "title": "Stale and offline health projection",
       "module": "M03",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/telemetry/test/t015-freshness-policy.test.ts",
@@ -2335,6 +2418,7 @@
       "title": "Edge reconnect and bounded backfill",
       "module": "M03",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/telemetry/test/t016-lateness-classification.test.ts",
@@ -2354,6 +2438,7 @@
       "title": "Threshold incident creation",
       "module": "M04",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/incidents/test/t017-consumer-stale.int.test.ts",
@@ -2372,6 +2457,7 @@
       "title": "Concurrent trigger deduplication",
       "module": "M04",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/incidents/test/t018-concurrent-dedupe.int.test.ts",
@@ -2389,6 +2475,7 @@
       "title": "Incident lifecycle concurrency",
       "module": "M04",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/incidents/test/t018-security-review.int.test.ts",
@@ -2408,6 +2495,7 @@
       "title": "Manual report audit linkage",
       "module": "M04",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/incidents/test/t018-security-review.int.test.ts",
@@ -2425,6 +2513,7 @@
       "title": "Manual and BOM citation provenance",
       "module": "M05",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/evidence/test/t021-citation-provenance.int.test.ts",
@@ -2443,6 +2532,7 @@
       "title": "Conflicting evidence surfaced",
       "module": "M05",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/evidence/test/t022-conflicting-evidence.int.test.ts"
@@ -2459,6 +2549,7 @@
       "title": "Malicious document instruction isolation",
       "module": "M05",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/evidence/test/t023-malicious-document.int.test.ts",
@@ -2478,6 +2569,7 @@
       "title": "Evidence revision invalidates stale proposal",
       "module": "M05",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/evidence/test/t024-revision-invalidation.int.test.ts"
@@ -2494,6 +2586,7 @@
       "title": "Exact manufacturer part allow",
       "module": "M06",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/compatibility/test/t025-exact-part-allow.int.test.ts",
@@ -2511,6 +2604,7 @@
       "title": "Ambiguous compatibility hold",
       "module": "M06",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/compatibility/test/t026-ambiguous-hold.int.test.ts",
@@ -2529,6 +2623,7 @@
       "title": "Substitute requires named engineer",
       "module": "M06",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/compatibility/test/t027-named-engineer.int.test.ts",
@@ -2546,6 +2641,7 @@
       "title": "Policy revision forces reevaluation",
       "module": "M06",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/compatibility/test/t028-policy-revision.int.test.ts",
@@ -2563,6 +2659,7 @@
       "title": "Live-shaped provider adapter contract",
       "module": "M07",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/providers/test/t029-adapter-contract.int.test.ts",
@@ -2583,6 +2680,7 @@
       "title": "Idempotent provider contact",
       "module": "M07",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/providers/test/t030-idempotent-contact.int.test.ts",
@@ -2600,6 +2698,7 @@
       "title": "Transcript identity and consent integrity",
       "module": "M07",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/providers/test/t030-t031-pool-bounds.int.test.ts",
@@ -2617,6 +2716,7 @@
       "title": "Provider timeout becomes unknown",
       "module": "M07",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/providers/test/t032-timeout-unknown.int.test.ts"
@@ -2633,6 +2733,7 @@
       "title": "Cost-to-recovery formula correctness",
       "module": "M08",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/domain/test/t033-cost-formula.test.ts",
@@ -2650,6 +2751,7 @@
       "title": "Configured containment deadline changes priority",
       "module": "M08",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/domain/test/t034-deadline-priority.test.ts",
@@ -2667,6 +2769,7 @@
       "title": "Missing economic input produces hold",
       "module": "M08",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/domain/test/t035-missing-input-hold.test.ts",
@@ -2686,6 +2789,7 @@
       "title": "Deterministic ranking tie break",
       "module": "M08",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/domain/test/t036-tie-break.test.ts",
@@ -2703,6 +2807,7 @@
       "title": "Bounded session approval",
       "module": "M09",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t037-bounded-session.int.test.ts"
@@ -2719,6 +2824,7 @@
       "title": "Hard budget and purpose rejection",
       "module": "M09",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t038-budget-bounds.int.test.ts"
@@ -2735,6 +2841,7 @@
       "title": "Credential and paid-egress isolation",
       "module": "M09",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t039-broker-ownership.int.test.ts",
@@ -2755,6 +2862,7 @@
       "title": "Unknown payment reconciliation before retry",
       "module": "M09",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t039-t040-security-review.int.test.ts",
@@ -2778,6 +2886,7 @@
       "title": "Order and job state progression",
       "module": "M10",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/orders/test/t041-order-job-state-progression.test.ts",
@@ -2795,6 +2904,7 @@
       "title": "Duplicate order intent suppression",
       "module": "M10",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t042-order-intent-dedupe.int.test.ts"
@@ -2811,6 +2921,7 @@
       "title": "Restart-safe external reconciliation",
       "module": "M10",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/orders/test/t043-webhook-verification-and-poll-egress.test.ts",
@@ -2829,6 +2940,7 @@
       "title": "Cancellation or substitution reopens policy",
       "module": "M10",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t043-t044-security-review.int.test.ts",
@@ -2846,6 +2958,7 @@
       "title": "Stable sensor recovery window",
       "module": "M11",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/recovery/test/t045-stable-window.test.ts",
@@ -2867,6 +2980,7 @@
       "title": "Provider completion cannot close incident",
       "module": "M11",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/recovery/test/t046-recovered-reachability.test.ts",
@@ -2884,6 +2998,7 @@
       "title": "CMMS signature and installed-part verification",
       "module": "M11",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/recovery/test/t047-cmms-adapter.test.ts",
@@ -2904,6 +3019,7 @@
       "title": "Repeat fault reopens closed incident",
       "module": "M11",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t045-t048-security-review-2.int.test.ts",
@@ -2921,6 +3037,7 @@
       "title": "Keyboard and screen-reader critical path",
       "module": "M12",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/web/e2e/t049-keyboard-critical-path.spec.ts"
@@ -2937,6 +3054,7 @@
       "title": "Responsive operations views",
       "module": "M12",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/web/e2e/t050-responsive.spec.ts"
@@ -2953,6 +3071,7 @@
       "title": "Honest stale, unknown, and unsupported states",
       "module": "M12",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/web/e2e/t051-honest-states.spec.ts",
@@ -2970,6 +3089,7 @@
       "title": "Chart table fallback and reduced motion",
       "module": "M12",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/web/e2e/t052-chart-fallback.spec.ts"
@@ -2986,6 +3106,7 @@
       "title": "Threat and adversarial corpus",
       "module": "M13",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/providers/test/t053-ssrf-corpus.test.ts",
@@ -3008,6 +3129,7 @@
       "title": "Load, rate, timeout, and cost bounds",
       "module": "M13",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/observability/test/t055-alerts-health-slo.test.ts",
@@ -3027,6 +3149,7 @@
       "title": "End-to-end trace correlation",
       "module": "M13",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "packages/observability/test/t055-alerts-health-slo.test.ts",
@@ -3047,6 +3170,7 @@
       "title": "Chaos restart and recovery",
       "module": "M13",
       "status": "PASS",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_APPLICABLE",
       "testRefs": [
         "apps/kite-broker/test/t056-chaos-boundaries.int.test.ts",
@@ -3066,11 +3190,20 @@
       "title": "Clean-environment deployment",
       "module": "M14",
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
-      "testRefs": [],
+      "testRefs": [
+        "apps/api/test/m14-ops-listener.test.ts",
+        "apps/api/test/t057-secret-wiring.test.ts",
+        "apps/kite-broker/test/t057-worker-runtime.int.test.ts",
+        "apps/worker/test/t057-scheduler-locks.int.test.ts",
+        "apps/worker/test/t057-scheduler.test.ts",
+        "tests/m14/t057-deployment-definitions.test.ts",
+        "tests/m14/t057-release-smoke.test.ts"
+      ],
       "codeRefs": [],
       "results": {
-        "passed": 0,
+        "passed": 52,
         "failed": 0
       }
     },
@@ -3080,11 +3213,15 @@
       "title": "Real-input recovery journey",
       "module": "M14",
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
-      "testRefs": [],
+      "testRefs": [
+        "apps/kite-broker/test/t058-journey-gate-db.int.test.ts",
+        "tests/m14/t058-journey-gate.test.ts"
+      ],
       "codeRefs": [],
       "results": {
-        "passed": 0,
+        "passed": 25,
         "failed": 0
       }
     },
@@ -3094,11 +3231,15 @@
       "title": "Submission artifact and claim evidence",
       "module": "M14",
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
-      "testRefs": [],
+      "testRefs": [
+        "tests/m14/t059-claim-check.test.ts",
+        "tests/m14/t059-coverage-layers.test.ts"
+      ],
       "codeRefs": [],
       "results": {
-        "passed": 0,
+        "passed": 12,
         "failed": 0
       }
     },
@@ -3108,11 +3249,15 @@
       "title": "Release authority and rollback gate",
       "module": "M14",
       "status": "NOT_RUN",
+      "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
-      "testRefs": [],
+      "testRefs": [
+        "tests/m14/t060-release-gates.test.ts",
+        "tests/m14/t060-restore-verification.int.test.ts"
+      ],
       "codeRefs": [],
       "results": {
-        "passed": 0,
+        "passed": 27,
         "failed": 0
       }
     }

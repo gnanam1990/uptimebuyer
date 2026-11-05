@@ -1,0 +1,5 @@
+{
+  "schema": "release-link-allowlist.v1",
+  "note": "External hosts the release drafts may link to. Checked offline for scheme, userinfo and host only; liveness of external links is NOT_RUN until the pre-submission revalidation (EVENT-NOTES).",
+  "hosts": [{ "host": "www.openserv.ai", "pathPrefix": "/hackathon-2", "status": "VERIFIED_OFFLINE" }]
+}

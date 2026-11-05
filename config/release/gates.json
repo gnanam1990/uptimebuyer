@@ -1,0 +1,63 @@
+{
+  "schema": "release-gates.v1",
+  "note": "Each external action is a separate gate (T-060, DELIVERY.md Gate F, EVENT-NOTES submission truth rules). A gate opens only for a signed authorization record of that exact gate whose scope matches the request exactly and whose preflight checks all passed. Opening a gate records a decision; the gate tooling never performs the action.",
+  "gates": {
+    "REPO_PUBLICATION": {
+      "action": "Push the repository to its remote and/or change its visibility.",
+      "scope": ["repository", "visibility", "sourceSha"],
+      "preflight": ["verify-green", "secret-scan-history", "license-reviewed", "claim-check", "clean-tree"],
+      "maxValidityHours": 24
+    },
+    "X_POST": {
+      "action": "Publish the X post from the approved draft.",
+      "scope": ["account", "contentSha256"],
+      "preflight": ["claim-check", "link-check", "secret-scan", "event-rules-revalidated"],
+      "maxValidityHours": 24
+    },
+    "VIDEO_UPLOAD": {
+      "action": "Upload the demo video.",
+      "scope": ["destination", "fileSha256"],
+      "preflight": ["claim-check", "subtitles-present", "no-secret-on-screen", "simulation-labels-visible"],
+      "maxValidityHours": 24
+    },
+    "RELEASE_TAG": {
+      "action": "Create a release or tag.",
+      "scope": ["tag", "sourceSha"],
+      "preflight": ["verify-green", "smoke-local", "backup-restore-verified", "rollback-exercised", "clean-tree"],
+      "maxValidityHours": 24
+    },
+    "PAYMENT": {
+      "action": "Execute one real bounded Kite-paid action through the broker.",
+      "scope": ["merchant", "amountMinor", "currency", "purpose", "environment"],
+      "capFields": ["amountMinor"],
+      "preflight": ["broker-isolation", "budget-bound", "reconciliation-ready", "kill-switch-ready"],
+      "maxValidityHours": 4
+    },
+    "HACKATHON_SUBMISSION": {
+      "action": "Submit the hackathon form.",
+      "scope": ["destination", "contentSha256", "sourceSha"],
+      "preflight": [
+        "claim-check",
+        "link-check",
+        "event-rules-revalidated",
+        "repository-public",
+        "video-uploaded",
+        "x-posted"
+      ],
+      "maxValidityHours": 24
+    },
+    "DEPLOY": {
+      "action": "Deploy the images to a hosted environment.",
+      "scope": ["environment", "sourceSha", "imageIds"],
+      "preflight": [
+        "verify-green",
+        "smoke-local",
+        "backup-taken",
+        "backup-restore-verified",
+        "rollback-exercised",
+        "migrations-forward-only"
+      ],
+      "maxValidityHours": 24
+    }
+  }
+}

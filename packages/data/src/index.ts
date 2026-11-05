@@ -88,4 +88,5 @@ export * from './erasure.js';
 export * from './tenant-scope.js';
 export * from './telemetry.js';
 export { assertTenantSecretRef, isTenantSecretRef } from './secret-ref.js';
+export { FileSecretStore, SecretFileError, readSecretFile } from './secret-files.js';
 export * from './operator-reads.js';

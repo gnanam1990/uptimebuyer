@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Signed HTTPS telemetry ingestion (ADR 0001 §4): device authentication, HMAC body signature and skew bound, bounded batches, per-device rate buckets, live-over-backfill scheduling and the freshness sweeper.",
+  "description": "Signed HTTPS telemetry ingestion (ADR 0001 \u00a74): device authentication, HMAC body signature and skew bound, bounded batches, per-device rate buckets, live-over-backfill scheduling and the freshness sweeper.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -11,9 +11,15 @@
     "@uptimebuyer/contracts": "workspace:*",
     "@uptimebuyer/data": "workspace:*",
     "@uptimebuyer/telemetry": "workspace:*",
-    "fastify": "5.12.7"
+    "fastify": "5.12.7",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
+    "@types/pg": "8.23.1",
     "@uptimebuyer/sensor-agent": "workspace:*"
+  },
+  "scripts": {
+    "start": "node --import ../../scripts/runtime/register-dist.mjs dist/main.js"
   }
 }
