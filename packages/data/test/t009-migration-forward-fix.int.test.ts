@@ -55,6 +55,7 @@ const M13_MIGRATIONS = [
   '0020_m13_data_lifecycle.sql',
   '0021_m13_separation_of_duties.sql',
   '0022_m13_policy_governance.sql',
+  '0023_m13_adjustment_separation.sql',
 ];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
