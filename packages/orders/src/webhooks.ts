@@ -16,9 +16,11 @@ import {
   completeJob,
   failJob,
   recordWebhookDelivery,
+  recordWebhookDeliveryInTx,
   resolveWebhookBinding,
   sha256Digest,
   tenantCommand,
+  withTransaction,
   type CredentialResolver,
   type Db,
 } from '@uptimebuyer/data';
@@ -172,70 +174,80 @@ export async function ingestFulfillmentWebhook(
   const ev = parseFulfillmentEvent(req.rawBody);
   if (!ev.ok) return reject('PAYLOAD_SCHEMA_INVALID');
   const e = ev.event;
-  const delivery = await recordWebhookDelivery(pool, binding, {
-    providerEventId: e.eventId,
-    signatureValid: true,
-    bodyDigest,
+  // M13 security review S8: the verified delivery and its job (or its terminal quarantine) commit in ONE transaction,
+  // so a crash leaves neither; concurrent identical deliveries serialize on the replay key and yield one job.
+  return withTransaction(pool, async (c): Promise<FulfillmentWebhookResult> => {
+    const delivery = await recordWebhookDeliveryInTx(c, binding, {
+      providerEventId: e.eventId,
+      signatureValid: true,
+      bodyDigest,
+    });
+    if (delivery.duplicate) {
+      // A delivery recorded by a release that wrote it without its job (a crash between two writes) is recovered by
+      // the provider's redelivery of the SAME body. A quarantined delivery is processed (terminal), an enqueued one
+      // has its job, and a different body reusing the event id never matches: all stay a no-effect DUPLICATE.
+      const orphan = await c.query(
+        `SELECT 1 FROM webhook_deliveries d
+          WHERE d.tenant_id = $1 AND d.id = $2 AND d.processed_at IS NULL AND d.body_digest = $3
+            AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.tenant_id = d.tenant_id AND j.dedupe_key = $4)
+          FOR UPDATE OF d`,
+        [binding.tenantId, delivery.deliveryId, bodyDigest, `fulfillment:${delivery.deliveryId}`],
+      );
+      if (orphan.rowCount !== 1)
+        return { status: 'DUPLICATE', deliveryId: delivery.deliveryId, providerEventId: e.eventId };
+    }
+    const kind: OrderKind = e.type === 'purchase_order.status' ? 'PURCHASE_ORDER' : 'SERVICE_JOB';
+    const { rows } = await c.query<{ id: string; provider_account_revision_id: string; provider_ref: string | null }>(
+      `SELECT id, provider_account_revision_id, provider_ref FROM ${KIND[kind].table}
+        WHERE tenant_id = $1 AND provider_account_id = $2 AND client_operation_id = $3`,
+      [binding.tenantId, binding.providerAccountId, e.clientOperationId],
+    );
+    const target = rows[0];
+    const quarantine = async (reasonCode: string): Promise<FulfillmentWebhookResult> => {
+      // Terminal: the delivery is marked processed, so no replay (and no orphan recovery) re-opens it.
+      await c.query(
+        `UPDATE webhook_deliveries SET processed_at = clock_timestamp()
+          WHERE tenant_id = $1 AND id = $2 AND processed_at IS NULL`,
+        [binding.tenantId, delivery.deliveryId],
+      );
+      await c.query(
+        `INSERT INTO audit_entries (tenant_id, id, actor_kind, actor_id, action, resource_type, resource_id, result, reason_code, correlation_id)
+         VALUES ($1, 'aud_' || gen_random_uuid(), 'WEBHOOK', $2, 'orders.fulfillment_webhook', 'webhook_delivery', $3, 'DENIED', $4,
+                 'corr_' || gen_random_uuid())`,
+        [binding.tenantId, binding.providerAccountId, delivery.deliveryId, reasonCode],
+      );
+      return { status: 'QUARANTINED', reasonCode, deliveryId: delivery.deliveryId };
+    };
+    if (!target) return quarantine('TARGET_NOT_FOUND');
+    if (target.provider_account_revision_id !== sig.revisionId) return quarantine('REVISION_MISMATCH');
+    if (e.providerRef && target.provider_ref && e.providerRef !== target.provider_ref)
+      return quarantine('PROVIDER_REF_MISMATCH');
+    const payload = {
+      deliveryId: delivery.deliveryId,
+      orderId: target.id,
+      revisionId: sig.revisionId,
+      eventId: e.eventId,
+      status: e.status,
+      observedAt: e.observedAt,
+      sequence: e.sequence ?? null,
+      providerRef: e.providerRef ?? null,
+      details: e.details ?? {},
+      rawBody: Buffer.from(req.rawBody).toString('base64'),
+      rawBodyDigest: bodyDigest,
+    };
+    await c.query(
+      `INSERT INTO jobs (tenant_id, id, kind, payload, dedupe_key, run_after, max_attempts)
+       VALUES ($1, $2, $3, $4, $5, clock_timestamp(), 5) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING`,
+      [
+        binding.tenantId,
+        `job_${randomUUID()}`,
+        FULFILLMENT_OBSERVATION_JOB,
+        canonicalize(payload),
+        `fulfillment:${delivery.deliveryId}`,
+      ],
+    );
+    return { status: 'ACCEPTED', deliveryId: delivery.deliveryId, providerEventId: e.eventId };
   });
-  if (delivery.duplicate) {
-    // M13 (T-056 callback boundary): the delivery record and its job are separate writes, so a process that died
-    // between them left a verified event that would otherwise be lost forever. The provider's redelivery of the SAME
-    // body re-enqueues it under the same dedupe key; an enqueued or processed delivery (or a different body reusing
-    // the event id) stays a no-effect DUPLICATE.
-    const orphan = await pool.query(
-      `SELECT 1 FROM webhook_deliveries d
-        WHERE d.tenant_id = $1 AND d.id = $2 AND d.processed_at IS NULL AND d.body_digest = $3
-          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.tenant_id = d.tenant_id AND j.dedupe_key = $4)`,
-      [binding.tenantId, delivery.deliveryId, bodyDigest, `fulfillment:${delivery.deliveryId}`],
-    );
-    if (orphan.rowCount !== 1)
-      return { status: 'DUPLICATE', deliveryId: delivery.deliveryId, providerEventId: e.eventId };
-  }
-  const kind: OrderKind = e.type === 'purchase_order.status' ? 'PURCHASE_ORDER' : 'SERVICE_JOB';
-  const { rows } = await pool.query<{ id: string; provider_account_revision_id: string; provider_ref: string | null }>(
-    `SELECT id, provider_account_revision_id, provider_ref FROM ${KIND[kind].table}
-      WHERE tenant_id = $1 AND provider_account_id = $2 AND client_operation_id = $3`,
-    [binding.tenantId, binding.providerAccountId, e.clientOperationId],
-  );
-  const target = rows[0];
-  const quarantine = async (reasonCode: string): Promise<FulfillmentWebhookResult> => {
-    await pool.query(
-      `INSERT INTO audit_entries (tenant_id, id, actor_kind, actor_id, action, resource_type, resource_id, result, reason_code, correlation_id)
-       VALUES ($1, 'aud_' || gen_random_uuid(), 'WEBHOOK', $2, 'orders.fulfillment_webhook', 'webhook_delivery', $3, 'DENIED', $4,
-               'corr_' || gen_random_uuid())`,
-      [binding.tenantId, binding.providerAccountId, delivery.deliveryId, reasonCode],
-    );
-    return { status: 'QUARANTINED', reasonCode, deliveryId: delivery.deliveryId };
-  };
-  if (!target) return quarantine('TARGET_NOT_FOUND');
-  if (target.provider_account_revision_id !== sig.revisionId) return quarantine('REVISION_MISMATCH');
-  if (e.providerRef && target.provider_ref && e.providerRef !== target.provider_ref)
-    return quarantine('PROVIDER_REF_MISMATCH');
-  const payload = {
-    deliveryId: delivery.deliveryId,
-    orderId: target.id,
-    revisionId: sig.revisionId,
-    eventId: e.eventId,
-    status: e.status,
-    observedAt: e.observedAt,
-    sequence: e.sequence ?? null,
-    providerRef: e.providerRef ?? null,
-    details: e.details ?? {},
-    rawBody: Buffer.from(req.rawBody).toString('base64'),
-    rawBodyDigest: bodyDigest,
-  };
-  await pool.query(
-    `INSERT INTO jobs (tenant_id, id, kind, payload, dedupe_key, run_after, max_attempts)
-     VALUES ($1, $2, $3, $4, $5, clock_timestamp(), 5) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING`,
-    [
-      binding.tenantId,
-      `job_${randomUUID()}`,
-      FULFILLMENT_OBSERVATION_JOB,
-      canonicalize(payload),
-      `fulfillment:${delivery.deliveryId}`,
-    ],
-  );
-  return { status: 'ACCEPTED', deliveryId: delivery.deliveryId, providerEventId: e.eventId };
 }
 
 /** Worker: apply queued verified webhook observations under the job's worker context (orders.engine). */
