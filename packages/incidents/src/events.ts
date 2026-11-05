@@ -109,7 +109,7 @@ export const IncidentReopenedPayloadSchema = z.strictObject({
   from: IncidentStateSchema,
   reasonCode: ReasonCodeSchema,
   reopenCount: z.int().min(1),
-  trigger: z.enum(['TELEMETRY_RULE', 'MANUAL_REPORT', 'OPERATOR_COMMAND']),
+  trigger: z.enum(['TELEMETRY_RULE', 'MANUAL_REPORT', 'OPERATOR_COMMAND', 'RECOVERY_ENGINE']),
   notification: NotificationTriggerSchema,
 });
 export const IncidentReopenedEventSchema = defineDomainEvent(

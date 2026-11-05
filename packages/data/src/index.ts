@@ -84,3 +84,4 @@ export * from './provider-accounts.js';
 export * from './privacy.js';
 export * from './tenant-scope.js';
 export * from './telemetry.js';
+export { assertTenantSecretRef, isTenantSecretRef } from './secret-ref.js';

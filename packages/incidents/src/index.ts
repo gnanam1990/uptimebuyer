@@ -39,6 +39,7 @@ export {
   pauseIncident,
   recordRiskEstimate,
   reopenIncident,
+  reopenRecoveredIncident,
   resumeIncident,
   returnFromEscalation,
   type ResumeRevalidator,
