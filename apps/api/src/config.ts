@@ -3,7 +3,13 @@
 // webhook verifier secrets are never read from the environment (they arrive through the deployment's secret channel).
 import { z } from 'zod';
 
-const Url = z.url().refine((u) => /^https?:\/\//.test(u), 'http(s) URL required');
+// Identity-provider endpoints must be https: the JWKS decides which keys authenticate humans and the token endpoint
+// receives authorization codes. Plain http is allowed only on loopback (local development and the test harness).
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const Url = z.url().refine((u) => {
+  const url = new URL(u);
+  return url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK.has(url.hostname));
+}, 'https URL required (http only on loopback)');
 export const ApiConfigSchema = z.object({
   DATABASE_URL: z.string().min(1),
   UB_API_HOST: z.string().default('127.0.0.1'),
