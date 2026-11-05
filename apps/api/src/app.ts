@@ -215,12 +215,32 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
     for (const [k, v] of Object.entries(headers)) void reply.header(k, v);
     const path = req.url.split('?')[0] ?? '';
     if (path.startsWith('/v1/')) void reply.header('cache-control', 'no-store');
-    // Backpressure: /v1 work beyond the bulkhead is shed explicitly (429 LOAD_SHED + Retry-After), never queued
-    // without bound. Health and public configuration are never shed.
-    if (path.startsWith('/v1/fulfillment-webhooks/')) req.ubRelease = await webhookBulkhead.acquire();
-    else if (path.startsWith('/v1/') && !PUBLIC_PATHS.has(path)) req.ubRelease = await bulkhead.acquire();
-    if (path.startsWith('/v1/') && !PUBLIC_PATHS.has(path) && !path.startsWith('/v1/fulfillment-webhooks/'))
+    const webhook = path.startsWith('/v1/fulfillment-webhooks/');
+    const operator = path.startsWith('/v1/') && !PUBLIC_PATHS.has(path) && !webhook;
+    // Authenticate first (bounded by the per-source failure bucket): anonymous traffic never holds operator capacity
+    // (M13 security review S7).
+    if (operator)
       req.ubCtx = await authenticate({ pool: opts.pool, verifier: opts.verifier, failures }, req, req.ubCorrelationId);
+    // Backpressure: /v1 work beyond the bulkhead is shed explicitly (429 LOAD_SHED + Retry-After), never queued
+    // without bound. Health and public configuration are never shed. The slot is tied to the response's lifetime:
+    // released once on close whatever the lifecycle path, a waiter whose client left is removed from the queue, and a
+    // slot granted to a request that is already gone is given back at once.
+    const bh = webhook ? webhookBulkhead : operator ? bulkhead : null;
+    if (bh) {
+      const gone = new AbortController();
+      const onClose = () => gone.abort();
+      reply.raw.once('close', onClose);
+      req.raw.once('close', () => {
+        if (!reply.raw.writableEnded) onClose();
+      });
+      const release = await bh.acquire(gone.signal);
+      if (gone.signal.aborted || req.raw.destroyed || reply.raw.destroyed) {
+        release();
+        return reply.hijack();
+      }
+      req.ubRelease = release;
+      reply.raw.once('close', release);
+    }
   });
 
   // A client that disconnects mid-request must not leak its bulkhead slot.

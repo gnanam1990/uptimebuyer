@@ -145,32 +145,56 @@ describe('T-055 readiness with visible degraded state (NFR-08)', () => {
 
 describe('T-054 API load shedding (NFR-04)', () => {
   it('admits exactly the declared concurrency + queue and sheds the next /v1 request with 429 LOAD_SHED', async () => {
+    // Slots are taken after authentication (security review S7), so authenticated requests whose route work is held
+    // open occupy them: the principal resolves, the incident listing waits on a gate.
     const gates: (() => void)[] = [];
-    const h = harness({
-      verify: () =>
-        new Promise<never>((_resolve, reject) => {
-          gates.push(() => reject(new Error('invalid token')));
-        }),
+    const answer = async (sql: string) => {
+      if (/FROM users/.test(sql))
+        return { rows: [{ id: 'usr_t054-0001', issuer: PUBLIC.oidc.issuer, status: 'ACTIVE' }], rowCount: 1 };
+      if (/tenant_memberships/.test(sql)) return { rows: [{ tenant_id: 'ten_t054-0001' }], rowCount: 1 };
+      if (/FROM tenants/.test(sql)) return { rows: [{ '?column?': 1 }], rowCount: 1 };
+      if (/role_assignments/.test(sql))
+        return { rows: [{ id: 'rla_t054-0001', role: 'viewer', site_id: null }], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    };
+    const pool = {
+      query: answer,
+      connect: async () => ({
+        query: (sql: string) =>
+          /incidents/.test(sql)
+            ? new Promise((resolve) => gates.push(() => resolve({ rows: [], rowCount: 0 })))
+            : Promise.resolve({ rows: [], rowCount: 0 }),
+        release() {},
+      }),
+    };
+    const metrics = new MetricsRegistry();
+    const app = await buildApiServer({
+      pool: pool as never,
+      verifier: { verify: async () => ({ issuer: PUBLIC.oidc.issuer, subject: 't054' }) } as never,
+      publicConfig: PUBLIC,
+      store: {} as never,
+      credentials: { resolveSigningKey: async () => null } as never,
+      observability: { metrics },
       limits: { maxConcurrentRequests: 1, maxQueuedRequests: 1, queueTimeoutMs: 5_000 },
     });
-    const app = await h.build();
     const bearer = { authorization: `Bearer ${['a'.repeat(20), 'b'.repeat(20), 'c'.repeat(20)].join('.')}` };
     const first = app.inject({ method: 'GET', url: '/v1/incidents', headers: bearer });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 30));
     const second = app.inject({ method: 'GET', url: '/v1/incidents', headers: bearer });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 30));
     const third = await app.inject({ method: 'GET', url: '/v1/incidents', headers: bearer });
     expect(third.statusCode).toBe(429);
     expect(third.json().error.reasonCode).toBe('LOAD_SHED');
     expect(Number(third.headers['retry-after'])).toBeGreaterThanOrEqual(1);
     // Health and public configuration are never shed.
     expect((await app.inject({ method: 'GET', url: '/health/live' })).statusCode).toBe(200);
-    gates.shift()!();
-    expect((await first).statusCode).toBe(401);
-    await new Promise((r) => setTimeout(r, 20));
-    gates.shift()!();
-    expect((await second).statusCode).toBe(401);
-    expect(h.metrics.value('ub_load_shed_total', { bound: 'api_requests' })).toBe(1);
+    while (gates.length === 0) await new Promise((r) => setTimeout(r, 5));
+    gates.splice(0).forEach((g) => g());
+    expect((await first).statusCode).not.toBe(429);
+    for (let i = 0; i < 100 && gates.length === 0; i++) await new Promise((r) => setTimeout(r, 5));
+    gates.splice(0).forEach((g) => g());
+    expect((await second).statusCode).not.toBe(429);
+    expect(metrics.value('ub_load_shed_total', { bound: 'api_requests' })).toBe(1);
     await app.close();
   });
 });

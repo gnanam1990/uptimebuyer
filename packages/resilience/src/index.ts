@@ -62,8 +62,12 @@ export class Bulkhead {
     return { active: this.active, queued: this.queue.length };
   }
 
-  /** Acquire a slot (waiting in the bounded queue at most queueTimeoutMs); returns the release function. */
-  acquire(): Promise<() => void> {
+  /**
+   * Acquire a slot (waiting in the bounded queue at most queueTimeoutMs); returns an idempotent release function. An
+   * aborted `signal` (the caller went away) removes a queued waiter and rejects it, so it never takes a slot.
+   */
+  acquire(signal?: AbortSignal): Promise<() => void> {
+    if (signal?.aborted) return Promise.reject(shed('LOAD_SHED', this.opts.name, this.opts.queueTimeoutMs));
     const release = () => {
       let done = false;
       return () => {
@@ -100,6 +104,17 @@ export class Bulkhead {
       };
       entry.timer.unref?.();
       this.queue.push(entry);
+      signal?.addEventListener(
+        'abort',
+        () => {
+          const i = this.queue.indexOf(entry);
+          if (i < 0) return;
+          this.queue.splice(i, 1);
+          clearTimeout(entry.timer);
+          reject(shed('LOAD_SHED', this.opts.name, this.opts.queueTimeoutMs));
+        },
+        { once: true },
+      );
     });
   }
 
