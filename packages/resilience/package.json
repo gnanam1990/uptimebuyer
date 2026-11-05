@@ -1,0 +1,13 @@
+{
+  "name": "@uptimebuyer/resilience",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Explicit resource bounds with backpressure (M13, NFR-04): token-bucket rate limits, concurrency bulkheads that shed load explicitly, deadlines, retry decisions that refuse autonomous retry of an external effect without a reconciliation key (INV-08), and model token/cost budgets.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*"
+  }
+}

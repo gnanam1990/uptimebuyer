@@ -59,6 +59,9 @@ importers:
       '@uptimebuyer/incidents':
         specifier: workspace:*
         version: link:../../packages/incidents
+      '@uptimebuyer/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@uptimebuyer/orders':
         specifier: workspace:*
         version: link:../../packages/orders
@@ -71,6 +74,9 @@ importers:
       '@uptimebuyer/recovery':
         specifier: workspace:*
         version: link:../../packages/recovery
+      '@uptimebuyer/resilience':
+        specifier: workspace:*
+        version: link:../../packages/resilience
       '@uptimebuyer/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
@@ -130,6 +136,12 @@ importers:
       '@uptimebuyer/incidents':
         specifier: workspace:*
         version: link:../../packages/incidents
+      '@uptimebuyer/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@uptimebuyer/operations':
+        specifier: workspace:*
+        version: link:../../packages/operations
       '@uptimebuyer/orders':
         specifier: workspace:*
         version: link:../../packages/orders
@@ -142,6 +154,9 @@ importers:
       '@uptimebuyer/recovery':
         specifier: workspace:*
         version: link:../../packages/recovery
+      '@uptimebuyer/resilience':
+        specifier: workspace:*
+        version: link:../../packages/resilience
       '@uptimebuyer/sensor-gateway':
         specifier: workspace:*
         version: link:../sensor-gateway
@@ -330,6 +345,9 @@ importers:
       '@uptimebuyer/domain':
         specifier: workspace:*
         version: link:../domain
+      '@uptimebuyer/resilience':
+        specifier: workspace:*
+        version: link:../resilience
       pg:
         specifier: 8.23.1
         version: 8.23.1
@@ -386,6 +404,34 @@ importers:
       zod:
         specifier: 4.6.7
         version: 4.6.7
+
+  packages/observability:
+    dependencies:
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+
+  packages/operations:
+    dependencies:
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@uptimebuyer/data':
+        specifier: workspace:*
+        version: link:../data
+      '@uptimebuyer/observability':
+        specifier: workspace:*
+        version: link:../observability
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
 
   packages/orders:
     dependencies:
@@ -528,6 +574,12 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+
+  packages/resilience:
+    dependencies:
+      '@uptimebuyer/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/telemetry:
     dependencies:
