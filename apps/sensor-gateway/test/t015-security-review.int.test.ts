@@ -25,7 +25,10 @@ describe('T-015 security review: evaluation time cannot be rewound', () => {
   });
 
   it('a past "now" does not render stale data FRESH, and the sweeper cannot persist FRESH from a past time', async () => {
-    const t = w.clock.set(Date.now());
+    // Anchor "now" at the later of the host and database clocks: the channel revision is stamped by the database
+    // clock, and a container clock running ahead of the host would otherwise make a t-5ms sample predate it.
+    const dbNow = await w.db.admin(`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS t`);
+    const t = w.clock.set(Math.ceil(Math.max(Date.now(), Number(dbNow.rows[0].t))));
     const r = await post(w, dev, [message(1, t - 5, [temp(dev.channels.temp!, 3800)])]);
     expect(r.body.results).toEqual([expect.objectContaining({ status: 'ACCEPTED' })]);
     await sleep(policy.staleAfterMs + 150);
