@@ -153,3 +153,67 @@ describe('M14 security review R6: no database URL on argv', () => {
     expect(r.stdout + r.stderr).not.toContain('secretpw');
   });
 });
+
+const smoke = await import(path.join(repoRoot, 'scripts', 'release', 'smoke.mjs'));
+
+describe('M14 security review R7: an interrupted smoke run still cleans up', () => {
+  it('interruptCleanup removes the compose project (with volumes) and the work directory holding throwaway keys', async () => {
+    const calls: string[][] = [];
+    const removed: string[] = [];
+    const plan = smoke.planSmoke({ repo: repoRoot, workRoot: path.join(tmpdir(), 'ub-m14-r7'), seed: 7 });
+    await smoke.interruptCleanup(plan, {
+      exec: async (cmd: string, args: string[]) => {
+        calls.push([cmd, ...args]);
+        return { stdout: '', stderr: '' };
+      },
+      removeDir: async (d: string) => void removed.push(d),
+    });
+    expect(calls.find((c) => c.includes('down'))).toEqual(expect.arrayContaining(['-p', plan.project, 'down', '-v']));
+    expect(removed).toEqual([plan.workDir]);
+  });
+});
+
+describe('M14 security review R8: the payment cap comes from the authorization, not the manifest', () => {
+  it('authorizationVerifies checks the requested payment against the signed scope', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ub-m14-r8-'));
+    try {
+      cpSync(path.join(repoRoot, 'config'), path.join(root, 'config'), { recursive: true });
+      mkdirSync(path.join(root, 'evidence', 'authorizations'), { recursive: true });
+      writeFileSync(
+        path.join(root, 'config', 'release', 'authorizers.json'),
+        JSON.stringify({ schema: 'release-authorizers.v1', authorizers }),
+      );
+      const pay = rg.signAuthorization(
+        {
+          schema: 'release-authorization.v1',
+          gate: 'PAYMENT',
+          authorizationId: 'auth-pay-1',
+          authorizedBy: 'repository-owner',
+          authorizedAt: '2026-11-12T11:00:00.000Z',
+          expiresAt: '2026-11-12T13:00:00.000Z',
+          statement: 'Authorize one PAYMENT with exactly this scope.',
+          scope: { merchant: 'm-1', amountMinor: 1000, currency: 'USD', purpose: 'diagnostic', environment: 'pilot' },
+        },
+        keys.privateKey,
+        'owner-k1',
+      );
+      writeFileSync(path.join(root, 'evidence', 'authorizations', 'PAYMENT.auth-pay-1.json'), JSON.stringify(pay));
+      const now = new Date('2026-11-12T12:00:00.000Z');
+      const within = {
+        merchant: 'm-1',
+        amountMinor: 900,
+        currency: 'USD',
+        purpose: 'diagnostic',
+        environment: 'pilot',
+      };
+      expect(rg.authorizationVerifies(root, 'PAYMENT', 'auth-pay-1', now, within)).toBe(true);
+      expect(rg.authorizationVerifies(root, 'PAYMENT', 'auth-pay-1', now, { ...within, amountMinor: 1500 })).toBe(
+        false,
+      );
+      expect(rg.authorizationVerifies(root, 'PAYMENT', 'auth-pay-1', now, { ...within, merchant: 'm-2' })).toBe(false);
+      expect(rg.authorizationVerifies(root, 'PAYMENT', 'auth-pay-1', now)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
