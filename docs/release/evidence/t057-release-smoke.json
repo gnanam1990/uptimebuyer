@@ -1,0 +1,247 @@
+{
+  "schema": "release-smoke.v1",
+  "test": "T-057",
+  "layer": "LOCAL_COMPOSE",
+  "hostedDeployment": "NOT_RUN",
+  "project": "ubsmokelm2x8y",
+  "ports": {
+    "api": 32102,
+    "gateway": 28144
+  },
+  "startedAt": "2026-11-05T08:22:14.774Z",
+  "finishedAt": "2026-11-05T08:25:39.391Z",
+  "result": "PASS",
+  "build": {
+    "gitSha": "b6b667709d11cbc3abaa8abfb6919b0c0306ac91",
+    "imageIds": {
+      "migrate": "sha256:21d9fb6aad933a16e0a3a046a2c8bcb958393de70c927a8c36060c94fca1b0d0",
+      "api": "sha256:40db365e7f7d3bf81abcbdf70c88cde72fc870bc7f344e47981403753e8cbb75",
+      "worker": "sha256:2ebe7ce2f8461161a8d2d7629efb8557223a7a0c3878018d7821266b3c5870ce",
+      "kite-broker": "sha256:0c289b727e171a2c21e8653d8892db0021ce2a50e194c7d9a5833853a6f2738d",
+      "sensor-gateway": "sha256:409276da03ce2ad5be196894255a2695fedde252edfd70f58f9e00bf84a8ad9c"
+    }
+  },
+  "previous": {
+    "gitSha": "fc611a9c8426a7a172f91894c676ac519df92457",
+    "imageIds": {
+      "api": "sha256:40fd5d51efb570a1b1faa3f13ae71d70034f5e13dc4e17690026f9e6d70dc6a1",
+      "worker": "sha256:53e9968619200b2af38f6aa91872d4c7a42c2882a8f33794aaad31c8148eefbf",
+      "sensor-gateway": "sha256:eb3660b3c67a54ea7790b5556fa277fae5423d66fe49f0882d34d3edb2ea4535"
+    }
+  },
+  "steps": [
+    {
+      "name": "clone",
+      "status": "PASS",
+      "durationMs": 288,
+      "detail": {
+        "sha": "b6b667709d11cbc3abaa8abfb6919b0c0306ac91",
+        "sourceTreeDirty": true,
+        "note": "the clone contains committed files only"
+      }
+    },
+    {
+      "name": "secrets",
+      "status": "PASS",
+      "durationMs": 3,
+      "detail": {
+        "files": 7,
+        "adapter": "NONE",
+        "note": "throwaway values in the work directory only; Kite credential: none"
+      }
+    },
+    {
+      "name": "build",
+      "status": "PASS",
+      "durationMs": 58915,
+      "detail": {
+        "targets": [
+          "migrate",
+          "api",
+          "worker",
+          "kite-broker",
+          "sensor-gateway"
+        ]
+      }
+    },
+    {
+      "name": "identify",
+      "status": "PASS",
+      "durationMs": 131,
+      "detail": {
+        "gitSha": "b6b667709d11cbc3abaa8abfb6919b0c0306ac91",
+        "imageIds": {
+          "migrate": "sha256:21d9fb6aad933a16e0a3a046a2c8bcb958393de70c927a8c36060c94fca1b0d0",
+          "api": "sha256:40db365e7f7d3bf81abcbdf70c88cde72fc870bc7f344e47981403753e8cbb75",
+          "worker": "sha256:2ebe7ce2f8461161a8d2d7629efb8557223a7a0c3878018d7821266b3c5870ce",
+          "kite-broker": "sha256:0c289b727e171a2c21e8653d8892db0021ce2a50e194c7d9a5833853a6f2738d",
+          "sensor-gateway": "sha256:409276da03ce2ad5be196894255a2695fedde252edfd70f58f9e00bf84a8ad9c"
+        }
+      }
+    },
+    {
+      "name": "migrate",
+      "status": "PASS",
+      "durationMs": 6739,
+      "detail": {
+        "applied": 24,
+        "first": "0000_bootstrap.sql",
+        "last": "0023_m13_adjustment_separation.sql"
+      }
+    },
+    {
+      "name": "provision",
+      "status": "PASS",
+      "durationMs": 450,
+      "detail": {
+        "tenant": "provisioned",
+        "label": "synthetic"
+      }
+    },
+    {
+      "name": "up",
+      "status": "PASS",
+      "durationMs": 12901,
+      "detail": {
+        "api": "healthy",
+        "kite-broker": "healthy",
+        "postgres": "healthy",
+        "sensor-gateway": "healthy",
+        "test-idp": "running",
+        "worker": "healthy"
+      }
+    },
+    {
+      "name": "health",
+      "status": "PASS",
+      "durationMs": 23,
+      "detail": {
+        "api": 200,
+        "gateway": 200
+      }
+    },
+    {
+      "name": "readiness",
+      "status": "PASS",
+      "durationMs": 148,
+      "detail": {
+        "api": "ready",
+        "gateway": "ready",
+        "worker": "ready"
+      }
+    },
+    {
+      "name": "authenticated-api",
+      "status": "PASS",
+      "durationMs": 36,
+      "detail": {
+        "session": 200,
+        "roles": [
+          "admin"
+        ],
+        "withoutToken": 401,
+        "forgedToken": 401
+      }
+    },
+    {
+      "name": "web",
+      "status": "PASS",
+      "durationMs": 8,
+      "detail": {
+        "status": 200,
+        "csp": true,
+        "asset": 200
+      }
+    },
+    {
+      "name": "worker-ticks",
+      "status": "PASS",
+      "durationMs": 95,
+      "detail": {
+        "runners": 14,
+        "allTickedOk": true,
+        "names": [
+          "outbox.publish",
+          "jobs.fulfillment_observation",
+          "jobs.webhook_apply",
+          "jobs.plan_revalidation",
+          "jobs.contact_dispatch",
+          "tenants.contact_sweep",
+          "tenants.fulfillment_poll",
+          "tenants.cmms_writes",
+          "tenants.recovery_monitor",
+          "tenants.deadline_expiry",
+          "tenants.policy_activation",
+          "platform.retention_sweep",
+          "platform.token_prune",
+          "platform.signals"
+        ]
+      }
+    },
+    {
+      "name": "broker",
+      "status": "PASS",
+      "durationMs": 6092,
+      "detail": {
+        "liveOverSocketFromApi": 200,
+        "adapter": "NONE",
+        "paidEgressNetworkOnlyBroker": true
+      }
+    },
+    {
+      "name": "backup-restore",
+      "status": "PASS",
+      "durationMs": 2908,
+      "detail": {
+        "dumpBytes": 986704,
+        "dumpSha256": "702530d5c6539273ca3488e9dad2571b75dacc1794a1e45a9f737774a590bf69",
+        "tables": 124,
+        "migrations": 24,
+        "snapshotsEqual": true,
+        "migrationFindings": 0,
+        "migrateOnRestoreApplied": 0
+      }
+    },
+    {
+      "name": "rollback",
+      "status": "PASS",
+      "durationMs": 114490,
+      "detail": {
+        "previousRef": "fc611a9",
+        "previousSha": "fc611a9c8426a7a172f91894c676ac519df92457",
+        "distinctFromCandidate": {
+          "api": true,
+          "worker": true,
+          "sensor-gateway": true
+        },
+        "rolledBack": {
+          "apiImage": "sha256:40fd5d51efb570a1b1faa3f13ae71d70034f5e13dc4e17690026f9e6d70dc6a1",
+          "readiness": {
+            "api": "ready",
+            "gateway": "ready",
+            "worker": "ready"
+          },
+          "session": 200
+        },
+        "rolledForward": {
+          "apiImage": "sha256:40db365e7f7d3bf81abcbdf70c88cde72fc870bc7f344e47981403753e8cbb75",
+          "readiness": {
+            "api": "ready",
+            "gateway": "ready",
+            "worker": "ready"
+          },
+          "session": 200
+        }
+      }
+    },
+    {
+      "name": "teardown",
+      "status": "PASS",
+      "durationMs": 1387,
+      "detail": {
+        "composeDown": true,
+        "workDirRemoved": true
+      }
+    }
+  ]
+}
