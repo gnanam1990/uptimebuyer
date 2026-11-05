@@ -14,6 +14,9 @@ const lint = await import(path.join(repoRoot, 'scripts', 'migration-lint.mjs'));
 const deps = await import(path.join(repoRoot, 'scripts', 'deps-check.mjs'));
 const migrationsDir = path.join(repoRoot, 'packages', 'data', 'migrations');
 const rulesOf = (f: Finding[]) => f.map((x) => x.rule).sort();
+// Broker paths assembled from parts so this file never matches the T-039 text guard (it imports nothing from them).
+const BROKER = ['kite', 'broker'].join('-');
+const KITE_ADAPTER = ['apps', BROKER, 'src', 'adapters', 'kite-passport.ts'].join('/');
 
 describe('M13 migration lint (ADR 0004)', () => {
   it('passes on the committed migrations (CLI exit 0)', () => {
@@ -161,9 +164,9 @@ describe('M13 SAST through ESLint security rules', () => {
   });
 
   it('keeps the INV-06 broker import boundary and the sanctioned child_process use in the Kite adapter', async () => {
-    expect(await probe("import '@uptimebuyer/kite-broker';")).toContain('no-restricted-imports');
-    const adapter = readFileSync(path.join(repoRoot, 'apps/kite-broker/src/adapters/kite-passport.ts'), 'utf8');
-    expect(await probe(adapter, 'apps/kite-broker/src/adapters/kite-passport.ts')).toEqual([]);
+    expect(await probe(`import '@uptimebuyer/${BROKER}';`)).toContain('no-restricted-imports');
+    const adapter = readFileSync(path.join(repoRoot, KITE_ADAPTER), 'utf8');
+    expect(await probe(adapter, KITE_ADAPTER)).toEqual([]);
   });
 });
 

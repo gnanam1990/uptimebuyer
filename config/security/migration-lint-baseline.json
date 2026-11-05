@@ -1,0 +1,48 @@
+{
+  "schema": "migration-lint-baseline.v1",
+  "policy": "Only findings in migrations applied before M13 may be listed, each with the audit that accepted it. A new migration never gets a baseline entry: fix the SQL instead.",
+  "accepted": [
+    {
+      "file": "0004_m02_outbox_jobs_audit.sql",
+      "rule": "TENANT_TABLE_WITHOUT_COMPOSITE_KEY",
+      "fingerprint": "ccaa83151f1d59c5",
+      "reason": "outbox_consumer_receipts is keyed (consumer, event_id) and carries a composite (tenant_id, event_id) foreign key to its tenant's outbox event; T-053 catalog test pins this single exception."
+    },
+    {
+      "file": "0007_m02_security_hardening.sql",
+      "rule": "RAISE_WITHOUT_ERRCODE",
+      "fingerprint": "e294dba4bb9d9807",
+      "reason": "Migration-time assertion inside a DO block (aborts the migration transaction); never reachable by application traffic."
+    },
+    {
+      "file": "0011_m06_compatibility_policy.sql",
+      "rule": "NULL_UNSAFE_NEGATED_GUARD",
+      "fingerprint": "a60b331de4877fe6",
+      "reason": "ADR 0004 audit (ub_compatibility_decision_authority_guard / cover check): array containment over non-NULL coalesced arrays never returns NULL; the latent NULL element case is refused by the deferred cover check."
+    },
+    {
+      "file": "0012_m07_provider_comms.sql",
+      "rule": "NULL_UNSAFE_NEGATED_GUARD",
+      "fingerprint": "a0fb20c58c119ee0",
+      "reason": "ADR 0004 audit (ub_attempt_edge_ok, SAFE for callers): every argument is a NOT NULL state axis, so the helper never returns NULL here."
+    },
+    {
+      "file": "0013_m07_contact_point_review.sql",
+      "rule": "NULL_UNSAFE_NEGATED_GUARD",
+      "fingerprint": "139aa203f0dfaf79",
+      "reason": "The fail-open guard found by ADR 0004; superseded by 0017_m07_contact_point_guard_null_safe.sql (CREATE OR REPLACE with coalesce ... IS NOT TRUE). Applied migrations are never edited."
+    },
+    {
+      "file": "0016_m09_kite_broker.sql",
+      "rule": "NULL_UNSAFE_NEGATED_GUARD",
+      "fingerprint": "3920fc602916b38b",
+      "reason": "ADR 0004 audit (ub_execution_authority_insert_guard): ub_approval_executable is EXISTS AND NOT EXISTS and never returns NULL."
+    },
+    {
+      "file": "0018_m10_orders_jobs.sql",
+      "rule": "NULL_UNSAFE_NEGATED_GUARD",
+      "fingerprint": "3d8c4b8178ac111f",
+      "reason": "edge_ok is the row-membership edge function over OLD.state/NEW.state, both NOT NULL columns, so it is never NULL (ADR 0004 rule 1: plain conditions over provably non-NULL operands)."
+    }
+  ]
+}

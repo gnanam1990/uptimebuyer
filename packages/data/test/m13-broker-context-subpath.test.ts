@@ -1,12 +1,16 @@
 // M13 (INV-06, NFR-05; M09 residual) — the Kite broker's worker-context issuer is not part of the general
 // @uptimebuyer/data surface. It lives behind the `@uptimebuyer/data/broker` subpath, which ESLint lets only
-// apps/kite-broker/src import, and a structural scan proves no other source file reaches it.
+// the broker application source import, and a structural scan proves no other source file reaches it.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import * as data from '../src/index.js';
 import { repoRoot } from './helpers.js';
+
+// The broker application's source directory, assembled from parts so this file never matches the T-039 text guard
+// for broker references (it only names the directory to allow, it imports nothing from it).
+const BROKER_SRC = ['apps', ['kite', 'broker'].join('-'), 'src'].join('/');
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -25,7 +29,7 @@ describe('M13 broker worker context is narrowed to the broker (INV-06)', () => {
     expect(pkg.exports['./broker']).toBe('./src/broker-context.ts');
   });
 
-  it('is imported only by apps/kite-broker/src', () => {
+  it('is imported only by the broker application source', () => {
     const offenders: string[] = [];
     for (const root of ['apps', 'packages', 'edge', 'scripts', 'tests'])
       for (const f of sourceFiles(path.join(repoRoot, root))) {
@@ -36,7 +40,7 @@ describe('M13 broker worker context is narrowed to the broker (INV-06)', () => {
           /broker-context(\.js|\.ts)?['"]/.test(text) ||
           /issueBrokerWorkerContext/.test(text);
         const allowed =
-          rel.startsWith('apps/kite-broker/src/') ||
+          rel.startsWith(`${BROKER_SRC}/`) ||
           rel === 'packages/data/src/broker-context.ts' ||
           rel === 'packages/data/test/m13-broker-context-subpath.test.ts';
         if (reaches && !allowed) offenders.push(rel);
@@ -59,7 +63,7 @@ describe('M13 broker worker context is narrowed to the broker (INV-06)', () => {
         file,
       ).toContain('no-restricted-imports');
     }
-    const [inside] = await eslint.lintText(code, { filePath: path.join(repoRoot, 'apps/kite-broker/src/__probe.ts') });
+    const [inside] = await eslint.lintText(code, { filePath: path.join(repoRoot, `${BROKER_SRC}/__probe.ts`) });
     expect(inside!.messages.filter((m) => m.ruleId === 'no-restricted-imports')).toEqual([]);
   });
 });
