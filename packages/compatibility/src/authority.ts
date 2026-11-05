@@ -204,10 +204,19 @@ export async function recordAuthority(
       });
 
     // TOCTOU: the held tuple must still be the current one while this transaction holds the decision row.
-    const ca = await c.query<{ asset_id: string }>(
-      `SELECT asset_id FROM candidate_actions WHERE tenant_id = $1 AND id = $2`,
+    const ca = await c.query<{ asset_id: string; created_by_kind: string; created_by_id: string }>(
+      `SELECT asset_id, created_by_kind, created_by_id FROM candidate_actions WHERE tenant_id = $1 AND id = $2`,
       [ctx.tenantId, d.candidate_action_id],
     );
+    // M13 separation of duties (INV-15, M06 residual): the person who registered the candidate never authorizes its
+    // exception or override; a second named person must.
+    if (ca.rows[0]!.created_by_kind === 'HUMAN' && ca.rows[0]!.created_by_id === actorUserId)
+      throw new Denial(notPermitted('SELF_APPROVAL_DENIED'), {
+        action,
+        resourceType: 'compatibility_decision',
+        resourceId: d.id,
+        reasonCode: 'SELF_APPROVAL_DENIED',
+      });
     const evr = await latestEvidenceRevision(c, ctx.tenantId, d.incident_id);
     if (
       evr?.id !== d.evidence_revision_id ||

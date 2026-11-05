@@ -1,0 +1,3120 @@
+{
+  "schema": "coverage-report.v1",
+  "generatedFrom": {
+    "commit": "916f305",
+    "resultFiles": 3,
+    "testFilesWithResults": 166
+  },
+  "statusVocabulary": [
+    "PASS",
+    "FAIL",
+    "NOT_RUN",
+    "UNKNOWN",
+    "UNSUPPORTED"
+  ],
+  "truth": "Local automated evidence only. PASS means the mapped tests passed on this commit against local fakes, recorded contracts, simulated sensors and a throwaway database; externalEvidence NOT_RUN marks every claim that still needs real-world proof.",
+  "counts": {
+    "PASS": 104,
+    "FAIL": 0,
+    "NOT_RUN": 8,
+    "UNKNOWN": 0,
+    "UNSUPPORTED": 0
+  },
+  "entries": [
+    {
+      "id": "FR-01",
+      "kind": "FR",
+      "title": "Tenant, site, and asset registry",
+      "modules": [
+        "M02",
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/registry-core.ts",
+        "packages/data/src/registry.ts",
+        "packages/data/migrations/0002_m02_registry_assets_devices.sql"
+      ],
+      "testRefs": [
+        "packages/data/test/t009-migration-forward-fix.int.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "FR-02",
+      "kind": "FR",
+      "title": "Telemetry ingestion and freshness",
+      "modules": [
+        "M03"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/data/src/registry.ts",
+        "packages/data/src/telemetry.ts",
+        "apps/sensor-gateway/src/sweeper.ts",
+        "packages/data/migrations/0008_m03_telemetry.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "apps/sensor-gateway/test/t013-authenticated-acceptance.int.test.ts",
+        "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts",
+        "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts",
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts"
+      ],
+      "governingTests": [
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016"
+      ]
+    },
+    {
+      "id": "FR-03",
+      "kind": "FR",
+      "title": "Incident creation and deduplication",
+      "modules": [
+        "M04"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/incidents/src/engine.ts",
+        "packages/incidents/src/rules.ts",
+        "packages/data/migrations/0009_m04_incidents.sql"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t017-threshold-incident.int.test.ts",
+        "packages/incidents/test/t018-concurrent-dedupe.int.test.ts",
+        "packages/incidents/test/t020-manual-report.int.test.ts"
+      ],
+      "governingTests": [
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020"
+      ]
+    },
+    {
+      "id": "FR-04",
+      "kind": "FR",
+      "title": "Evidence-based incident triage",
+      "modules": [
+        "M04",
+        "M05"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/incidents/src/commands.ts",
+        "packages/incidents/src/deadline.ts",
+        "packages/incidents/src/engine.ts",
+        "packages/data/migrations/0009_m04_incidents.sql"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t017-threshold-incident.int.test.ts",
+        "packages/incidents/test/t019-lifecycle-concurrency.int.test.ts",
+        "packages/incidents/test/t019-recovery-guard.int.test.ts",
+        "packages/incidents/test/t020-manual-report.int.test.ts"
+      ],
+      "governingTests": [
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024"
+      ]
+    },
+    {
+      "id": "FR-05",
+      "kind": "FR",
+      "title": "Manual, BOM, and history retrieval",
+      "modules": [
+        "M05"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/evidence/src/documents.ts",
+        "packages/evidence/src/parse.ts",
+        "packages/evidence/src/reasoning/run.ts",
+        "packages/evidence/src/retrieval.ts",
+        "packages/evidence/src/revisions.ts",
+        "packages/data/migrations/0010_m05_evidence_reasoning.sql"
+      ],
+      "testRefs": [
+        "packages/evidence/test/t021-citation-provenance.int.test.ts",
+        "packages/evidence/test/t022-conflicting-evidence.int.test.ts",
+        "packages/evidence/test/t024-revision-invalidation.int.test.ts"
+      ],
+      "governingTests": [
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024"
+      ]
+    },
+    {
+      "id": "FR-06",
+      "kind": "FR",
+      "title": "Deterministic compatibility decision",
+      "modules": [
+        "M06"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/compatibility/src/decisions.ts",
+        "packages/domain/src/compatibility/evaluate.ts",
+        "packages/domain/src/compatibility/index.ts",
+        "packages/domain/src/compatibility/input.ts",
+        "packages/domain/src/compatibility/policy.ts",
+        "packages/data/migrations/0011_m06_compatibility_policy.sql"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t025-exact-part-allow.int.test.ts",
+        "packages/compatibility/test/t026-ambiguous-hold.int.test.ts",
+        "packages/domain/test/t025-exact-part-allow.test.ts",
+        "packages/domain/test/t026-ambiguous-hold.test.ts"
+      ],
+      "governingTests": [
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028"
+      ]
+    },
+    {
+      "id": "FR-07",
+      "kind": "FR",
+      "title": "Provider and catalog discovery",
+      "modules": [
+        "M07"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/providers/src/normalize.ts",
+        "packages/providers/src/search.ts",
+        "packages/data/migrations/0012_m07_provider_comms.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/providers/test/t029-adapter-contract.int.test.ts"
+      ],
+      "governingTests": [
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032"
+      ]
+    },
+    {
+      "id": "FR-08",
+      "kind": "FR",
+      "title": "Quote and contact orchestration",
+      "modules": [
+        "M07"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/providers/src/broker.ts",
+        "packages/providers/src/communications.ts",
+        "packages/providers/src/contacts.ts",
+        "packages/providers/src/quotes.ts",
+        "packages/data/migrations/0012_m07_provider_comms.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/providers/test/t029-adapter-contract.int.test.ts",
+        "packages/providers/test/t030-idempotent-contact.int.test.ts",
+        "packages/providers/test/t031-transcript-consent.int.test.ts"
+      ],
+      "governingTests": [
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032"
+      ]
+    },
+    {
+      "id": "FR-09",
+      "kind": "FR",
+      "title": "Cost-to-recovery planning",
+      "modules": [
+        "M08"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/authz.ts",
+        "packages/domain/src/planning/cost.ts",
+        "packages/domain/src/planning/index.ts",
+        "packages/domain/src/planning/plan.ts",
+        "packages/planning/src/assemble.ts",
+        "packages/planning/src/plans.ts",
+        "packages/planning/src/risk.ts",
+        "packages/providers/src/quotes.ts",
+        "packages/data/migrations/0014_m08_planning.sql"
+      ],
+      "testRefs": [
+        "packages/domain/test/t033-cost-formula.test.ts",
+        "packages/planning/test/t033-plan-exposure.int.test.ts"
+      ],
+      "governingTests": [
+        "T-033",
+        "T-034",
+        "T-035",
+        "T-036"
+      ]
+    },
+    {
+      "id": "FR-10",
+      "kind": "FR",
+      "title": "Approval and escalation policy",
+      "modules": [
+        "M06",
+        "M09"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/approvals.ts",
+        "packages/compatibility/src/decisions.ts",
+        "packages/data/src/approvals.ts",
+        "packages/data/src/authz.ts",
+        "packages/domain/src/compatibility/evaluate.ts",
+        "packages/domain/src/compatibility/index.ts",
+        "packages/domain/src/compatibility/policy.ts",
+        "packages/data/migrations/0011_m06_compatibility_policy.sql",
+        "packages/data/migrations/0016_m09_kite_broker.sql"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t027-named-engineer.int.test.ts",
+        "packages/data/test/t011-role-authority-denial.int.test.ts",
+        "packages/domain/test/t027-named-engineer.test.ts"
+      ],
+      "governingTests": [
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040"
+      ]
+    },
+    {
+      "id": "FR-11",
+      "kind": "FR",
+      "title": "Bounded Kite spending session",
+      "modules": [
+        "M09"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/commerce/src/approvals.ts",
+        "packages/commerce/src/authorities.ts",
+        "packages/contracts/src/api.ts",
+        "apps/api/src/routes/evidence.ts",
+        "apps/kite-broker/src/broker.ts",
+        "apps/web/src/views/incident/PlanTab.tsx",
+        "packages/data/migrations/0016_m09_kite_broker.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "apps/web/e2e/t049-keyboard-critical-path.spec.ts"
+      ],
+      "governingTests": [
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040"
+      ]
+    },
+    {
+      "id": "FR-12",
+      "kind": "FR",
+      "title": "Paid-action broker and reconciliation",
+      "modules": [
+        "M09"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/commerce/src/intents.ts",
+        "apps/kite-broker/src/broker.ts",
+        "packages/data/migrations/0016_m09_kite_broker.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [],
+      "governingTests": [
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040"
+      ]
+    },
+    {
+      "id": "FR-13",
+      "kind": "FR",
+      "title": "Order and service-job lifecycle",
+      "modules": [
+        "M10"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/orders/src/apply.ts",
+        "packages/orders/src/orders.ts",
+        "packages/orders/src/vocabulary.ts",
+        "packages/data/migrations/0018_m10_orders_jobs.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "apps/kite-broker/test/t044-change-reopens-policy.int.test.ts"
+      ],
+      "governingTests": [
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044"
+      ]
+    },
+    {
+      "id": "FR-14",
+      "kind": "FR",
+      "title": "Recovery evidence ingestion",
+      "modules": [
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/recovery/src/evidence.ts",
+        "packages/recovery/src/milestones.ts",
+        "packages/data/migrations/0019_m11_recovery_verification_cmms.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "apps/kite-broker/test/t045-recovery-window.int.test.ts",
+        "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts"
+      ],
+      "governingTests": [
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "FR-15",
+      "kind": "FR",
+      "title": "Authoritative recovery verification",
+      "modules": [
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/recovery/src/assess.ts",
+        "packages/recovery/src/evaluation.ts",
+        "packages/recovery/src/milestones.ts",
+        "packages/recovery/src/policy.ts",
+        "packages/recovery/src/window.ts",
+        "packages/data/migrations/0019_m11_recovery_verification_cmms.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/recovery/test/t045-stable-window.test.ts",
+        "apps/kite-broker/test/t045-recovery-window.int.test.ts",
+        "apps/kite-broker/test/t046-completion-not-recovery.int.test.ts",
+        "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts"
+      ],
+      "governingTests": [
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "FR-16",
+      "kind": "FR",
+      "title": "Escalation and reopening",
+      "modules": [
+        "M04",
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/incidents/src/commands.ts",
+        "packages/recovery/src/assess.ts",
+        "packages/recovery/src/reopen.ts",
+        "packages/data/migrations/0009_m04_incidents.sql",
+        "packages/data/migrations/0019_m11_recovery_verification_cmms.sql"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t019-lifecycle-concurrency.int.test.ts",
+        "packages/incidents/test/t019-recovery-guard.int.test.ts",
+        "apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts"
+      ],
+      "governingTests": [
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020",
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "FR-17",
+      "kind": "FR",
+      "title": "CMMS and work-order integration",
+      "modules": [
+        "M10",
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/recovery/src/cmms-adapter.ts",
+        "packages/recovery/src/cmms.ts",
+        "packages/recovery/src/reopen.ts",
+        "packages/data/migrations/0018_m10_orders_jobs.sql",
+        "packages/data/migrations/0019_m11_recovery_verification_cmms.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/recovery/test/t047-cmms-adapter.test.ts",
+        "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts",
+        "apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts"
+      ],
+      "governingTests": [
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044",
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "FR-18",
+      "kind": "FR",
+      "title": "Evidence ledger and export",
+      "modules": [
+        "M01",
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/approvals.ts",
+        "packages/commerce/src/events.ts",
+        "packages/contracts/src/evidence.ts",
+        "packages/data/src/approvals.ts",
+        "packages/data/src/evidence.ts",
+        "packages/domain/src/evidence-ledger.ts",
+        "packages/operations/src/index.ts",
+        "packages/orders/src/apply.ts",
+        "apps/api/src/routes/admin.ts",
+        "apps/web/src/views/Ledger.tsx",
+        "packages/data/migrations/0003_m02_policy_approvals_evidence.sql"
+      ],
+      "testRefs": [
+        "packages/data/test/t009-migration-forward-fix.int.test.ts",
+        "packages/data/test/t010-cross-tenant-denial.int.test.ts",
+        "packages/data/test/t011-evidence-authority.int.test.ts",
+        "apps/kite-broker/test/t055-end-to-end-trace.int.test.ts"
+      ],
+      "governingTests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "FR-19",
+      "kind": "FR",
+      "title": "Operations user interface",
+      "modules": [
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "apps/api/src/routes/commerce.ts",
+        "apps/api/src/routes/evidence.ts",
+        "apps/api/src/routes/fleet.ts",
+        "apps/api/src/routes/incidents.ts"
+      ],
+      "testRefs": [
+        "apps/kite-broker/test/m12-api-security.int.test.ts",
+        "apps/web/e2e/bundle-secrets.spec.ts",
+        "apps/web/e2e/t049-keyboard-critical-path.spec.ts",
+        "apps/web/e2e/t050-responsive.spec.ts",
+        "apps/web/e2e/t051-honest-states.spec.ts"
+      ],
+      "governingTests": [
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "FR-20",
+      "kind": "FR",
+      "title": "Actionable notifications",
+      "modules": [
+        "M07",
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/incidents/src/events.ts",
+        "packages/providers/src/index.ts",
+        "packages/providers/src/notifications.ts",
+        "apps/api/src/routes/admin.ts",
+        "apps/web/src/notifications.ts",
+        "apps/web/src/views/Notifications.tsx",
+        "packages/data/migrations/0012_m07_provider_comms.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/providers/test/fr20-notification-routing.int.test.ts",
+        "apps/web/e2e/t051-honest-states.spec.ts",
+        "apps/web/test/m12-notifications-links.test.ts"
+      ],
+      "governingTests": [
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "FR-21",
+      "kind": "FR",
+      "title": "Policy administration",
+      "modules": [
+        "M02",
+        "M06",
+        "M09",
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/compatibility/src/invalidation.ts",
+        "packages/compatibility/src/policy-admin.ts",
+        "packages/data/src/authz.ts",
+        "packages/data/src/policy.ts",
+        "packages/domain/src/compatibility/policy.ts",
+        "packages/incidents/src/config.ts",
+        "packages/recovery/src/policy.ts",
+        "apps/api/src/routes/admin.ts",
+        "apps/web/src/views/Policies.tsx",
+        "packages/data/migrations/0003_m02_policy_approvals_evidence.sql",
+        "packages/data/migrations/0011_m06_compatibility_policy.sql"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t028-policy-revision.int.test.ts",
+        "packages/domain/test/t028-policy-revision.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "FR-22",
+      "kind": "FR",
+      "title": "Real-input pilot and demo mode",
+      "modules": [
+        "M03",
+        "M14"
+      ],
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/data/src/registry-core.ts",
+        "packages/data/src/registry.ts",
+        "packages/data/src/telemetry.ts",
+        "packages/telemetry/src/policy.ts",
+        "edge/sensor-agent/src/simulator.ts",
+        "packages/data/migrations/0008_m03_telemetry.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts"
+      ],
+      "governingTests": [
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016",
+        "T-057",
+        "T-058",
+        "T-059",
+        "T-060"
+      ]
+    },
+    {
+      "id": "FR-23",
+      "kind": "FR",
+      "title": "Privacy and data lifecycle",
+      "modules": [
+        "M02",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/authz.ts",
+        "packages/data/src/erasure.ts",
+        "packages/data/src/privacy.ts",
+        "packages/providers/src/communications.ts",
+        "packages/providers/src/redaction.ts",
+        "packages/data/migrations/0006_m02_privacy_lifecycle.sql",
+        "packages/data/migrations/0020_m13_data_lifecycle.sql"
+      ],
+      "testRefs": [
+        "packages/data/test/t009-legal-hold-scope.int.test.ts",
+        "packages/data/test/t011-role-authority-denial.int.test.ts",
+        "packages/providers/test/fr23-communication-erasure.int.test.ts",
+        "packages/providers/test/t031-transcript-consent.int.test.ts",
+        "apps/kite-broker/test/t053-fr23-retention-erasure.int.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "FR-24",
+      "kind": "FR",
+      "title": "Authentication, RBAC, and tenant isolation",
+      "modules": [
+        "M02",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/auth.ts",
+        "packages/data/src/authz.ts",
+        "apps/api/src/auth.ts",
+        "apps/web/src/auth.ts"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
+        "packages/data/test/m13-jti-prune.int.test.ts",
+        "packages/data/test/t010-cross-tenant-denial.int.test.ts",
+        "packages/data/test/t011-role-authority-denial.int.test.ts",
+        "packages/incidents/test/t011-incident-authority.int.test.ts",
+        "packages/planning/test/t010-t011-planning-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts",
+        "apps/kite-broker/test/t053-tenant-isolation-corpus.int.test.ts",
+        "apps/sensor-gateway/test/t011-telemetry-authority.int.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-01",
+      "kind": "NFR",
+      "title": "Reproducible build",
+      "modules": [
+        "M00",
+        "M14"
+      ],
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [],
+      "testRefs": [],
+      "governingTests": [
+        "T-001",
+        "T-002",
+        "T-003",
+        "T-004",
+        "T-057",
+        "T-058",
+        "T-059",
+        "T-060"
+      ]
+    },
+    {
+      "id": "NFR-02",
+      "kind": "NFR",
+      "title": "Restart-safe reliability",
+      "modules": [
+        "M02",
+        "M09",
+        "M10",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/jobs.ts",
+        "packages/data/src/outbox.ts",
+        "packages/orders/src/apply.ts",
+        "packages/orders/src/polling.ts",
+        "packages/orders/src/webhooks.ts",
+        "packages/recovery/src/cmms.ts",
+        "packages/data/migrations/0004_m02_outbox_jobs_audit.sql",
+        "packages/data/migrations/0018_m10_orders_jobs.sql"
+      ],
+      "testRefs": [
+        "packages/data/test/t009-migration-forward-fix.int.test.ts",
+        "packages/data/test/t012-outbox-restart-recovery.int.test.ts",
+        "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
+        "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-boundaries.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-recovery.int.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-03",
+      "kind": "NFR",
+      "title": "Idempotency and concurrency",
+      "modules": [
+        "M01",
+        "M04",
+        "M07",
+        "M09",
+        "M10"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/jobs.ts",
+        "packages/data/src/telemetry.ts",
+        "packages/incidents/src/commands.ts",
+        "packages/incidents/src/engine.ts",
+        "packages/orders/src/apply.ts",
+        "packages/orders/src/orders.ts",
+        "packages/orders/src/webhooks.ts",
+        "packages/providers/src/contacts.ts",
+        "packages/recovery/src/cmms.ts",
+        "packages/data/migrations/0004_m02_outbox_jobs_audit.sql",
+        "packages/data/migrations/0009_m04_incidents.sql",
+        "packages/data/migrations/0012_m07_provider_comms.sql"
+      ],
+      "testRefs": [
+        "packages/data/test/t012-outbox-restart-recovery.int.test.ts",
+        "packages/incidents/test/t018-concurrent-dedupe.int.test.ts",
+        "packages/incidents/test/t019-lifecycle-concurrency.int.test.ts",
+        "packages/providers/test/t030-idempotent-contact.int.test.ts",
+        "packages/providers/test/t032-timeout-unknown.int.test.ts",
+        "apps/kite-broker/test/t042-order-intent-dedupe.int.test.ts",
+        "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
+        "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-boundaries.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts",
+        "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts"
+      ],
+      "governingTests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020",
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044"
+      ]
+    },
+    {
+      "id": "NFR-04",
+      "kind": "NFR",
+      "title": "Bounded resource use",
+      "modules": [
+        "M03",
+        "M05",
+        "M07",
+        "M09",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/auth.ts",
+        "packages/data/src/telemetry.ts",
+        "packages/evidence/src/documents.ts",
+        "packages/evidence/src/limits.ts",
+        "packages/evidence/src/parse.ts",
+        "packages/evidence/src/reasoning/run.ts",
+        "packages/incidents/src/engine.ts",
+        "packages/incidents/src/read.ts",
+        "packages/orders/src/polling.ts",
+        "packages/providers/src/contacts.ts",
+        "packages/providers/src/internal.ts",
+        "packages/providers/src/ports.ts"
+      ],
+      "testRefs": [
+        "packages/data/test/m13-jti-prune.int.test.ts",
+        "packages/providers/test/t029-adapter-contract.int.test.ts",
+        "packages/providers/test/t032-timeout-unknown.int.test.ts",
+        "packages/resilience/test/t054-bounds.test.ts",
+        "apps/api/test/t055-api-observability.test.ts",
+        "apps/kite-broker/test/t054-load-rate-cost-bounds.int.test.ts",
+        "apps/sensor-gateway/test/t013-authenticated-acceptance.int.test.ts",
+        "apps/sensor-gateway/test/t013-security-review.int.test.ts",
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts"
+      ],
+      "governingTests": [
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-05",
+      "kind": "NFR",
+      "title": "Least-privilege security",
+      "modules": [
+        "M02",
+        "M06",
+        "M09",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/auth.ts",
+        "packages/data/src/authz.ts",
+        "packages/data/src/broker-context.ts"
+      ],
+      "testRefs": [
+        "packages/data/test/m13-broker-context-subpath.test.ts",
+        "packages/data/test/t011-role-authority-denial.int.test.ts",
+        "packages/incidents/test/t011-incident-authority.int.test.ts",
+        "apps/kite-broker/test/m12-api-security.int.test.ts",
+        "apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts",
+        "apps/sensor-gateway/test/t011-telemetry-authority.int.test.ts",
+        "tests/m13/security-tooling.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-06",
+      "kind": "NFR",
+      "title": "Privacy by design",
+      "modules": [
+        "M02",
+        "M07",
+        "M09",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/data/src/erasure.ts",
+        "packages/data/src/privacy.ts",
+        "packages/observability/src/redact.ts",
+        "packages/operations/src/index.ts",
+        "packages/providers/src/communications.ts",
+        "packages/providers/src/redaction.ts",
+        "packages/data/migrations/0006_m02_privacy_lifecycle.sql",
+        "packages/data/migrations/0012_m07_provider_comms.sql",
+        "packages/data/migrations/0020_m13_data_lifecycle.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/providers/test/t031-transcript-consent.int.test.ts",
+        "apps/kite-broker/test/t053-fr23-retention-erasure.int.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-07",
+      "kind": "NFR",
+      "title": "Accessible interaction",
+      "modules": [
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "apps/web/src/components/AxisBadge.tsx",
+        "apps/web/src/router.tsx",
+        "apps/web/src/status/axes.ts"
+      ],
+      "testRefs": [
+        "apps/web/e2e/t049-keyboard-critical-path.spec.ts",
+        "apps/web/e2e/t050-responsive.spec.ts",
+        "apps/web/e2e/t052-chart-fallback.spec.ts",
+        "apps/web/test/t051-axis-honesty.test.ts"
+      ],
+      "governingTests": [
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "NFR-08",
+      "kind": "NFR",
+      "title": "Operational performance",
+      "modules": [
+        "M03",
+        "M04",
+        "M12",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/incidents/src/engine.ts",
+        "packages/observability/src/health.ts",
+        "packages/observability/src/index.ts",
+        "packages/observability/src/slo.ts",
+        "packages/operations/src/index.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/fleet.ts",
+        "packages/data/migrations/0009_m04_incidents.sql",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t017-threshold-incident.int.test.ts",
+        "packages/observability/test/t055-alerts-health-slo.test.ts",
+        "apps/api/test/t055-api-observability.test.ts",
+        "apps/kite-broker/test/t054-load-rate-cost-bounds.int.test.ts",
+        "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts"
+      ],
+      "governingTests": [
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016",
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-09",
+      "kind": "NFR",
+      "title": "Observability and auditability",
+      "modules": [
+        "M01",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/audit.ts",
+        "packages/data/src/command.ts",
+        "packages/observability/src/health.ts",
+        "packages/observability/src/index.ts",
+        "packages/observability/src/logger.ts",
+        "packages/observability/src/redact.ts",
+        "packages/operations/src/index.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/ops.ts",
+        "apps/kite-broker/src/log.ts",
+        "packages/data/migrations/0004_m02_outbox_jobs_audit.sql"
+      ],
+      "testRefs": [
+        "packages/observability/test/t055-alerts-health-slo.test.ts",
+        "packages/observability/test/t055-metrics-traces.test.ts",
+        "packages/observability/test/t055-structured-logs-redaction.test.ts",
+        "apps/kite-broker/test/t055-end-to-end-trace.int.test.ts"
+      ],
+      "governingTests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-10",
+      "kind": "NFR",
+      "title": "Bounded AI with provenance",
+      "modules": [
+        "M05",
+        "M06",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/evidence/src/reasoning/run.ts",
+        "packages/data/migrations/0010_m05_evidence_reasoning.sql"
+      ],
+      "testRefs": [
+        "packages/evidence/test/t023-malicious-document.int.test.ts",
+        "apps/kite-broker/test/t053-adversarial-corpus.int.test.ts"
+      ],
+      "governingTests": [
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "NFR-11",
+      "kind": "NFR",
+      "title": "Adapter portability",
+      "modules": [
+        "M01",
+        "M03",
+        "M05",
+        "M07",
+        "M09",
+        "M10"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/evidence/src/reasoning/port.ts",
+        "packages/orders/src/polling.ts",
+        "packages/providers/src/ports.ts",
+        "packages/recovery/src/cmms-adapter.ts",
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "packages/evidence/test/t023-serv-adapter.test.ts",
+        "packages/providers/test/t029-adapter-contract.int.test.ts",
+        "packages/recovery/test/t047-cmms-adapter.test.ts"
+      ],
+      "governingTests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044"
+      ]
+    },
+    {
+      "id": "NFR-12",
+      "kind": "NFR",
+      "title": "Traceable delivery",
+      "modules": [
+        "M00",
+        "M13",
+        "M14"
+      ],
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "scripts/coverage-report.mjs"
+      ],
+      "testRefs": [
+        "tests/m13/coverage-report.test.ts",
+        "tests/m13/security-tooling.test.ts"
+      ],
+      "governingTests": [
+        "T-001",
+        "T-002",
+        "T-003",
+        "T-004",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056",
+        "T-057",
+        "T-058",
+        "T-059",
+        "T-060"
+      ]
+    },
+    {
+      "id": "INV-01",
+      "kind": "INV",
+      "title": "Authoritative recovery proof",
+      "modules": [
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/data/src/telemetry.ts",
+        "packages/incidents/src/commands.ts",
+        "packages/incidents/src/recovery.ts",
+        "packages/recovery/src/assess.ts",
+        "packages/recovery/src/closeout.ts",
+        "packages/recovery/src/evaluation.ts",
+        "packages/recovery/src/milestones.ts",
+        "packages/recovery/src/reopen.ts",
+        "packages/recovery/src/window.ts",
+        "packages/telemetry/src/policy.ts",
+        "apps/web/src/views/incident/VerificationTab.tsx",
+        "packages/data/migrations/0008_m03_telemetry.sql"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t011-incident-authority.int.test.ts",
+        "packages/incidents/test/t019-recovery-guard.int.test.ts",
+        "packages/recovery/test/t045-stable-window.test.ts",
+        "packages/recovery/test/t046-recovered-reachability.test.ts",
+        "apps/kite-broker/test/t045-recovery-window.int.test.ts",
+        "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts",
+        "apps/kite-broker/test/t046-completion-not-recovery.int.test.ts",
+        "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts",
+        "apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-recovery.int.test.ts",
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts"
+      ],
+      "governingTests": [
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "INV-02",
+      "kind": "INV",
+      "title": "No model authorization",
+      "modules": [
+        "M05",
+        "M06",
+        "M09",
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/approvals.ts",
+        "packages/commerce/src/authorities.ts",
+        "packages/commerce/src/signing.ts",
+        "packages/compatibility/src/authority.ts",
+        "packages/compatibility/src/decisions.ts",
+        "packages/data/src/approvals.ts",
+        "packages/domain/src/compatibility/authority.ts",
+        "packages/domain/src/compatibility/evaluate.ts",
+        "packages/domain/src/compatibility/index.ts",
+        "packages/domain/src/compatibility/input.ts",
+        "packages/evidence/src/events.ts",
+        "packages/evidence/src/index.ts"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t026-ambiguous-hold.int.test.ts",
+        "packages/compatibility/test/t027-named-engineer.int.test.ts",
+        "packages/data/test/t011-evidence-authority.int.test.ts",
+        "packages/domain/test/t025-exact-part-allow.test.ts",
+        "packages/domain/test/t026-ambiguous-hold.test.ts",
+        "packages/domain/test/t027-named-engineer.test.ts",
+        "packages/evidence/test/t022-conflicting-evidence.int.test.ts",
+        "packages/evidence/test/t023-malicious-document.int.test.ts",
+        "packages/providers/test/t031-transcript-consent.int.test.ts",
+        "apps/kite-broker/test/t046-completion-not-recovery.int.test.ts",
+        "apps/kite-broker/test/t053-adversarial-corpus.int.test.ts"
+      ],
+      "governingTests": [
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "INV-03",
+      "kind": "INV",
+      "title": "Revision-bound decisions",
+      "modules": [
+        "M01",
+        "M05",
+        "M06",
+        "M08",
+        "M09",
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/approvals.ts",
+        "packages/commerce/src/authorities.ts",
+        "packages/commerce/src/intents.ts",
+        "packages/commerce/src/signing.ts",
+        "packages/commerce/src/subjects.ts",
+        "packages/compatibility/src/candidates.ts",
+        "packages/compatibility/src/decisions.ts",
+        "packages/compatibility/src/invalidation.ts",
+        "packages/contracts/src/records.ts",
+        "packages/data/src/approvals.ts",
+        "packages/data/src/registry.ts",
+        "packages/domain/src/compatibility/input.ts"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t025-exact-part-allow.int.test.ts",
+        "packages/compatibility/test/t027-named-engineer.int.test.ts",
+        "packages/compatibility/test/t028-policy-revision.int.test.ts",
+        "packages/data/test/t011-approval-race.int.test.ts",
+        "packages/domain/test/t028-policy-revision.test.ts",
+        "packages/evidence/test/t021-citation-provenance.int.test.ts",
+        "packages/evidence/test/t024-revision-invalidation.int.test.ts",
+        "packages/planning/test/t033-plan-exposure.int.test.ts",
+        "packages/planning/test/t035-approval-request-lifecycle.int.test.ts",
+        "apps/kite-broker/test/t044-change-reopens-policy.int.test.ts",
+        "apps/kite-broker/test/t045-recovery-window.int.test.ts",
+        "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts"
+      ],
+      "governingTests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-033",
+        "T-034",
+        "T-035",
+        "T-036",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "INV-04",
+      "kind": "INV",
+      "title": "Compatibility fails closed",
+      "modules": [
+        "M06",
+        "M08"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/compatibility/src/candidates.ts",
+        "packages/compatibility/src/decisions.ts",
+        "packages/domain/src/compatibility/evaluate.ts",
+        "packages/domain/src/compatibility/index.ts",
+        "packages/domain/src/compatibility/input.ts",
+        "packages/domain/src/compatibility/policy.ts",
+        "packages/domain/src/planning/index.ts",
+        "packages/domain/src/planning/plan.ts",
+        "packages/planning/src/assemble.ts",
+        "packages/planning/src/plans.ts",
+        "packages/data/migrations/0011_m06_compatibility_policy.sql",
+        "packages/data/migrations/0014_m08_planning.sql"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t025-exact-part-allow.int.test.ts",
+        "packages/compatibility/test/t026-ambiguous-hold.int.test.ts",
+        "packages/domain/test/t025-exact-part-allow.test.ts",
+        "packages/domain/test/t026-ambiguous-hold.test.ts",
+        "packages/evidence/test/t011-document-library-authority.int.test.ts",
+        "packages/evidence/test/t022-conflicting-evidence.int.test.ts",
+        "packages/planning/test/t033-plan-exposure.int.test.ts"
+      ],
+      "governingTests": [
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-033",
+        "T-034",
+        "T-035",
+        "T-036"
+      ]
+    },
+    {
+      "id": "INV-05",
+      "kind": "INV",
+      "title": "Hard spending bounds",
+      "modules": [
+        "M09"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/authorities.ts",
+        "packages/commerce/src/budget.ts",
+        "packages/commerce/src/intents.ts",
+        "packages/commerce/src/ledger.ts",
+        "packages/planning/src/approval-requests.ts",
+        "apps/kite-broker/src/broker.ts",
+        "packages/data/migrations/0016_m09_kite_broker.sql"
+      ],
+      "testRefs": [
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts"
+      ],
+      "governingTests": [
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040"
+      ]
+    },
+    {
+      "id": "INV-06",
+      "kind": "INV",
+      "title": "Exclusive credential and egress broker",
+      "modules": [
+        "M09",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_RUN",
+      "codeRefs": [
+        "packages/commerce/src/index.ts",
+        "packages/commerce/src/signing.ts",
+        "packages/data/src/broker-context.ts",
+        "packages/data/src/secret-ref.ts",
+        "packages/orders/src/dispatch.ts",
+        "packages/providers/src/adapters/candidates.ts",
+        "packages/providers/src/broker.ts",
+        "packages/providers/src/internal.ts",
+        "packages/providers/src/ports.ts",
+        "apps/api/src/app.ts",
+        "apps/kite-broker/src/config.ts",
+        "apps/kite-broker/src/server.ts"
+      ],
+      "testRefs": [
+        "packages/data/test/m13-broker-context-subpath.test.ts",
+        "packages/data/test/t010-webhook-secret-refs.int.test.ts",
+        "packages/providers/test/t029-adapter-contract.int.test.ts",
+        "packages/providers/test/t030-idempotent-contact.int.test.ts",
+        "apps/kite-broker/test/t053-adversarial-corpus.int.test.ts",
+        "tests/m13/security-tooling.test.ts"
+      ],
+      "governingTests": [
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "INV-07",
+      "kind": "INV",
+      "title": "Payment intent idempotency",
+      "modules": [
+        "M09",
+        "M10"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/intents.ts",
+        "packages/commerce/src/subjects.ts",
+        "packages/domain/src/digest.ts",
+        "packages/orders/src/apply.ts",
+        "packages/orders/src/changes.ts",
+        "packages/orders/src/dispatch.ts",
+        "packages/orders/src/orders.ts",
+        "packages/providers/src/broker.ts",
+        "packages/data/migrations/0016_m09_kite_broker.sql",
+        "packages/data/migrations/0018_m10_orders_jobs.sql"
+      ],
+      "testRefs": [
+        "packages/providers/test/t030-idempotent-contact.int.test.ts",
+        "apps/kite-broker/test/t042-order-intent-dedupe.int.test.ts",
+        "apps/kite-broker/test/t044-change-reopens-policy.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts"
+      ],
+      "governingTests": [
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044"
+      ]
+    },
+    {
+      "id": "INV-08",
+      "kind": "INV",
+      "title": "Unknown is not failure",
+      "modules": [
+        "M07",
+        "M09",
+        "M10"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/manual.ts",
+        "packages/contracts/src/records.ts",
+        "packages/data/src/authz.ts",
+        "packages/orders/src/apply.ts",
+        "packages/orders/src/dispatch.ts",
+        "packages/providers/src/broker.ts",
+        "packages/providers/src/contacts.ts",
+        "packages/recovery/src/cmms.ts",
+        "packages/resilience/src/index.ts",
+        "apps/kite-broker/src/broker.ts",
+        "packages/data/migrations/0012_m07_provider_comms.sql",
+        "packages/data/migrations/0016_m09_kite_broker.sql"
+      ],
+      "testRefs": [
+        "packages/providers/test/t032-timeout-unknown.int.test.ts",
+        "packages/resilience/test/t054-bounds.test.ts",
+        "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts"
+      ],
+      "governingTests": [
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044"
+      ]
+    },
+    {
+      "id": "INV-09",
+      "kind": "INV",
+      "title": "Single active incident window",
+      "modules": [
+        "M04"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/incidents/src/engine.ts",
+        "packages/data/migrations/0009_m04_incidents.sql"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t018-concurrent-dedupe.int.test.ts"
+      ],
+      "governingTests": [
+        "T-017",
+        "T-018",
+        "T-019",
+        "T-020"
+      ]
+    },
+    {
+      "id": "INV-10",
+      "kind": "INV",
+      "title": "Append-only evidence lineage",
+      "modules": [
+        "M01",
+        "M02",
+        "M05"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/compatibility/src/decisions.ts",
+        "packages/compatibility/src/invalidation.ts",
+        "packages/contracts/src/evidence.ts",
+        "packages/data/src/erasure.ts",
+        "packages/data/src/evidence.ts",
+        "packages/data/src/privacy.ts",
+        "packages/data/src/registry.ts",
+        "packages/domain/src/evidence-ledger.ts",
+        "packages/evidence/src/documents.ts",
+        "packages/evidence/src/revisions.ts",
+        "packages/planning/src/lifecycle.ts",
+        "packages/planning/src/plans.ts"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t028-policy-revision.int.test.ts",
+        "packages/data/test/t009-legal-hold-scope.int.test.ts",
+        "packages/data/test/t009-migration-forward-fix.int.test.ts",
+        "packages/data/test/t011-evidence-authority.int.test.ts",
+        "packages/domain/test/t028-policy-revision.test.ts",
+        "packages/evidence/test/t021-citation-provenance.int.test.ts",
+        "packages/evidence/test/t024-revision-invalidation.int.test.ts",
+        "apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts",
+        "apps/kite-broker/test/t053-fr23-retention-erasure.int.test.ts"
+      ],
+      "governingTests": [
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024"
+      ]
+    },
+    {
+      "id": "INV-11",
+      "kind": "INV",
+      "title": "Stale data never appears healthy",
+      "modules": [
+        "M03",
+        "M12"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/telemetry.ts",
+        "packages/incidents/src/engine.ts",
+        "packages/incidents/src/rules.ts",
+        "packages/recovery/src/read.ts",
+        "packages/recovery/src/window.ts",
+        "packages/telemetry/src/policy.ts",
+        "apps/api/src/routes/fleet.ts",
+        "apps/sensor-gateway/src/sweeper.ts",
+        "apps/web/src/status/axes.ts",
+        "apps/web/src/views/CommandCenter.tsx",
+        "apps/web/src/views/incident/VerificationTab.tsx",
+        "packages/data/migrations/0008_m03_telemetry.sql"
+      ],
+      "testRefs": [
+        "packages/recovery/test/t045-stable-window.test.ts",
+        "packages/telemetry/test/t015-freshness-policy.test.ts",
+        "apps/kite-broker/test/t045-recovery-window.int.test.ts",
+        "apps/sensor-gateway/test/t015-security-review.int.test.ts",
+        "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts",
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts",
+        "apps/web/e2e/t051-honest-states.spec.ts",
+        "apps/web/e2e/t052-chart-fallback.spec.ts",
+        "apps/web/test/t051-axis-honesty.test.ts"
+      ],
+      "governingTests": [
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052"
+      ]
+    },
+    {
+      "id": "INV-12",
+      "kind": "INV",
+      "title": "External outcome honesty",
+      "modules": [
+        "M07",
+        "M09",
+        "M10",
+        "M12",
+        "M14"
+      ],
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/api-client/src/index.ts",
+        "packages/contracts/src/api.ts",
+        "packages/contracts/src/records.ts",
+        "packages/contracts/src/states.ts",
+        "packages/orders/src/apply.ts",
+        "packages/orders/src/views.ts",
+        "packages/orders/src/vocabulary.ts",
+        "packages/orders/src/webhooks.ts",
+        "packages/providers/src/adapters/structured-api.ts",
+        "packages/providers/src/attempts.ts",
+        "packages/providers/src/contacts.ts",
+        "packages/providers/src/schemas.ts"
+      ],
+      "testRefs": [
+        "packages/api-client/test/m12-api-client.test.ts",
+        "packages/providers/test/t029-adapter-contract.int.test.ts",
+        "packages/providers/test/t032-timeout-unknown.int.test.ts",
+        "packages/recovery/test/t047-cmms-adapter.test.ts",
+        "apps/kite-broker/test/m12-api-security.int.test.ts",
+        "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
+        "apps/web/e2e/t049-keyboard-critical-path.spec.ts",
+        "apps/web/e2e/t051-honest-states.spec.ts",
+        "apps/web/test/t051-axis-honesty.test.ts"
+      ],
+      "governingTests": [
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044",
+        "T-049",
+        "T-050",
+        "T-051",
+        "T-052",
+        "T-057",
+        "T-058",
+        "T-059",
+        "T-060"
+      ]
+    },
+    {
+      "id": "INV-13",
+      "kind": "INV",
+      "title": "Secret non-disclosure",
+      "modules": [
+        "M00",
+        "M05",
+        "M09",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/data/src/authz.ts",
+        "packages/evidence/src/documents.ts",
+        "packages/evidence/src/reasoning/run.ts",
+        "packages/evidence/src/untrusted.ts",
+        "packages/observability/src/index.ts",
+        "packages/observability/src/logger.ts",
+        "packages/observability/src/redact.ts",
+        "packages/providers/src/communications.ts",
+        "packages/providers/src/redaction.ts",
+        "apps/kite-broker/src/broker.ts",
+        "apps/kite-broker/src/config.ts",
+        "apps/kite-broker/src/log.ts"
+      ],
+      "testRefs": [
+        "packages/evidence/test/t023-malicious-document.int.test.ts",
+        "packages/evidence/test/t023-security-review.int.test.ts",
+        "packages/observability/test/t055-structured-logs-redaction.test.ts",
+        "packages/providers/test/t031-transcript-consent.int.test.ts",
+        "apps/kite-broker/test/t053-adversarial-corpus.int.test.ts",
+        "apps/kite-broker/test/t055-end-to-end-trace.int.test.ts"
+      ],
+      "governingTests": [
+        "T-001",
+        "T-002",
+        "T-003",
+        "T-004",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "INV-14",
+      "kind": "INV",
+      "title": "No premature completion or release",
+      "modules": [
+        "M10",
+        "M11"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/incidents/src/commands.ts",
+        "packages/incidents/src/recovery.ts",
+        "packages/orders/src/incident-driver.ts",
+        "packages/orders/src/vocabulary.ts",
+        "packages/recovery/src/assess.ts",
+        "packages/recovery/src/closeout.ts",
+        "packages/recovery/src/evaluation.ts",
+        "packages/recovery/src/read.ts",
+        "packages/data/migrations/0018_m10_orders_jobs.sql",
+        "packages/data/migrations/0019_m11_recovery_verification_cmms.sql"
+      ],
+      "testRefs": [
+        "packages/incidents/test/t011-incident-authority.int.test.ts",
+        "packages/incidents/test/t019-recovery-guard.int.test.ts",
+        "packages/recovery/test/t046-recovered-reachability.test.ts",
+        "apps/kite-broker/test/t044-change-reopens-policy.int.test.ts",
+        "apps/kite-broker/test/t046-completion-not-recovery.int.test.ts",
+        "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-recovery.int.test.ts"
+      ],
+      "governingTests": [
+        "T-041",
+        "T-042",
+        "T-043",
+        "T-044",
+        "T-045",
+        "T-046",
+        "T-047",
+        "T-048"
+      ]
+    },
+    {
+      "id": "INV-15",
+      "kind": "INV",
+      "title": "Human approval for high-risk change",
+      "modules": [
+        "M06",
+        "M09"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/commerce/src/approvals.ts",
+        "packages/commerce/src/authorities.ts",
+        "packages/compatibility/src/authority.ts",
+        "packages/data/src/approvals.ts",
+        "packages/data/src/authz.ts",
+        "packages/domain/src/compatibility/authority.ts",
+        "packages/domain/src/compatibility/evaluate.ts",
+        "packages/domain/src/compatibility/index.ts",
+        "packages/domain/src/compatibility/input.ts",
+        "packages/domain/src/compatibility/policy.ts",
+        "packages/planning/src/approval-requests.ts",
+        "packages/data/migrations/0003_m02_policy_approvals_evidence.sql"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
+        "packages/compatibility/test/t027-named-engineer.int.test.ts",
+        "packages/compatibility/test/t028-policy-revision.int.test.ts",
+        "packages/data/test/t011-approval-race.int.test.ts",
+        "packages/data/test/t011-role-authority-denial.int.test.ts",
+        "packages/domain/test/t027-named-engineer.test.ts",
+        "packages/evidence/test/t011-document-library-authority.int.test.ts",
+        "apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts",
+        "apps/kite-broker/test/t053-separation-of-duties.int.test.ts"
+      ],
+      "governingTests": [
+        "T-025",
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-037",
+        "T-038",
+        "T-039",
+        "T-040"
+      ]
+    },
+    {
+      "id": "INV-16",
+      "kind": "INV",
+      "title": "Tenant isolation",
+      "modules": [
+        "M02",
+        "M13"
+      ],
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "codeRefs": [
+        "packages/contracts/src/commands.ts",
+        "packages/data/src/command.ts",
+        "packages/data/src/context.ts",
+        "packages/data/src/registry.ts",
+        "packages/data/src/secret-ref.ts",
+        "packages/data/src/telemetry.ts",
+        "packages/data/src/tenant-scope.ts",
+        "packages/evidence/src/scope.ts",
+        "packages/observability/src/index.ts",
+        "packages/operations/src/index.ts",
+        "packages/planning/src/assemble.ts",
+        "packages/recovery/src/read.ts"
+      ],
+      "testRefs": [
+        "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
+        "packages/data/test/t010-cross-tenant-denial.int.test.ts",
+        "packages/data/test/t010-webhook-secret-refs.int.test.ts",
+        "packages/evidence/test/t010-evidence-cross-tenant.int.test.ts",
+        "packages/evidence/test/t023-security-review.int.test.ts",
+        "packages/incidents/test/t010-incident-cross-tenant.int.test.ts",
+        "packages/observability/test/t055-metrics-traces.test.ts",
+        "packages/planning/test/t010-t011-planning-scope.int.test.ts",
+        "apps/kite-broker/test/m12-api-security.int.test.ts",
+        "apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-scope.int.test.ts"
+      ],
+      "governingTests": [
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-053",
+        "T-054",
+        "T-055",
+        "T-056"
+      ]
+    },
+    {
+      "id": "T-001",
+      "kind": "TEST",
+      "title": "Clean checkout bootstrap",
+      "module": "M00",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "tests/m00/t001-bootstrap.test.ts",
+        "tests/m00/t001-migrate.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-002",
+      "kind": "TEST",
+      "title": "Dirty worktree intake stop",
+      "module": "M00",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "tests/m00/t002-intake.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 2,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-003",
+      "kind": "TEST",
+      "title": "Secret baseline and history scan",
+      "module": "M00",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "tests/m00/t003-secret-scan.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-004",
+      "kind": "TEST",
+      "title": "Canonical quality-command smoke",
+      "module": "M00",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "tests/m00/t004-quality-smoke.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 6,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-005",
+      "kind": "TEST",
+      "title": "Contract schema round trip",
+      "module": "M01",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/contracts/test/t005-schema-round-trip.test.ts",
+        "packages/kite-contracts/test/t005-broker-port-contract.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 380,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-006",
+      "kind": "TEST",
+      "title": "Illegal state transition rejection",
+      "module": "M01",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/domain/test/t006-illegal-transition-rejection.test.ts",
+        "packages/orders/test/t006-order-job-sql-edges.int.test.ts",
+        "packages/recovery/test/t006-recovery-sql-edges.int.test.ts",
+        "apps/kite-broker/test/t006-broker-sql-edges.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 81,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-007",
+      "kind": "TEST",
+      "title": "Revision and action digest stability",
+      "module": "M01",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/domain/test/t007-digest-stability.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 15,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-008",
+      "kind": "TEST",
+      "title": "Money and measurement precision",
+      "module": "M01",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/contracts/test/t008-money-measurement-precision.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 17,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-009",
+      "kind": "TEST",
+      "title": "Migration and rollback on seeded tenant",
+      "module": "M02",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/data/test/t009-guard-null-safety.test.ts",
+        "packages/data/test/t009-legal-hold-scope.int.test.ts",
+        "packages/data/test/t009-migration-forward-fix.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 15,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-010",
+      "kind": "TEST",
+      "title": "Cross-tenant access denial",
+      "module": "M02",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
+        "packages/data/test/t010-cross-tenant-denial.int.test.ts",
+        "packages/data/test/t010-webhook-secret-refs.int.test.ts",
+        "packages/evidence/test/t010-evidence-cross-tenant.int.test.ts",
+        "packages/incidents/test/t010-incident-cross-tenant.int.test.ts",
+        "packages/planning/test/t010-t011-planning-scope.int.test.ts",
+        "packages/planning/test/t035-security-review.int.test.ts",
+        "packages/providers/test/t010-t011-provider-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-api-surface.int.test.ts",
+        "apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts",
+        "apps/sensor-gateway/test/t010-telemetry-cross-tenant.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 73,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-011",
+      "kind": "TEST",
+      "title": "Role and approval authority denial",
+      "module": "M02",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/compatibility/test/t010-t011-compatibility-scope.int.test.ts",
+        "packages/data/test/t011-approval-race.int.test.ts",
+        "packages/data/test/t011-evidence-authority.int.test.ts",
+        "packages/data/test/t011-role-authority-denial.int.test.ts",
+        "packages/evidence/test/t011-document-library-authority.int.test.ts",
+        "packages/incidents/test/t011-incident-authority.int.test.ts",
+        "packages/planning/test/t010-t011-planning-scope.int.test.ts",
+        "packages/providers/test/t010-t011-provider-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-api-surface.int.test.ts",
+        "apps/kite-broker/test/t010-t011-commerce-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
+        "apps/kite-broker/test/t010-t011-orders-scope.int.test.ts",
+        "apps/kite-broker/test/t010-t011-recovery-scope.int.test.ts",
+        "apps/sensor-gateway/test/t011-telemetry-authority.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 69,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-012",
+      "kind": "TEST",
+      "title": "Outbox restart recovery",
+      "module": "M02",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/data/test/t012-outbox-restart-recovery.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-013",
+      "kind": "TEST",
+      "title": "Authenticated telemetry acceptance",
+      "module": "M03",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/telemetry/test/t013-body-signature.test.ts",
+        "packages/telemetry/test/t013-wire-schema.test.ts",
+        "apps/sensor-gateway/test/t013-authenticated-acceptance.int.test.ts",
+        "apps/sensor-gateway/test/t013-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 28,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-014",
+      "kind": "TEST",
+      "title": "Duplicate and out-of-order sequence handling",
+      "module": "M03",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/sensor-gateway/test/t014-duplicate-out-of-order.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 7,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-015",
+      "kind": "TEST",
+      "title": "Stale and offline health projection",
+      "module": "M03",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/telemetry/test/t015-freshness-policy.test.ts",
+        "apps/sensor-gateway/test/t015-security-review.int.test.ts",
+        "apps/sensor-gateway/test/t015-stale-offline-health.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 15,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-016",
+      "kind": "TEST",
+      "title": "Edge reconnect and bounded backfill",
+      "module": "M03",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/telemetry/test/t016-lateness-classification.test.ts",
+        "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts",
+        "apps/sensor-gateway/test/t016-ingest-scheduler.test.ts",
+        "edge/sensor-agent/test/t016-edge-buffer-agent.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 24,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-017",
+      "kind": "TEST",
+      "title": "Threshold incident creation",
+      "module": "M04",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/incidents/test/t017-consumer-stale.int.test.ts",
+        "packages/incidents/test/t017-rule-window.test.ts",
+        "packages/incidents/test/t017-threshold-incident.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 16,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-018",
+      "kind": "TEST",
+      "title": "Concurrent trigger deduplication",
+      "module": "M04",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/incidents/test/t018-concurrent-dedupe.int.test.ts",
+        "packages/incidents/test/t018-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 7,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-019",
+      "kind": "TEST",
+      "title": "Incident lifecycle concurrency",
+      "module": "M04",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/incidents/test/t018-security-review.int.test.ts",
+        "packages/incidents/test/t019-deadline-replay.test.ts",
+        "packages/incidents/test/t019-lifecycle-concurrency.int.test.ts",
+        "packages/incidents/test/t019-recovery-guard.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 20,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-020",
+      "kind": "TEST",
+      "title": "Manual report audit linkage",
+      "module": "M04",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/incidents/test/t018-security-review.int.test.ts",
+        "packages/incidents/test/t020-manual-report.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 7,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-021",
+      "kind": "TEST",
+      "title": "Manual and BOM citation provenance",
+      "module": "M05",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/evidence/test/t021-citation-provenance.int.test.ts",
+        "packages/evidence/test/t021-document-parsing.test.ts",
+        "packages/evidence/test/t021-object-store.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 22,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-022",
+      "kind": "TEST",
+      "title": "Conflicting evidence surfaced",
+      "module": "M05",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/evidence/test/t022-conflicting-evidence.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-023",
+      "kind": "TEST",
+      "title": "Malicious document instruction isolation",
+      "module": "M05",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/evidence/test/t023-malicious-document.int.test.ts",
+        "packages/evidence/test/t023-security-review.int.test.ts",
+        "packages/evidence/test/t023-serv-adapter.test.ts",
+        "packages/evidence/test/t023-untrusted-text.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 31,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-024",
+      "kind": "TEST",
+      "title": "Evidence revision invalidates stale proposal",
+      "module": "M05",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/evidence/test/t024-revision-invalidation.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 8,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-025",
+      "kind": "TEST",
+      "title": "Exact manufacturer part allow",
+      "module": "M06",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/compatibility/test/t025-exact-part-allow.int.test.ts",
+        "packages/domain/test/t025-exact-part-allow.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 10,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-026",
+      "kind": "TEST",
+      "title": "Ambiguous compatibility hold",
+      "module": "M06",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/compatibility/test/t026-ambiguous-hold.int.test.ts",
+        "packages/compatibility/test/t026-claim-binding.int.test.ts",
+        "packages/domain/test/t026-ambiguous-hold.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 57,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-027",
+      "kind": "TEST",
+      "title": "Substitute requires named engineer",
+      "module": "M06",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/compatibility/test/t027-named-engineer.int.test.ts",
+        "packages/domain/test/t027-named-engineer.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 37,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-028",
+      "kind": "TEST",
+      "title": "Policy revision forces reevaluation",
+      "module": "M06",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/compatibility/test/t028-policy-revision.int.test.ts",
+        "packages/domain/test/t028-policy-revision.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 7,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-029",
+      "kind": "TEST",
+      "title": "Live-shaped provider adapter contract",
+      "module": "M07",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/providers/test/t029-adapter-contract.int.test.ts",
+        "packages/providers/test/t029-adapter-schemas.test.ts",
+        "packages/providers/test/t029-contact-point-guard-null-safe.int.test.ts",
+        "packages/providers/test/t029-egress-ssrf.test.ts",
+        "packages/providers/test/t029-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 80,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-030",
+      "kind": "TEST",
+      "title": "Idempotent provider contact",
+      "module": "M07",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/providers/test/t030-idempotent-contact.int.test.ts",
+        "packages/providers/test/t030-t031-pool-bounds.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 6,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-031",
+      "kind": "TEST",
+      "title": "Transcript identity and consent integrity",
+      "module": "M07",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/providers/test/t030-t031-pool-bounds.int.test.ts",
+        "packages/providers/test/t031-transcript-consent.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 10,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-032",
+      "kind": "TEST",
+      "title": "Provider timeout becomes unknown",
+      "module": "M07",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/providers/test/t032-timeout-unknown.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 6,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-033",
+      "kind": "TEST",
+      "title": "Cost-to-recovery formula correctness",
+      "module": "M08",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/domain/test/t033-cost-formula.test.ts",
+        "packages/planning/test/t033-plan-exposure.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 15,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-034",
+      "kind": "TEST",
+      "title": "Configured containment deadline changes priority",
+      "module": "M08",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/domain/test/t034-deadline-priority.test.ts",
+        "packages/planning/test/t034-deadline-priority.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 8,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-035",
+      "kind": "TEST",
+      "title": "Missing economic input produces hold",
+      "module": "M08",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/domain/test/t035-missing-input-hold.test.ts",
+        "packages/planning/test/t035-approval-request-lifecycle.int.test.ts",
+        "packages/planning/test/t035-missing-input-hold.int.test.ts",
+        "packages/planning/test/t035-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 36,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-036",
+      "kind": "TEST",
+      "title": "Deterministic ranking tie break",
+      "module": "M08",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/domain/test/t036-tie-break.test.ts",
+        "packages/planning/test/t036-deterministic-rerun.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 6,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-037",
+      "kind": "TEST",
+      "title": "Bounded session approval",
+      "module": "M09",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t037-bounded-session.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 5,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-038",
+      "kind": "TEST",
+      "title": "Hard budget and purpose rejection",
+      "module": "M09",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t038-budget-bounds.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-039",
+      "kind": "TEST",
+      "title": "Credential and paid-egress isolation",
+      "module": "M09",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t039-broker-ownership.int.test.ts",
+        "apps/kite-broker/test/t039-credential-import-guard.test.ts",
+        "apps/kite-broker/test/t039-isolation-processes.int.test.ts",
+        "apps/kite-broker/test/t039-secret-config.test.ts",
+        "apps/kite-broker/test/t039-t040-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 14,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-040",
+      "kind": "TEST",
+      "title": "Unknown payment reconciliation before retry",
+      "module": "M09",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t039-t040-security-review.int.test.ts",
+        "apps/kite-broker/test/t040-crash-processes.int.test.ts",
+        "apps/kite-broker/test/t040-execution-paths.test.ts",
+        "apps/kite-broker/test/t040-kite-passport-adapter.test.ts",
+        "apps/kite-broker/test/t040-no-effect-producers.test.ts",
+        "apps/kite-broker/test/t040-reconciliation.int.test.ts",
+        "apps/kite-broker/test/t040-replay-preconditions.int.test.ts",
+        "apps/kite-broker/test/t040-review-findings.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 37,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-041",
+      "kind": "TEST",
+      "title": "Order and job state progression",
+      "module": "M10",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/orders/test/t041-order-job-state-progression.test.ts",
+        "apps/kite-broker/test/t041-order-job-db-guards.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 18,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-042",
+      "kind": "TEST",
+      "title": "Duplicate order intent suppression",
+      "module": "M10",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t042-order-intent-dedupe.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 6,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-043",
+      "kind": "TEST",
+      "title": "Restart-safe external reconciliation",
+      "module": "M10",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/orders/test/t043-webhook-verification-and-poll-egress.test.ts",
+        "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
+        "apps/kite-broker/test/t043-t044-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 24,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-044",
+      "kind": "TEST",
+      "title": "Cancellation or substitution reopens policy",
+      "module": "M10",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t043-t044-security-review.int.test.ts",
+        "apps/kite-broker/test/t044-change-reopens-policy.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 20,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-045",
+      "kind": "TEST",
+      "title": "Stable sensor recovery window",
+      "module": "M11",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/recovery/test/t045-stable-window.test.ts",
+        "apps/kite-broker/test/t045-recovery-window.int.test.ts",
+        "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts",
+        "apps/kite-broker/test/t045-t047-security-review-3.int.test.ts",
+        "apps/kite-broker/test/t045-t047-security-review.int.test.ts",
+        "apps/kite-broker/test/t045-t048-security-review-2.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 42,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-046",
+      "kind": "TEST",
+      "title": "Provider completion cannot close incident",
+      "module": "M11",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/recovery/test/t046-recovered-reachability.test.ts",
+        "apps/kite-broker/test/t046-completion-not-recovery.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 10,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-047",
+      "kind": "TEST",
+      "title": "CMMS signature and installed-part verification",
+      "module": "M11",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/recovery/test/t047-cmms-adapter.test.ts",
+        "apps/kite-broker/test/t045-t047-closeout-race.int.test.ts",
+        "apps/kite-broker/test/t045-t047-security-review-3.int.test.ts",
+        "apps/kite-broker/test/t045-t047-security-review.int.test.ts",
+        "apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 29,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-048",
+      "kind": "TEST",
+      "title": "Repeat fault reopens closed incident",
+      "module": "M11",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t045-t048-security-review-2.int.test.ts",
+        "apps/kite-broker/test/t048-repeat-fault-reopen.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 8,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-049",
+      "kind": "TEST",
+      "title": "Keyboard and screen-reader critical path",
+      "module": "M12",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/web/e2e/t049-keyboard-critical-path.spec.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 1,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-050",
+      "kind": "TEST",
+      "title": "Responsive operations views",
+      "module": "M12",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/web/e2e/t050-responsive.spec.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 1,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-051",
+      "kind": "TEST",
+      "title": "Honest stale, unknown, and unsupported states",
+      "module": "M12",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/web/e2e/t051-honest-states.spec.ts",
+        "apps/web/test/t051-axis-honesty.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 10,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-052",
+      "kind": "TEST",
+      "title": "Chart table fallback and reduced motion",
+      "module": "M12",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/web/e2e/t052-chart-fallback.spec.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 2,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-053",
+      "kind": "TEST",
+      "title": "Threat and adversarial corpus",
+      "module": "M13",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/providers/test/t053-ssrf-corpus.test.ts",
+        "apps/api/test/t053-idp-ssrf.test.ts",
+        "apps/kite-broker/test/t053-adversarial-corpus.int.test.ts",
+        "apps/kite-broker/test/t053-fr23-retention-erasure.int.test.ts",
+        "apps/kite-broker/test/t053-security-review.int.test.ts",
+        "apps/kite-broker/test/t053-separation-of-duties.int.test.ts",
+        "apps/kite-broker/test/t053-tenant-isolation-corpus.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 106,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-054",
+      "kind": "TEST",
+      "title": "Load, rate, timeout, and cost bounds",
+      "module": "M13",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/observability/test/t055-alerts-health-slo.test.ts",
+        "packages/resilience/test/t054-bounds.test.ts",
+        "apps/api/test/t055-api-observability.test.ts",
+        "apps/kite-broker/test/t054-load-rate-cost-bounds.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 34,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-055",
+      "kind": "TEST",
+      "title": "End-to-end trace correlation",
+      "module": "M13",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "packages/observability/test/t055-alerts-health-slo.test.ts",
+        "packages/observability/test/t055-metrics-traces.test.ts",
+        "packages/observability/test/t055-structured-logs-redaction.test.ts",
+        "apps/api/test/t055-api-observability.test.ts",
+        "apps/kite-broker/test/t055-end-to-end-trace.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 33,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-056",
+      "kind": "TEST",
+      "title": "Chaos restart and recovery",
+      "module": "M13",
+      "status": "PASS",
+      "externalEvidence": "NOT_APPLICABLE",
+      "testRefs": [
+        "apps/kite-broker/test/t056-chaos-boundaries.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts",
+        "apps/kite-broker/test/t056-chaos-recovery.int.test.ts",
+        "apps/kite-broker/test/t056-security-review.int.test.ts"
+      ],
+      "codeRefs": [],
+      "results": {
+        "passed": 28,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-057",
+      "kind": "TEST",
+      "title": "Clean-environment deployment",
+      "module": "M14",
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_RUN",
+      "testRefs": [],
+      "codeRefs": [],
+      "results": {
+        "passed": 0,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-058",
+      "kind": "TEST",
+      "title": "Real-input recovery journey",
+      "module": "M14",
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_RUN",
+      "testRefs": [],
+      "codeRefs": [],
+      "results": {
+        "passed": 0,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-059",
+      "kind": "TEST",
+      "title": "Submission artifact and claim evidence",
+      "module": "M14",
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_RUN",
+      "testRefs": [],
+      "codeRefs": [],
+      "results": {
+        "passed": 0,
+        "failed": 0
+      }
+    },
+    {
+      "id": "T-060",
+      "kind": "TEST",
+      "title": "Release authority and rollback gate",
+      "module": "M14",
+      "status": "NOT_RUN",
+      "externalEvidence": "NOT_RUN",
+      "testRefs": [],
+      "codeRefs": [],
+      "results": {
+        "passed": 0,
+        "failed": 0
+      }
+    }
+  ]
+}

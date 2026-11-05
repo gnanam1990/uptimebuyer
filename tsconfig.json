@@ -29,6 +29,18 @@
       "path": "./packages/data/test"
     },
     {
+      "path": "./packages/resilience/test"
+    },
+    {
+      "path": "./packages/resilience"
+    },
+    {
+      "path": "./packages/observability/test"
+    },
+    {
+      "path": "./packages/observability"
+    },
+    {
       "path": "./packages/telemetry"
     },
     {
@@ -117,6 +129,9 @@
     },
     {
       "path": "./apps/web/e2e"
+    },
+    {
+      "path": "./packages/operations"
     }
   ]
 }

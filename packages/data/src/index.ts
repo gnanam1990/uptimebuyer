@@ -22,7 +22,6 @@ export {
   assertAuthenticated,
   assertTenantContext,
   resolveTenantContext,
-  issueBrokerWorkerContext,
   withTenantTransaction,
   type AuthenticatedPrincipal,
   type ContextPrincipal,
@@ -39,11 +38,14 @@ export {
 export {
   HumanOidcVerifier,
   InMemoryCredentialResolver,
+  MACHINE_TOKEN_CLOCK_TOLERANCE_SECONDS,
+  TOKEN_USE_PRUNE_GRACE_SECONDS,
   authenticateDevice,
   authenticateHuman,
   authenticateIntegration,
   authenticateService,
   peekMachineTokenSubject,
+  pruneExpiredTokenUses,
   signPrincipalToken,
   verifyMachineTokenOffline,
   type CredentialResolver,
@@ -82,6 +84,7 @@ export * from './outbox.js';
 export * from './jobs.js';
 export * from './provider-accounts.js';
 export * from './privacy.js';
+export * from './erasure.js';
 export * from './tenant-scope.js';
 export * from './telemetry.js';
 export { assertTenantSecretRef, isTenantSecretRef } from './secret-ref.js';

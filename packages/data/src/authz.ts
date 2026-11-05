@@ -112,6 +112,15 @@ export const ACTIONS = Object.freeze({
     actionClasses: ENGINEERING_ACTION_CLASSES,
   }),
   'policy.publish': human(['admin'], 'TENANT'),
+  /** Execute a privacy request (erasure/export) for the tenant (M13, FR-23). */
+  'privacy.execute': human(['admin'], 'TENANT'),
+  /** Run the retention sweep for the tenant: an administrator or the tenant's worker identity (M13, FR-23). */
+  'privacy.retention_sweep': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['admin', 'worker'],
+    site: 'TENANT',
+    workerAllowed: true,
+  },
   'role.assign': human(['admin'], 'TENANT'),
   'provider_account.manage': human(['admin'], 'TENANT'),
   'audit.read': human(['admin', 'auditor'], 'TENANT'),
@@ -260,10 +269,39 @@ export const ApprovalLimitRuleSchema = z.strictObject({
  * classes, authoritative sources, thresholds and auto-permit bounds. Approver roles for overrides and out-of-bounds
  * amounts are named by `approvalLimits`. A revision without the section makes every compatibility evaluation HOLD.
  */
+/**
+ * M13 separation of duties (SECURITY.md §4, UI-SPEC §10). `spend`: for an approval in a listed currency at or above
+ * `minAmountMinor`, the execution authority must be issued by a different human holding finance_approver, and budget
+ * adjustments by a finance approver who neither approved nor issued it. `dualApprovalPolicyKeys`: revisions of these
+ * policy keys are published only through a second administrator's approval of a proposal.
+ */
+export const SeparationOfDutiesSchema = z.strictObject({
+  spend: z
+    .array(z.strictObject({ currency: CurrencyCodeSchema, minAmountMinor: MinorUnitsSchema }))
+    .max(20)
+    .optional(),
+  dualApprovalPolicyKeys: z
+    .array(z.enum(['AUTHORITY', 'RETENTION']))
+    .max(2)
+    .optional(),
+});
+export type SeparationOfDuties = {
+  readonly spend?: readonly { readonly currency: CurrencyCode; readonly minAmountMinor: bigint }[];
+  readonly dualApprovalPolicyKeys?: readonly ('AUTHORITY' | 'RETENTION')[];
+};
+
 export const AuthorityPolicySchema = z.strictObject({
   approvalLimits: z.array(ApprovalLimitRuleSchema).max(500),
   compatibility: CompatibilityPolicySchema.optional(),
+  separationOfDuties: SeparationOfDutiesSchema.optional(),
 });
+
+/** Does the policy's spend SoD rule cover this approval amount? */
+export function spendSeparationRequired(policy: AuthorityPolicy | undefined, amount: Money): boolean {
+  return (policy?.separationOfDuties?.spend ?? []).some(
+    (r) => r.currency === amount.currency && amount.amountMinor >= r.minAmountMinor,
+  );
+}
 export type AuthorityPolicy = {
   readonly approvalLimits: readonly {
     readonly approvalKind: ApprovalKind;
@@ -274,6 +312,7 @@ export type AuthorityPolicy = {
     readonly siteIds: readonly SiteId[] | null;
   }[];
   readonly compatibility?: CompatibilityPolicy;
+  readonly separationOfDuties?: SeparationOfDuties;
 };
 
 export interface AuthorizationRequest {

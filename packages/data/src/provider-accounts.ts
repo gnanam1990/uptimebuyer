@@ -329,9 +329,23 @@ export async function recordWebhookDelivery(
 ): Promise<{ deliveryId: WebhookDeliveryId; duplicate: boolean }> {
   if (!issuedBindings.has(binding))
     throw new DomainError('UNAUTHENTICATED', 'A server-resolved webhook binding is required.');
+  return withTransaction(pool, (c) => recordWebhookDeliveryInTx(c, binding, input));
+}
+
+/**
+ * The same as recordWebhookDelivery inside the caller's transaction (M13 security review S8), so a verified delivery
+ * and its downstream job or quarantine commit together or not at all.
+ */
+export async function recordWebhookDeliveryInTx(
+  c: Tx,
+  binding: WebhookBinding,
+  input: { providerEventId: string; signatureValid: boolean; bodyDigest: string },
+): Promise<{ deliveryId: WebhookDeliveryId; duplicate: boolean }> {
+  if (!issuedBindings.has(binding))
+    throw new DomainError('UNAUTHENTICATED', 'A server-resolved webhook binding is required.');
   if (!/^[\x21-\x7E]{1,256}$/.test(input.providerEventId) || !Sha256DigestSchema.safeParse(input.bodyDigest).success)
     throw validation('INVALID_WEBHOOK_DELIVERY');
-  return withTransaction(pool, async (c) => {
+  {
     const deliveryId = newDataId('webhookDelivery') as WebhookDeliveryId;
     const params = [
       binding.tenantId,
@@ -380,7 +394,7 @@ export async function recordWebhookDelivery(
       ],
     );
     return { deliveryId: id, duplicate };
-  });
+  }
 }
 
 export async function findWebhookDelivery(

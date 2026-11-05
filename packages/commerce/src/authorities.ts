@@ -16,13 +16,18 @@ import {
 } from '@uptimebuyer/contracts';
 import { canonicalize, transition } from '@uptimebuyer/domain';
 import {
+  Denial,
   UNIQUE_VIOLATION,
   dbNow,
+  loadPolicyRevision,
+  notPermitted,
   pgCode,
   recordAudit,
   requireAuthorized,
+  spendSeparationRequired,
   tenantCommand,
   unavailable,
+  type AuthorityPolicy,
   type Db,
   type TenantContext,
   type Tx,
@@ -119,6 +124,42 @@ async function loadView(c: Tx, tenantId: string, authorityId: string): Promise<E
   };
 }
 
+/**
+ * M13 separation of duties for spend (SECURITY.md §4): when the approval's pinned AUTHORITY revision declares a spend
+ * rule covering its amount, the acting principal must be a human holding finance_approver at the site who is none of
+ * `involved` (the approver; for adjustments also the issuer). Refusals are audited Denials (FORBIDDEN).
+ */
+export async function requireSpendSeparation(
+  c: Tx,
+  ctx: TenantContext,
+  action: string,
+  scope: {
+    approvalId: string;
+    siteId: string;
+    policyRevisionId: string;
+    amount: { amountMinor: bigint; currency: string };
+    involved: readonly string[];
+  },
+): Promise<void> {
+  const policy = await loadPolicyRevision(c, ctx.tenantId, scope.policyRevisionId);
+  if (!policy || policy.policyKey !== 'AUTHORITY') return;
+  if (!spendSeparationRequired(policy.body as AuthorityPolicy, scope.amount as never)) return;
+  const deny = (reasonCode: string) =>
+    new Denial(notPermitted(reasonCode), {
+      action,
+      resourceType: 'approval',
+      resourceId: scope.approvalId,
+      reasonCode,
+    });
+  const p = ctx.principal;
+  if (p.kind !== 'HUMAN') throw deny('SEPARATION_OF_DUTIES_ROLE_REQUIRED');
+  if (scope.involved.includes(p.id)) throw deny('SELF_APPROVAL_DENIED');
+  const finance = ctx.grants.some(
+    (g) => g.role === 'finance_approver' && (g.siteId === null || g.siteId === scope.siteId),
+  );
+  if (!finance) throw deny('SEPARATION_OF_DUTIES_ROLE_REQUIRED');
+}
+
 export async function issueExecutionAuthority(
   pool: Db,
   ctx: TenantContext,
@@ -142,6 +183,13 @@ export async function issueExecutionAuthority(
     requireAuthorized(ctx, { action: 'commerce.authority_issue', siteId: a.site_id }, undefined, {
       type: 'approval',
       id: a.id,
+    });
+    await requireSpendSeparation(c, ctx, meta.action, {
+      approvalId: a.id,
+      siteId: a.site_id,
+      policyRevisionId: a.policy_revision_id,
+      amount: { amountMinor: BigInt(a.max_amount_minor), currency: a.currency },
+      involved: [a.actor_user_id],
     });
     // Idempotent: one authority per approval; a repeat returns it (and its one session operation).
     const existing = (

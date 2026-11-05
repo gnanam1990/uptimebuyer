@@ -150,6 +150,9 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'approval.budget_adjustment': ['finance_approver'],
   'approval.engineering_exception': ['engineer'],
   'policy.publish': ['admin'],
+  // M13 (FR-23): privacy-request execution is admin-only; the retention sweep also runs as the tenant's worker.
+  'privacy.execute': ['admin'],
+  'privacy.retention_sweep': ['admin', 'service'],
   'role.assign': ['admin'],
   'provider_account.manage': ['admin'],
   'audit.read': ['admin', 'auditor'],
@@ -261,6 +264,8 @@ function requestFor(action: ActionName, siteId: SiteId | null = s1): Authorizati
     case 'approval.engineering_exception':
       return { action, siteId, approvalKind: 'PLAN_ACTION', actionClass: 'SUBSTITUTE', amount: usd(50_000n) };
     case 'policy.publish':
+    case 'privacy.execute':
+    case 'privacy.retention_sweep':
     case 'policy.history':
     case 'role.assign':
     case 'provider_account.manage':

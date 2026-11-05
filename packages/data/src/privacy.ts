@@ -16,7 +16,7 @@ const SCOPE_TYPES: readonly HoldScopeType[] = ['TENANT', 'SITE', 'ASSET', 'INCID
 const validation = (reasonCode: string) =>
   new DomainError('VALIDATION_FAILED', 'Input failed contract validation.', { reasonCode });
 
-interface ScopeChain {
+export interface ScopeChain {
   siteId: string | null;
   assetId: string | null;
   incidentId: string | null;
@@ -120,7 +120,7 @@ export async function releaseLegalHold(pool: Db, ctx: TenantContext, legalHoldId
 }
 
 /** Active holds overlap when their chains agree on every level both define (NULL = whole subtree). */
-async function overlappingHold(c: Tx, tenantId: TenantId, chain: ScopeChain): Promise<boolean> {
+export async function overlappingHold(c: Tx, tenantId: TenantId, chain: ScopeChain): Promise<boolean> {
   const { rowCount } = await c.query(
     `SELECT 1 FROM legal_holds h
       WHERE h.tenant_id = $1 AND h.released_at IS NULL

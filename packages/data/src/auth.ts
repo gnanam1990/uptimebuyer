@@ -213,7 +213,7 @@ async function authenticateMachine(
       issuer: m.issuer,
       audience: m.audience,
       subject: row.id,
-      clockTolerance: 5,
+      clockTolerance: MACHINE_TOKEN_CLOCK_TOLERANCE_SECONDS,
       maxTokenAge: MAX_TTL_SECONDS + 60,
       requiredClaims: ['sub', 'exp', 'iat', 'jti'],
     }));
@@ -232,6 +232,45 @@ async function authenticateMachine(
   );
   if (use.rowCount !== 1) return fail('TOKEN_REPLAYED', row.id);
   return { row };
+}
+
+/** The machine-token verifier's clock tolerance (seconds); a token is still accepted this long after `exp`. */
+export const MACHINE_TOKEN_CLOCK_TOLERANCE_SECONDS = 5;
+/**
+ * A used token id may be pruned only once its token can no longer verify: `exp` plus the verifier tolerance plus a
+ * safety margin for clock skew between application hosts and the database (M13; NFR-04 bounded table growth).
+ */
+export const TOKEN_USE_PRUNE_GRACE_SECONDS = 600;
+
+/**
+ * Delete single-use token rows whose token expired longer ago than the grace window, in bounded batches (oldest
+ * first, SKIP LOCKED so concurrent authentication and other pruners never wait). Replay protection is intact: a
+ * pruned row belongs to a token that `jwtVerify` already refuses by expiry, and every row a still-acceptable token
+ * could collide with is kept. A platform maintenance operation (no tenant context); M14 schedules it.
+ */
+export async function pruneExpiredTokenUses(
+  pool: Db,
+  opts: { graceSeconds?: number; batchSize?: number } = {},
+): Promise<{ deleted: number }> {
+  const grace = opts.graceSeconds ?? TOKEN_USE_PRUNE_GRACE_SECONDS;
+  const batch = opts.batchSize ?? 5_000;
+  if (!Number.isInteger(grace) || grace < MACHINE_TOKEN_CLOCK_TOLERANCE_SECONDS + 60)
+    throw new DomainError('VALIDATION_FAILED', 'The prune grace window must exceed the verifier tolerance.', {
+      reasonCode: 'PRUNE_GRACE_TOO_SHORT',
+    });
+  if (!Number.isInteger(batch) || batch < 1 || batch > 50_000)
+    throw new DomainError('VALIDATION_FAILED', 'Invalid prune batch size.', { reasonCode: 'PRUNE_BATCH_INVALID' });
+  const r = await pool.query(
+    `DELETE FROM principal_token_uses u
+      WHERE (u.tenant_id, u.id) IN (
+        SELECT tenant_id, id FROM principal_token_uses
+         WHERE expires_at < clock_timestamp() - make_interval(secs => $1::double precision)
+         ORDER BY expires_at
+         LIMIT $2
+         FOR UPDATE SKIP LOCKED)`,
+    [grace, batch],
+  );
+  return { deleted: r.rowCount ?? 0 };
 }
 
 /**

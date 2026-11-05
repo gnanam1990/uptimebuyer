@@ -1,0 +1,129 @@
+{
+  "schema": "alert-rules.v1",
+  "rules": [
+    {
+      "id": "broker_budget_invariant_violation",
+      "severity": "critical",
+      "summary": "Broker budget conservation or cap invariant violated",
+      "immediateAction": "Stop new commercial intents; preserve broker and ledger state for review.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#8-runbooks",
+      "conditions": [{ "metric": "ub_broker_invariant_violations_total", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "broker_budget_invariant_violation",
+      "routing": "security-oncall"
+    },
+    {
+      "id": "incident_closed_without_evidence",
+      "severity": "critical",
+      "summary": "An incident is RECOVERED without a passing evaluation and closeout",
+      "immediateAction": "Freeze the closure path; reopen and review every affected incident.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#7-alerts",
+      "conditions": [{ "metric": "ub_incidents_closed_without_evidence", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "incident_closed_without_evidence",
+      "routing": "operations-oncall"
+    },
+    {
+      "id": "credential_or_tenant_isolation_signal",
+      "severity": "critical",
+      "summary": "Credential exposure or tenant isolation signal",
+      "immediateAction": "Revoke and contain affected credentials and invoke the security response runbook.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#suspected-cross-tenant-or-secret-exposure",
+      "conditions": [
+        { "metric": "ub_isolation_signals_total", "op": ">", "threshold": 0 },
+        { "metric": "ub_credential_exposure_signals_total", "op": ">", "threshold": 0 }
+      ],
+      "match": "any",
+      "dedupeKey": "credential_or_tenant_isolation_signal",
+      "routing": "security-oncall"
+    },
+    {
+      "id": "external_outcome_past_deadline",
+      "severity": "high",
+      "summary": "An UNKNOWN external outcome is past its reconciliation deadline",
+      "immediateAction": "Reconcile by authoritative lookup or manual review; never retry blindly.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#paymentprovider-outcome-unknown",
+      "conditions": [{ "metric": "ub_external_unknown_overdue", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "external_outcome_past_deadline",
+      "routing": "finance-oncall"
+    },
+    {
+      "id": "sensor_stale_active_incident",
+      "severity": "high",
+      "summary": "Telemetry is stale for an asset with an active incident",
+      "immediateAction": "Contact the site; show the asset as unknown; alternate evidence never satisfies the stable window.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#sensor-outage",
+      "conditions": [{ "metric": "ub_sensor_stale_active_incidents", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "sensor_stale_active_incident",
+      "routing": "site-oncall"
+    },
+    {
+      "id": "outbox_or_queue_age",
+      "severity": "high",
+      "summary": "Outbox or job queue age over threshold",
+      "immediateAction": "Restore the publisher or worker from durable state; never delete durable rows.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#outbox-or-worker-backlog",
+      "conditions": [
+        { "metric": "ub_outbox_oldest_unpublished_age_seconds", "op": ">", "threshold": 60 },
+        { "metric": "ub_jobs_oldest_runnable_age_seconds", "op": ">", "threshold": 300 }
+      ],
+      "match": "any",
+      "dedupeKey": "outbox_or_queue_age",
+      "routing": "operations-oncall"
+    },
+    {
+      "id": "provider_circuit_open",
+      "severity": "medium",
+      "summary": "A provider circuit is open",
+      "immediateAction": "Use an alternate provider or escalate under policy.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#7-alerts",
+      "conditions": [{ "metric": "ub_provider_circuit_open", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "provider_circuit_open",
+      "routing": "operations-oncall"
+    },
+    {
+      "id": "model_rejection_spike",
+      "severity": "medium",
+      "summary": "Reasoning schema or citation rejections spiked",
+      "immediateAction": "Disable the affected reasoning configuration and continue the manual workflow.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#model-or-evidence-failure",
+      "conditions": [
+        {
+          "metric": "ub_model_rejections_total",
+          "ratioTo": "ub_model_runs_total",
+          "minDenominator": 5,
+          "op": ">",
+          "threshold": 0.5
+        }
+      ],
+      "match": "any",
+      "dedupeKey": "model_rejection_spike",
+      "routing": "operations-oncall"
+    },
+    {
+      "id": "backup_restore_verification_failed",
+      "severity": "high",
+      "summary": "Backup or restore verification failed",
+      "immediateAction": "Block release and repair data protection before promotion.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#9-backup-and-recovery",
+      "conditions": [{ "metric": "ub_backup_verification_failed", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "backup_restore_verification_failed",
+      "routing": "operations-oncall"
+    },
+    {
+      "id": "slo_target_missed",
+      "severity": "medium",
+      "summary": "A latency or availability objective is missed (degraded state)",
+      "immediateAction": "Show degraded state to operators; investigate the slowest dependency.",
+      "runbook": "docs/spec/OBSERVABILITY-OPERATIONS.md#6-initial-slo-candidates",
+      "conditions": [{ "metric": "ub_slo_target_missed", "op": ">", "threshold": 0 }],
+      "match": "any",
+      "dedupeKey": "slo_target_missed",
+      "routing": "operations-oncall"
+    }
+  ]
+}

@@ -36,7 +36,8 @@ import {
 } from './authz.js';
 import { recordAudit, tenantCommand, unavailable } from './command.js';
 import { humanActor, type TenantContext } from './context.js';
-import { dbNow, iso, isoNN, type Db } from './db.js';
+import { dbNow, iso, isoNN, sha256Digest, type Db } from './db.js';
+import { appendRecordEvidence } from './evidence.js';
 import { appendOutboxEvent } from './outbox.js';
 import { loadPolicyRevision } from './policy.js';
 
@@ -224,6 +225,17 @@ export async function recordApproval(
       payload: { approvalId, approvalKind: a.approvalKind, incidentId: a.incidentId, signatureDigest },
       correlationId: ctx.correlationId,
       causationId: newId('command'),
+    });
+    // M13 (FR-18): the signed approval is a ledger record, referenced by digest of its signature digest.
+    await appendRecordEvidence(c, ctx, {
+      kind: 'APPROVAL',
+      trust: 'AUTHORITATIVE',
+      subject: { aggregateType: 'approval', aggregateId: approvalId },
+      incidentId: a.incidentId,
+      payloadSchema: 'approval.recorded.v1',
+      payloadDigest: sha256Digest(signatureDigest),
+      payloadRef: null,
+      supersedesEvidenceId: null,
     });
     await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED' });
     return { approvalId, signatureDigest };

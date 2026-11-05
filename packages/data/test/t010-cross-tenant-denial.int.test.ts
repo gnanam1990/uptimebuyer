@@ -357,9 +357,13 @@ describe('T-010 cross-tenant access denial', () => {
     const ledger = await exportEvidenceLedger(db.pool, ctxA);
     expect(ledger.tenantId).toBe(a.tenantId);
     expect(ledger.chain).toEqual({ ok: true });
-    expect(ledger.entries.map((e) => e.evidenceId)).toEqual([
+    // The seeded material entries, then (since M13, FR-18) exactly one APPROVAL record for tenant A's own approval.
+    expect(ledger.entries.slice(0, 2).map((e) => e.evidenceId)).toEqual([
       A.ledger.first.evidenceId,
       A.ledger.correction.evidenceId,
+    ]);
+    expect(ledger.entries.slice(2).map((e) => [e.kind, e.subject.aggregateId])).toEqual([
+      ['APPROVAL', A.approval.approvalId],
     ]);
     expect(Number.isNaN(Date.parse(ledger.cutoffAt))).toBe(false);
     const audit = await exportAuditEntries(db.pool, ctxA);

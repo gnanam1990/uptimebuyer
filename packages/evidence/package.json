@@ -11,6 +11,7 @@
     "@uptimebuyer/contracts": "workspace:*",
     "@uptimebuyer/data": "workspace:*",
     "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/resilience": "workspace:*",
     "pg": "8.23.1",
     "zod": "4.6.7"
   },

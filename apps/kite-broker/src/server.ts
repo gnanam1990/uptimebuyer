@@ -90,15 +90,27 @@ export function brokerRequestHandler(broker: KiteBroker, log: BrokerLog) {
       try {
         if (route === BROKER_ROUTES.ACTIVATE_SESSION) {
           const out = await broker.activateSession(reference);
-          log.event('session.activate', { replay: out.replay, outcome: out.session.externalOutcomeState });
+          log.event('session.activate', {
+            replay: out.replay,
+            outcome: out.session.externalOutcomeState,
+            tenantId: out.session.tenantId,
+            executionAuthorityId: out.session.executionAuthorityId,
+          });
           return send(res, 200, { session: encodeWire(KiteSessionSchema, out.session), replay: out.replay });
         }
         const out =
           route === BROKER_ROUTES.EXECUTE ? await broker.execute(reference) : await broker.reconcile(reference);
+        // M13 (T-055): broker lines carry the intent's workflow correlation id and identifiers, never payloads.
+        const correlationId = await broker
+          .correlationOf(out.intent.tenantId, out.intent.commercialIntentId)
+          .catch(() => null);
         log.event(route === BROKER_ROUTES.EXECUTE ? 'intent.execute' : 'intent.reconcile', {
           state: out.intent.state,
           events: out.events.length,
           replay: out.replay,
+          tenantId: out.intent.tenantId,
+          intentId: out.intent.commercialIntentId,
+          correlationId,
         });
         return send(res, 200, {
           intent: encodeWire(CommercialIntentSchema, out.intent),

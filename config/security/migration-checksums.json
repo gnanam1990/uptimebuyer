@@ -1,0 +1,30 @@
+{
+  "schema": "migration-checksums.v1",
+  "note": "sha256 of each applied migration file; update only by adding a new migration (pnpm exec node scripts/migration-lint.mjs --update-lock).",
+  "migrations": {
+    "0000_bootstrap.sql": "63aad2769c3597fcf10e01fd78bc771c7bbde5962335adf86a791da7a12fad86",
+    "0001_m02_identity_tenancy.sql": "9737feb5fa9a90538fd47a131152cdd7e809d2c32762022b7a2dad15d34b2b6e",
+    "0002_m02_registry_assets_devices.sql": "226b59c008bd0da807e5c3baf0755eb30908902fa436e2572784914a1a6508cb",
+    "0003_m02_policy_approvals_evidence.sql": "bbd572336c3dbed6b5ac790acc21c3306b8f15a21b187356d948b2ec1d06b58c",
+    "0004_m02_outbox_jobs_audit.sql": "9d3df9470c5395616dc14febe3957b30c1b2f708671d2906562591bc7a710d38",
+    "0005_m02_provider_accounts.sql": "6f7a1233124429fb97c0aaba5a26d5898bb73fc4e2637984d5cd17f610a26e05",
+    "0006_m02_privacy_lifecycle.sql": "69d10727889ad211ba28c250403414400d69f60b9d1ecd643a6bac92a57d085e",
+    "0007_m02_security_hardening.sql": "4fbb594d3f010025e37b9d5bb6f84763de43660326d4755e03cc0899344d3ff9",
+    "0008_m03_telemetry.sql": "8a36af0213d464dd63302a799da061deba88e71776dc1fb1b92ab4b6ecafac33",
+    "0009_m04_incidents.sql": "c4a6d6d9336af383f3b39ab96f2ecd0664e11c4e9ff7ca0f39fac944d10845b4",
+    "0010_m05_evidence_reasoning.sql": "7a2664c59c69e4c02230a9869e7b431e1279775a19b6bb485e1615a86720e5ca",
+    "0011_m06_compatibility_policy.sql": "2b9560070058d8164afb51b1adfa944fc024d550395c614f0f93913d1b7149a2",
+    "0012_m07_provider_comms.sql": "6f2246588d1ee58b223c3aafe4cb326fc812bf83c1d9f40b449c02450f89e991",
+    "0013_m07_contact_point_review.sql": "c332a3183b9aa0b1eeba95901f61948647f64f6ea0a3ef23151302fada3b1fac",
+    "0014_m08_planning.sql": "78e96d1e230407e56df515a1429d8f3397c6cfb263e88f0d9ed1e654c9d87825",
+    "0015_m08_plan_hash_open_scope.sql": "913e4711be0e3f276eee1bd8010f4a1c2b9e89a7746d5920b5fefe1c916628a8",
+    "0016_m09_kite_broker.sql": "2609ab1075b38f11acc62e05668e3b90065d621bd2445b05e41ba0f4a1a354d1",
+    "0017_m07_contact_point_guard_null_safe.sql": "8a5e45d29bf16f2a1e398d30c35c01655556c4bbeee0ba2a71e0434d13662306",
+    "0018_m10_orders_jobs.sql": "337f968b2a30df13420c10d5a4ed9842365aad8f4b07779445d94cdb984da48f",
+    "0019_m11_recovery_verification_cmms.sql": "1200394a26b2509f98565cafc8f47ef16d666c2d105090b9a67ec3924dccdb70",
+    "0020_m13_data_lifecycle.sql": "1d26a20c9f1a54ab96b6668b3cca2bb8a90c2af75c899a0b5ae23e5ae7afb3ce",
+    "0021_m13_separation_of_duties.sql": "41ddc00e31c74e6f5c5fcb147601884f544243fdf003bf910b65dea1680a6ec7",
+    "0022_m13_policy_governance.sql": "6a693f801a146f39b49e6c1ff4557e0ecb6414f4ec09a8fcdcb8c4ee44343840",
+    "0023_m13_adjustment_separation.sql": "24f3bc408ada5d4f69eb1f10b0a619eaf559449a6f7bd3590e09cb8b7e13621a"
+  }
+}

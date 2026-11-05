@@ -20,6 +20,7 @@ export const DATA_ID_PREFIXES = Object.freeze({
   legalHold: 'lgh',
   privacyRequest: 'prq',
   redactionTombstone: 'rdt',
+  policyChangeProposal: 'pcp',
   telemetryBatch: 'tbt',
   telemetrySample: 'tsm',
   telemetryRejection: 'trj',

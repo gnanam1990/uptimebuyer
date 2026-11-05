@@ -424,6 +424,33 @@ export async function appendOperatorEvidence(
   }
 }
 
+const RECORD_KINDS = new Set(['APPROVAL', 'PAYMENT_STATE', 'EXTERNAL_ACTION', 'RECEIPT']);
+const RECORD_TRUST = new Set(['AUTHORITATIVE', 'PROVIDER_REPORTED', 'CONTRACT_FAKE']);
+
+/**
+ * M13 (FR-18, T-055): the ledger entry for a server-produced durable record — a signed approval, a commercial-intent
+ * payment state, an external attempt or order outcome, a receipt — appended inside that record's own transaction
+ * whatever principal triggered the command, so the exportable ledger is complete. The kind and trust are fixed by
+ * server code (never request input): only record kinds, never human attestation, never a correction; a result from a
+ * recorded contract or fake adapter must be labelled CONTRACT_FAKE by the caller.
+ */
+export async function appendRecordEvidence(
+  client: Tx,
+  ctx: TenantContext,
+  input: LedgerEvidenceInput,
+): Promise<EvidenceEnvelope> {
+  assertTenantContext(ctx);
+  if (!RECORD_KINDS.has(input.kind)) throw notPermitted('EVIDENCE_KIND_NOT_PERMITTED');
+  if (!RECORD_TRUST.has(input.trust)) throw notPermitted('EVIDENCE_TRUST_NOT_PERMITTED');
+  if (input.supersedesEvidenceId !== null) throw notPermitted('RECORD_EVIDENCE_NOT_CORRECTABLE');
+  try {
+    return await insertLedgerEntry(client, ctx, input, 'SYSTEM');
+  } catch (e) {
+    if (e instanceof Denial) throw e.error;
+    throw e;
+  }
+}
+
 /** Correction rules: same tenant, not already corrected, and of a kind the writer may correct. */
 async function checkCorrection(c: Tx, ctx: TenantContext, writer: LedgerWriter, targetId: string): Promise<void> {
   const { rows } = await c.query<{ kind: string; trust: string }>(

@@ -24,7 +24,8 @@ export class ContractFakeReasoner implements ReasonerPort {
     return {
       ...turn,
       model: { adapter: 'CONTRACT_FAKE', modelId: 'contract-fake-reasoner', modelVersion: '1', responseId: null },
-      usage: { promptTokens: null, completionTokens: null },
+      // A script may report usage (budget tests); otherwise usage is unknown, never invented.
+      usage: turn.usage ?? { promptTokens: null, completionTokens: null },
     };
   }
 }

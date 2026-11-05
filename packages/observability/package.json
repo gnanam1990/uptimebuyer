@@ -1,0 +1,15 @@
+{
+  "name": "@uptimebuyer/observability",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Structured logs, bounded-label metrics, correlation-carrying traces, redaction, health/readiness, SLO tracking and alert rules (M13, NFR-09, INV-13). Pure library: no database, network or credentials.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./alert-rules.json": "./src/alert-rules.json"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

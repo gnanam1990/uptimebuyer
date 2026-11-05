@@ -56,4 +56,9 @@ export const REASONING_LIMITS = Object.freeze({
   maxResponseBytes: 1024 * 1024,
   /** Search hits returned to the model per tool call. */
   maxToolResults: 8,
+  /**
+   * M13 (T-054): cumulative prompt + completion tokens per run. Reported usage is charged exactly; unreported usage is
+   * charged by a conservative character estimate (4 characters per token) so a run without usage data stays bounded.
+   */
+  maxRunTokens: 120_000,
 });

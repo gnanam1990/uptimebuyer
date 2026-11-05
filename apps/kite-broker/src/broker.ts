@@ -8,15 +8,7 @@
 import { createHash } from 'node:crypto';
 import { DomainError, newId, type TenantId } from '@uptimebuyer/contracts';
 import { transition } from '@uptimebuyer/domain';
-import {
-  dbNow,
-  issueBrokerWorkerContext,
-  lockKey,
-  withTenantTransaction,
-  type Db,
-  type TenantContext,
-  type Tx,
-} from '@uptimebuyer/data';
+import { dbNow, lockKey, withTenantTransaction, type Db, type TenantContext, type Tx } from '@uptimebuyer/data';
 import { assertDecisionExecutableInTx, type AuthoritySigning } from '@uptimebuyer/compatibility';
 import {
   authorityScopeOf,
@@ -49,6 +41,7 @@ import {
   type SignedExecutionReference,
 } from '@uptimebuyer/kite-contracts';
 import type { KiteSession } from '@uptimebuyer/contracts';
+import { issueBrokerWorkerContext } from '@uptimebuyer/data/broker';
 import { autonomousRecovery, type AdapterOutcome, type PaidAdapter } from './adapters/port.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -990,6 +983,15 @@ export class KiteBroker {
       await this.tx(ctx, (c) => expireLapsedAuthoritiesInTx(c, ctx));
     }
     return { intents: due.rows.length, sessions: sessions.rows.length };
+  }
+
+  /** The intent's workflow correlation id, for structured broker logs (identifiers only; INV-13). */
+  async correlationOf(tenantId: TenantId | string, intentId: string): Promise<string | null> {
+    const { rows } = await this.pool.query(
+      `SELECT correlation_id FROM commercial_intents WHERE tenant_id = $1 AND id = $2`,
+      [tenantId, intentId],
+    );
+    return (rows[0]?.correlation_id as string | undefined) ?? null;
   }
 
   async intentView(tenantId: TenantId, intentId: string) {

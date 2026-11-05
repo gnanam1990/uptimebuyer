@@ -69,6 +69,7 @@ export {
   runReasoning,
   type ProposalAnnotations,
   type ProposalView,
+  type ReasoningBudget,
   type ReasoningDeps,
   type ReasoningRunResult,
   type ReasoningRunView,

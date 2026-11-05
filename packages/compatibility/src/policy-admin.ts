@@ -5,6 +5,7 @@
 import type { UtcInstant } from '@uptimebuyer/contracts';
 import {
   AuthorityPolicySchema,
+  approvePolicyProposal,
   publishPolicyRevision,
   requireAuthorized,
   tenantCommand,
@@ -66,6 +67,26 @@ export async function publishCompatibilityPolicy(
     ...(input.effectiveAt ? { effectiveAt: input.effectiveAt } : {}),
     source: input.source,
   });
+  const act = await activateEffectivePolicy(pool, ctx);
+  return { ...r, activation: act.policyRevisionId === r.policyRevisionId && act.activated ? act : null };
+}
+
+/**
+ * M13 dual approval: a second administrator approves a proposed AUTHORITY revision (M02 proposal flow); when it is
+ * effective immediately its compatibility section is activated exactly as a direct publication would be.
+ */
+export async function approveCompatibilityPolicyProposal(
+  pool: Db,
+  ctx: TenantContext,
+  policyChangeProposalId: string,
+): Promise<{
+  policyRevisionId: string;
+  revision: number;
+  effectiveAt: UtcInstant;
+  activation: ActivationResult | null;
+}> {
+  const r = await approvePolicyProposal(pool, ctx, { policyChangeProposalId });
+  if (r.policyKey !== 'AUTHORITY') return { ...r, activation: null };
   const act = await activateEffectivePolicy(pool, ctx);
   return { ...r, activation: act.policyRevisionId === r.policyRevisionId && act.activated ? act : null };
 }

@@ -1,0 +1,6 @@
+{
+  "schema": "advisories.v1",
+  "policy": "Offline advisory deny list matched against exact locked versions. Maintainers add entries from reviewed advisories (for example a `pnpm audit` run on a trusted machine); the check never queries a registry. Empty means no reviewed advisory currently applies to the lockfile, not that none exist.",
+  "reviewedAt": "2026-11-05",
+  "advisories": []
+}

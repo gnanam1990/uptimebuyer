@@ -7,8 +7,16 @@
 // maps the M09 economic intent onto the order without ever re-deciding payment: SUBMITTED/CONFIRMED is provider
 // acceptance only, UNKNOWN stays UNKNOWN, FAILED is the intent's own definite-no-effect proof.
 import { newId } from '@uptimebuyer/contracts';
-import { isTransitionAllowed } from '@uptimebuyer/domain';
-import { appendOutboxEvent, dbNow, recordAudit, type TenantContext, type Tx } from '@uptimebuyer/data';
+import { canonicalize, isTransitionAllowed } from '@uptimebuyer/domain';
+import {
+  appendOutboxEvent,
+  appendRecordEvidence,
+  dbNow,
+  recordAudit,
+  sha256Digest,
+  type TenantContext,
+  type Tx,
+} from '@uptimebuyer/data';
 import { invalidatePlanForExecutionChange } from '@uptimebuyer/planning';
 import { KIND, actorFields, newOrdersId } from './internal.js';
 import {
@@ -137,6 +145,17 @@ export async function emitOrderStateChanged(
     correlationId: ctx.correlationId,
     causationId: newId('command'),
   } as never);
+  // M13 (FR-18): the provider-reported order/job outcome is a ledger record (identifiers and status only).
+  await appendRecordEvidence(c, ctx, {
+    kind: 'EXTERNAL_ACTION',
+    trust: 'PROVIDER_REPORTED',
+    subject: { aggregateType: k.aggregateType as never, aggregateId: o.id },
+    incidentId: o.incident_id ?? null,
+    payloadSchema: k.eventType,
+    payloadDigest: sha256Digest(canonicalize({ id: o.id, from, to: o.state, version: o.version } as never)),
+    payloadRef: null,
+    supersedesEvidenceId: null,
+  });
 }
 
 /** Record a material change: proposal (never auto-accepted), and invalidation of the plan bound to the order. */

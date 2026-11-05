@@ -1,0 +1,19 @@
+{
+  "name": "@uptimebuyer/operations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Database-backed operations signals (M13): readiness checks, platform metrics collected without tenant labels, encryption posture, and the correlation-linked incident trace reconstructed from durable records (T-055).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/observability": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
