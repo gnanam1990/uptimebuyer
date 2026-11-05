@@ -36,6 +36,7 @@ export {
   type RecordAuthorityInput,
 } from './authority.js';
 export {
+  approveCompatibilityPolicyProposal,
   publishCompatibilityPolicy,
   listPolicyHistory,
   validatePolicyDraft,

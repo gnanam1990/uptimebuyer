@@ -14,6 +14,7 @@ import {
   type TenantContext,
 } from '@uptimebuyer/data';
 import { z } from 'zod';
+import { requireSpendSeparation } from './authorities.js';
 import { emitBudgetMovement } from './events.js';
 import { actorFields, hold, invalid, isoNN, mapGuardError, newCommerceId } from './internal.js';
 import { toBudget, type BudgetProjection } from './views.js';
@@ -65,6 +66,22 @@ export async function adjustExecutionAuthorityBudget(
     requireAuthorized(ctx, { action: 'commerce.budget_adjust', siteId: row.site_id }, undefined, {
       type: 'execution_authority',
       id: row.id,
+    });
+    const approval = (
+      await c.query(`SELECT actor_user_id, max_amount_minor FROM approvals WHERE tenant_id = $1 AND id = $2`, [
+        ctx.tenantId,
+        row.approval_id,
+      ])
+    ).rows[0];
+    // M13 separation of duties: the adjuster is neither the approver nor the issuer when the policy requires it.
+    await requireSpendSeparation(c, ctx, meta.action, {
+      approvalId: row.approval_id,
+      siteId: row.site_id,
+      policyRevisionId: row.policy_revision_id,
+      amount: { amountMinor: BigInt(approval?.max_amount_minor ?? row.base_limit_minor), currency: row.currency },
+      involved: [approval?.actor_user_id, row.issued_by_kind === 'HUMAN' ? row.issued_by_id : null].filter(
+        (x): x is string => typeof x === 'string',
+      ),
     });
     if (row.currency !== input.amount.currency) throw hold('ADJUSTMENT_CURRENCY_MISMATCH');
     if (row.status === 'REVOKED' || row.status === 'EXPIRED') throw hold('AUTHORITY_TERMINAL');
