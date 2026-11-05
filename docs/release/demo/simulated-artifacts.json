@@ -1,0 +1,72 @@
+{
+  "schema": "simulated-artifacts.v1",
+  "label": "SIMULATED_INPUT",
+  "note": "Screenshots of the local SIMULATED demo (SIMULATOR sensors, RECORDED_CONTRACT broker, CONTRACT_FAKE CMMS and reasoning, synthetic tenant and citations, test identity provider). The real-input journey gate refuses any artifact listed here.",
+  "inputs": {
+    "sensors": "SIMULATOR (SIMULATED_INPUT)",
+    "broker": "RECORDED_CONTRACT",
+    "reasoning": "CONTRACT_FAKE",
+    "cmms": "CONTRACT_FAKE",
+    "identityProvider": "local test OIDC provider",
+    "data": "SEEDED_TEST_DATA"
+  },
+  "capturedAt": "2026-11-05T08:02:02.702Z",
+  "artifacts": [
+    {
+      "path": "docs/release/screenshots/01-command-center.png",
+      "sha256": "7548762cedd5fc1942535ce0d5912d4a5b3c8312758e24147f73f72777d71a78",
+      "file": "01-command-center.png",
+      "step": "Fleet and incident register",
+      "shows": "SIMULATED_INPUT sensor freshness, open incidents"
+    },
+    {
+      "path": "docs/release/screenshots/02-incident.png",
+      "sha256": "aa1b1179aadb1aca1345591e762ffa767b2159878350f38c2e92660de562622d",
+      "file": "02-incident.png",
+      "step": "Incident",
+      "shows": "state, deadline from the pinned procedure, next safe action"
+    },
+    {
+      "path": "docs/release/screenshots/03-evidence.png",
+      "sha256": "4d97e1164ac80a7363fba4491328b867f532753cd4f0cc9476a09d97dbfd4be9",
+      "file": "03-evidence.png",
+      "step": "Evidence",
+      "shows": "cited facts from synthetic documents (contract-fake reasoning)"
+    },
+    {
+      "path": "docs/release/screenshots/04-plan-approval.png",
+      "sha256": "f5145599135d655a2e1a671f998f7d673888f79a537cde5cdc6251d73cd789ce",
+      "file": "04-plan-approval.png",
+      "step": "Plan and approval",
+      "shows": "deterministic decision, advisory plan, bounded approval"
+    },
+    {
+      "path": "docs/release/screenshots/05-order-recorded-contract.png",
+      "sha256": "eab487fd72bbe6822bff9a4f1ee995af45151d9c7bd14e59cba2c90894393455",
+      "file": "05-order-recorded-contract.png",
+      "step": "Order",
+      "shows": "recorded-contract broker order and payment state"
+    },
+    {
+      "path": "docs/release/screenshots/06-recovery-verification.png",
+      "sha256": "5984a4d05b6e191bd699c6073f35db4bac061dfdae43fd6b1c9f4b392abf4381",
+      "file": "06-recovery-verification.png",
+      "step": "Recovery verification",
+      "shows": "stable window and authoritative close-out"
+    },
+    {
+      "path": "docs/release/screenshots/07-unknown-outcome.png",
+      "sha256": "24a7292f60bff373d3aa8cb850cf3dd148fb2d3b7ca5c25d9b1ab05a157396d0",
+      "file": "07-unknown-outcome.png",
+      "step": "Failure handling",
+      "shows": "post-egress UNKNOWN outcome kept unresolved"
+    },
+    {
+      "path": "docs/release/screenshots/08-ledger.png",
+      "sha256": "9946fe3e6cf6cd25e6181d3bcd6849d9f84e44331ee9de961f75dc04a77ae368",
+      "file": "08-ledger.png",
+      "step": "Evidence ledger",
+      "shows": "append-only ledger entries"
+    }
+  ]
+}

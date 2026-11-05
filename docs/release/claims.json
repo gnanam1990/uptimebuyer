@@ -1,0 +1,194 @@
+{
+  "schema": "claims-ledger.v1",
+  "note": "Every material claim in the release drafts. EVIDENCED claims name the layer they were earned at and the evidence files; REAL_WORLD claims stay NOT_RUN until external evidence exists (scripts/release/journey-gate.mjs). Checked by scripts/release/claim-check.mjs against docs/coverage/coverage.json.",
+  "drafts": [
+    "README.md",
+    "docs/release/WRITEUP.md",
+    "docs/release/VIDEO-PLAN.md",
+    "docs/release/SUBTITLES.srt",
+    "docs/release/X-DRAFT.md",
+    "docs/release/ARCHITECTURE.md",
+    "docs/release/RELEASE-GATES.md"
+  ],
+  "claims": [
+    {
+      "id": "C-001",
+      "text": "Authenticated telemetry is accepted, duplicates and out-of-order samples are handled, and stale or offline sensors are shown as such (local integrated tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-013", "T-014", "T-015"],
+      "evidence": ["apps/sensor-gateway/test"]
+    },
+    {
+      "id": "C-002",
+      "text": "A threshold breach opens one incident even under concurrent triggers (local integrated tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-017", "T-018"],
+      "evidence": ["packages/incidents/test"]
+    },
+    {
+      "id": "C-003",
+      "text": "Evidence facts carry citations to an exact document revision and injected document instructions are isolated (local tests with synthetic documents and a contract-fake reasoning adapter).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-021", "T-023"],
+      "evidence": ["packages/evidence/test"]
+    },
+    {
+      "id": "C-004",
+      "text": "Compatibility is decided deterministically: exact parts ALLOW, ambiguous matches HOLD, substitutes need a named engineer (local tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-025", "T-026", "T-027"],
+      "evidence": ["packages/compatibility/test"]
+    },
+    {
+      "id": "C-005",
+      "text": "Spending is bounded by an approved, signed execution authority with hard budget and purpose limits (local tests against a recorded-contract broker).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-037", "T-038"],
+      "evidence": [
+        "apps/kite-broker/test/t037-bounded-session.int.test.ts",
+        "apps/kite-broker/test/t038-budget-bounds.int.test.ts"
+      ]
+    },
+    {
+      "id": "C-006",
+      "text": "Only the broker process holds the paid credential and paid egress; other code cannot import it (local code and process tests; deployed network isolation is NOT_RUN).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-039"],
+      "evidence": ["apps/kite-broker/test/t039-credential-import-guard.test.ts"]
+    },
+    {
+      "id": "C-007",
+      "text": "An ambiguous payment outcome stays UNKNOWN and is reconciled before any retry (local tests against a recorded-contract broker).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-040", "T-043"],
+      "evidence": ["apps/kite-broker/test/t040-reconciliation.int.test.ts"]
+    },
+    {
+      "id": "C-008",
+      "text": "Provider completion alone cannot close an incident; closure needs the stable sensor window and authoritative sign-off (local integrated tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-045", "T-046", "T-047"],
+      "evidence": ["apps/kite-broker/test/t046-completion-not-recovery.int.test.ts"]
+    },
+    {
+      "id": "C-009",
+      "text": "The operator console shows stale, unknown and unsupported states honestly and is keyboard and screen-reader operable (local browser tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-049", "T-051"],
+      "evidence": ["apps/web/e2e/t051-honest-states.spec.ts"]
+    },
+    {
+      "id": "C-010",
+      "text": "Every runner is scheduled in the worker with per-runner locks, failure isolation and graceful shutdown (local tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-057"],
+      "evidence": ["apps/worker/test/t057-scheduler.test.ts", "apps/kite-broker/test/t057-worker-runtime.int.test.ts"]
+    },
+    {
+      "id": "C-011",
+      "text": "A clean clone builds, migrates, starts and passes health, readiness and authenticated smoke checks in a local compose stack (local layer only; a hosted deployment is NOT_RUN).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_COMPOSE",
+      "coverageIds": ["T-057"],
+      "evidence": ["docs/release/evidence/t057-release-smoke.json"]
+    },
+    {
+      "id": "C-012",
+      "text": "Backup, restore and image rollback were exercised locally against the compose database (local layer only).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_COMPOSE",
+      "coverageIds": ["T-060"],
+      "evidence": ["docs/release/evidence/t057-release-smoke.json", "infra/runbooks/BACKUP-RESTORE-ROLLBACK.md"]
+    },
+    {
+      "id": "C-013",
+      "text": "Each external action has its own release gate and none is authorized; every gate is REFUSED (local tests and repository state).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-060"],
+      "evidence": ["docs/release/RELEASE-GATES.md", "tests/m14/t060-release-gates.test.ts"]
+    },
+    {
+      "id": "C-014",
+      "text": "The real-input journey gate refuses simulated, replayed, fixture and recorded-contract evidence (local tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-058"],
+      "evidence": ["tests/m14/t058-journey-gate.test.ts", "apps/kite-broker/test/t058-journey-gate-db.int.test.ts"]
+    },
+    {
+      "id": "C-015",
+      "text": "Release drafts are checked so every claim maps to evidence or carries a NOT_RUN qualifier (local tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-059"],
+      "evidence": ["tests/m14/t059-claim-check.test.ts"]
+    },
+    {
+      "id": "C-020",
+      "text": "A real authenticated physical sensor opening an incident: NOT_RUN (no device, no authorization).",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-058", "FR-22"],
+      "evidence": []
+    },
+    {
+      "id": "C-021",
+      "text": "A real SERV Reasoning (OpenServ) run on a real document: NOT_RUN (no OpenServ account or key here; the reasoning adapter in every run is a contract fake).",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-058", "FR-22"],
+      "evidence": []
+    },
+    {
+      "id": "C-022",
+      "text": "A real bounded Kite-paid action with downstream fulfillment: NOT_RUN (no Kite credential and no PAYMENT authorization; every payment shown is RECORDED_CONTRACT).",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-058", "FR-22"],
+      "evidence": []
+    },
+    {
+      "id": "C-023",
+      "text": "Independent physical recovery evidence (sensor window plus CMMS or authorized technician): NOT_RUN.",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-058", "FR-22"],
+      "evidence": []
+    },
+    {
+      "id": "C-024",
+      "text": "A hosted deployment reachable from a clean client: NOT_RUN (no DEPLOY authorization).",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-057"],
+      "evidence": []
+    },
+    {
+      "id": "C-025",
+      "text": "Public repository, uploaded video, X post and hackathon submission: NOT_RUN (each needs its own explicit authorization).",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-059", "T-060"],
+      "evidence": []
+    },
+    {
+      "id": "C-026",
+      "text": "Production load, availability SLOs, edge/WAF protection and enforced network policy: NOT_RUN (local measurements and reference configuration only).",
+      "status": "NOT_RUN",
+      "layer": "REAL_WORLD",
+      "coverageIds": ["T-057", "NFR-08"],
+      "evidence": []
+    }
+  ]
+}

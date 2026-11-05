@@ -1,0 +1,51 @@
+1
+00:00:00,000 --> 00:00:07,000
+UptimeBuyer: refrigeration recovery with bounded, verified spending. This is a SIMULATED demo.
+
+2
+00:00:07,000 --> 00:00:15,000
+Simulated inputs throughout: SIMULATOR sensors, recorded-contract payments, contract-fake reasoning and CMMS.
+
+3
+00:00:15,000 --> 00:00:24,000
+A real sensor, OpenServ run, Kite payment and physical recovery are NOT_RUN in this video.
+
+4
+00:00:24,000 --> 00:00:34,000
+Architecture: the broker is the only workload with the paid credential and paid egress. The model only proposes.
+
+5
+00:00:34,000 --> 00:00:44,000
+Command Center: SIMULATED_INPUT sensors with freshness, and the open incidents they triggered.
+
+6
+00:00:44,000 --> 00:00:54,000
+One incident per fault, with the deadline from the tenant's pinned procedure and the next safe action.
+
+7
+00:00:54,000 --> 00:01:06,000
+Evidence: cited facts from synthetic documents. In this simulated run the reasoning adapter is a contract fake.
+
+8
+00:01:06,000 --> 00:01:18,000
+Plan: deterministic compatibility decides ALLOW, HOLD or REJECT. The approval bounds amount, merchant and expiry.
+
+9
+00:01:18,000 --> 00:01:30,000
+Order: placed through a recorded-contract broker. No real money moved; a real Kite-paid action is NOT_RUN.
+
+10
+00:01:30,000 --> 00:01:42,000
+Failure handling: an ambiguous outcome stays UNKNOWN and is reconciled before any retry.
+
+11
+00:01:42,000 --> 00:01:56,000
+Recovery: a provider saying "done" cannot close the incident. It needs a stable sensor window and an authoritative sign-off.
+
+12
+00:01:56,000 --> 00:02:06,000
+The append-only ledger records every decision, approval and external attempt.
+
+13
+00:02:06,000 --> 00:02:20,000
+Not yet shown: hosted deployment, real sensor, OpenServ, Kite payment and physical recovery. All NOT_RUN.

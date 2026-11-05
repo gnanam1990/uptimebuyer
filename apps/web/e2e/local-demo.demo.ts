@@ -25,10 +25,20 @@ test('M14 local SIMULATED demo walk-through with screenshots', async ({ page }) 
   const shot = async (p: Page, file: string, step: string, shows: string) => {
     // The environment label naming the simulation is visible on every captured page.
     await expect(p.getByRole('note', { name: 'Environment' })).toContainText(LABEL);
+    // Capture API truth, not a loading placeholder.
+    await expect(p.getByRole('main')).not.toContainText(/loading/i, { timeout: 30_000 });
+    await p.waitForTimeout(500);
     await p.screenshot({ path: join(shotsDir, file), fullPage: false, animations: 'disabled' });
     shots.push({ file, step, shows });
   };
 
+  // Bearer tokens live in memory only, so a full page load would sign out: move within the app through history.
+  const go = async (path: string) => {
+    await page.evaluate((to) => {
+      window.history.pushState({}, '', to);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, path);
+  };
   await signIn(page, 'approver');
   await expect(page.getByRole('heading', { level: 1, name: /^Command Center/ })).toBeVisible();
   await shot(
@@ -39,16 +49,16 @@ test('M14 local SIMULATED demo walk-through with screenshots', async ({ page }) 
   );
 
   const approval = m.incidents.approval!;
-  await page.goto(`/incidents/${approval.incidentId}`);
+  await go(`/incidents/${approval.incidentId}`);
   await expect(page.getByRole('heading', { level: 1, name: `Incident ${approval.incidentId}` })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Incident status' })).toContainText('Awaiting approval');
   await shot(page, '02-incident.png', 'Incident', 'state, deadline from the pinned procedure, next safe action');
 
-  await page.goto(`/incidents/${approval.incidentId}/evidence`);
+  await go(`/incidents/${approval.incidentId}/evidence`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(page, '03-evidence.png', 'Evidence', 'cited facts from synthetic documents (contract-fake reasoning)');
 
-  await page.goto(`/incidents/${approval.incidentId}/plan`);
+  await go(`/incidents/${approval.incidentId}/plan`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(
     page,
@@ -58,11 +68,11 @@ test('M14 local SIMULATED demo walk-through with screenshots', async ({ page }) 
   );
 
   const recovered = m.incidents.recovered!;
-  await page.goto(`/incidents/${recovered.incidentId}/spend`);
+  await go(`/incidents/${recovered.incidentId}/spend`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(page, '05-order-recorded-contract.png', 'Order', 'recorded-contract broker order and payment state');
 
-  await page.goto(`/incidents/${recovered.incidentId}/verification`);
+  await go(`/incidents/${recovered.incidentId}/verification`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(
     page,
@@ -72,11 +82,13 @@ test('M14 local SIMULATED demo walk-through with screenshots', async ({ page }) 
   );
 
   const unknown = m.incidents.unknownIntent!;
-  await page.goto(`/incidents/${unknown.incidentId}/spend`);
+  await go(`/incidents/${unknown.incidentId}/spend`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(page, '07-unknown-outcome.png', 'Failure handling', 'post-egress UNKNOWN outcome kept unresolved');
 
-  await page.goto('/ledger');
+  // The tenant ledger is an administrator view.
+  await signIn(page, 'admin');
+  await go('/ledger');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(page, '08-ledger.png', 'Evidence ledger', 'append-only ledger entries');
 
