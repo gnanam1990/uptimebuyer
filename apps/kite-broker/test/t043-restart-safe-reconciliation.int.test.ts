@@ -6,13 +6,16 @@
 // replay they stay UNKNOWN for manual review with no autonomous retry, and a "not found" lookup is never no-effect.
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appendProviderAccountRevision } from '@uptimebuyer/data';
+import { PurchaseOrderStateChangedEventSchema, type DomainEventEnvelope } from '@uptimebuyer/contracts';
+import { OutboxPublisher, appendProviderAccountRevision } from '@uptimebuyer/data';
 import { endpointPolicyDigest } from '@uptimebuyer/providers';
 import {
   FULFILLMENT_WEBHOOK_LIMITS,
   FulfillmentAdapterRegistry,
   RecordedFulfillmentAdapter,
   dispatchOrder,
+  handleCommercialIntentEvent,
+  handleOrderStateEvent,
   ingestFulfillmentWebhook,
   pollFulfillmentStatus,
   reconcileOrder,
@@ -20,12 +23,13 @@ import {
 } from '@uptimebuyer/orders';
 import { seedTenant } from '../../../packages/data/test/helpers.js';
 import { RecordedContractAdapter } from '../src/adapters/recorded.js';
-import { conservation, inProcessBroker, rowOf } from './helpers.js';
+import { conservation, inProcessBroker, intentRef, rowOf } from './helpers.js';
 import {
   MERCHANT_POLICY,
   brokerDeps,
   createOrdersWorld,
   eventBody,
+  incidentState,
   orderFor,
   paidFulfillmentAccount,
   view,
@@ -331,5 +335,44 @@ describe('T-043 UNKNOWN reconciles by the pre-egress operation key through the M
     expect([v.state, v.economic.state]).toEqual(['CANCELLED', 'CONFIRMED']);
     expect(await ledger()).toBe(before);
     expect(v.noEffectProven).toBe(false);
+  });
+});
+
+describe('T-043 order/job facts on the outbox are replay-safe for downstream consumers (M11 CMMS input)', () => {
+  it('the broker result alone drives the order and incident through the outbox; redelivery is a no-op', async () => {
+    const o = await orderFor(w, 'PART_PURCHASE');
+    // The broker executes without any M10 call; only its commercial_intent.state_changed.v1 events reach M10.
+    await w.broker.execute(intentRef(w, o.out.order.commercialIntentId));
+    const delivered: DomainEventEnvelope[] = [];
+    const publisher = new OutboxPublisher(
+      w.db.pool,
+      {
+        async publish(e) {
+          delivered.push(e);
+          await handleCommercialIntentEvent(w.db.pool, e);
+          await handleOrderStateEvent(w.db.pool, e);
+        },
+      },
+      { workerId: 't043-outbox' },
+    );
+    while ((await publisher.runOnce()).claimed > 0);
+    const v = await view(w, o.orderId);
+    expect([v.state, v.economic.state]).toEqual(['ACCEPTED', 'CONFIRMED']);
+    expect(await incidentState(w, o.action.incidentId)).toBe('EXECUTING');
+    // Order facts: strict contract payloads with strictly increasing aggregate versions.
+    const facts = delivered.filter((e) => e.aggregateId === o.orderId);
+    expect(facts.length).toBeGreaterThan(0);
+    for (const f of facts) PurchaseOrderStateChangedEventSchema.parse(f);
+    const versions = facts.map((f) => f.aggregateVersion);
+    expect([...versions].sort((a, b) => a - b)).toEqual(versions);
+    expect(new Set(versions).size).toBe(versions.length);
+    // Redelivery (at-least-once) of every event changes nothing.
+    const before = await view(w, o.orderId);
+    for (const e of delivered) {
+      expect(['DUPLICATE', 'IGNORED']).toContain(await handleCommercialIntentEvent(w.db.pool, e));
+      expect(['DUPLICATE', 'IGNORED']).toContain(await handleOrderStateEvent(w.db.pool, e));
+    }
+    const after = await view(w, o.orderId);
+    expect([after.version, after.transitions.length]).toEqual([before.version, before.transitions.length]);
   });
 });
