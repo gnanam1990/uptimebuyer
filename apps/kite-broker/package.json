@@ -27,6 +27,7 @@
     "@uptimebuyer/orders": "workspace:*",
     "@uptimebuyer/planning": "workspace:*",
     "@uptimebuyer/providers": "workspace:*",
+    "@uptimebuyer/recovery": "workspace:*",
     "@uptimebuyer/sensor-gateway": "workspace:*",
     "@uptimebuyer/telemetry": "workspace:*"
   }

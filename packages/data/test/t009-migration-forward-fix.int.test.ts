@@ -50,6 +50,7 @@ const M09_MIGRATIONS = ['0016_m09_kite_broker.sql'];
 // Forward fixes that land after later modules keep their own module prefix and their lexical position.
 const FORWARD_FIX_MIGRATIONS = ['0017_m07_contact_point_guard_null_safe.sql'];
 const M10_MIGRATIONS = ['0018_m10_orders_jobs.sql'];
+const M11_MIGRATIONS = ['0019_m11_recovery_verification_cmms.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {
@@ -121,6 +122,7 @@ describe('T-009 migration and rollback on seeded tenant', () => {
       ...M09_MIGRATIONS,
       ...FORWARD_FIX_MIGRATIONS,
       ...M10_MIGRATIONS,
+      ...M11_MIGRATIONS,
     ]);
     expect(await migrate(db.url)).toEqual([]);
     const { rows } = await db.admin(`SELECT extname FROM pg_extension WHERE extname = 'btree_gist'`);
