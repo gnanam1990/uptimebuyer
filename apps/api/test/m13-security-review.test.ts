@@ -288,3 +288,126 @@ describe('M13 security review S11: bounded pre-authentication work', () => {
     await app.close();
   });
 });
+
+// S12 — the pre-auth slot was freed on client close while verification kept running, so open-then-abort bursts ran
+//      unbounded concurrent verifications; a hung verifier held its slot forever. The slot now lives exactly as long
+//      as the verification (released once when it settles, never on close) and verification has a hard timeout.
+// S13 — a handful of sources could fill the global pre-auth cap and lock every operator out, and an IPv6 attacker
+//      could rotate addresses for fresh buckets. Sources are keyed by IPv4 /32 and IPv6 /64, the global cap is sized
+//      well above per-source x expected sources (configurable) and briefly queues instead of rejecting at once.
+//      Residual (ADR 0008): a large distributed pool can still saturate any in-process cap; edge/WAF limits are M14's.
+describe('M13 security review S12/S13: pre-auth slots follow the verification; caps resist lockout', () => {
+  function hungVerifier() {
+    const stats = { inFlight: 0, max: 0, calls: 0 };
+    return {
+      stats,
+      verify: (tk: string) => {
+        if (tk.includes('good')) return Promise.resolve({ issuer: PUBLIC.oidc.issuer, subject: 's12' });
+        stats.calls++;
+        stats.inFlight++;
+        stats.max = Math.max(stats.max, stats.inFlight);
+        return new Promise<never>(() => {});
+      },
+    };
+  }
+  const server = (verifier: { verify: (tk: string) => Promise<unknown> }, limits: object = {}) =>
+    buildApiServer({
+      pool: pool({ authenticated: true }) as never,
+      verifier: verifier as never,
+      publicConfig: PUBLIC,
+      store: {} as never,
+      credentials: { resolveSigningKey: async () => null } as never,
+      limits: { authFailures: { capacity: 100_000, refillPerSecond: 1_000, maxKeys: 1_000 }, ...limits },
+    });
+
+  it('open-then-abort bursts never push in-flight verifications above the per-source cap', async () => {
+    const { request } = await http();
+    const v = hungVerifier();
+    const app = await server(v, { authTimeoutMs: 60_000 });
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const port = (app.server.address() as { port: number }).port;
+    for (let round = 0; round < 6; round++) {
+      const reqs = Array.from({ length: 20 }, (_, i) => {
+        const r = request({
+          host: '127.0.0.1',
+          port,
+          path: '/v1/incidents',
+          headers: { authorization: `Bearer ${token(`burst${round}-${i}`)}` },
+        });
+        r.on('error', () => {});
+        r.end();
+        return r;
+      });
+      await new Promise((r) => setTimeout(r, 40));
+      reqs.forEach((r) => r.destroy());
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    expect(v.stats.max).toBeLessThanOrEqual(8);
+    await app.close();
+  });
+
+  it('a hung verifier frees its slot after the verification timeout', async () => {
+    const v = hungVerifier();
+    const app = await server(v, { authTimeoutMs: 150, maxConcurrentAuthPerSource: 1 });
+    const call = (tag: string) =>
+      app.inject({
+        method: 'GET',
+        url: '/v1/incidents',
+        remoteAddress: '10.5.5.5',
+        headers: { authorization: `Bearer ${token(tag)}` },
+      });
+    const first = await call('hung-1');
+    expect(first.statusCode).toBe(401);
+    const second = await call('hung-2');
+    expect(second.statusCode).toBe(401);
+    expect(v.stats.calls).toBe(2);
+    await app.close();
+  });
+
+  it('k attacking sources at their per-source cap leave room for a legitimate operator (default sizing)', async () => {
+    const v = hungVerifier();
+    const app = await server(v, { authTimeoutMs: 60_000 });
+    for (let k = 0; k < 10; k++)
+      for (let i = 0; i < 12; i++)
+        void app.inject({
+          method: 'GET',
+          url: '/v1/incidents',
+          remoteAddress: `10.0.${k}.1`,
+          headers: { authorization: `Bearer ${token(`att${k}-${i}`)}` },
+        });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(v.stats.max).toBeLessThanOrEqual(10 * 8);
+    const legit = await app.inject({
+      method: 'GET',
+      url: '/v1/incidents',
+      remoteAddress: '192.0.2.10',
+      headers: { authorization: `Bearer ${token('good')}` },
+    });
+    expect(legit.statusCode).not.toBe(429);
+    await app.close();
+  });
+
+  it('an IPv6 attacker rotating addresses within one /64 shares one bucket', async () => {
+    const v = hungVerifier();
+    const app = await server(v, { authTimeoutMs: 60_000 });
+    const results = Array.from({ length: 30 }, (_, i) =>
+      app.inject({
+        method: 'GET',
+        url: '/v1/incidents',
+        remoteAddress: `2001:db8:1:2::${(i + 1).toString(16)}`,
+        headers: { authorization: `Bearer ${token(`v6-${i}`)}` },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(v.stats.max).toBeLessThanOrEqual(8);
+    const other = await app.inject({
+      method: 'GET',
+      url: '/v1/incidents',
+      remoteAddress: '2001:db8:1:3::1',
+      headers: { authorization: `Bearer ${token('good')}` },
+    });
+    expect(other.statusCode).not.toBe(429);
+    void results;
+    await app.close();
+  });
+});
