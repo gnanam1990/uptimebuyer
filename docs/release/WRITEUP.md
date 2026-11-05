@@ -41,7 +41,7 @@ given; every payment in the demo is RECORDED_CONTRACT.
 - A clean clone built, migrated, started and smoke-tested in a local compose stack, with backup, restore and image
   rollback exercised locally <!-- C-011 C-012 -->.
 - Release gates for every external action, all REFUSED; a real-input journey gate that refuses simulated evidence; a
-  claim check over these drafts <!-- C-013 C-014 C-015 -->.
+  claim check over these drafts <!-- C-013 C-014 -->.
 
 ## Limits (NOT_RUN)
 

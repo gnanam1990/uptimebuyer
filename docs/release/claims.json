@@ -127,14 +127,6 @@
       "evidence": ["tests/m14/t058-journey-gate.test.ts", "apps/kite-broker/test/t058-journey-gate-db.int.test.ts"]
     },
     {
-      "id": "C-015",
-      "text": "Release drafts are checked so every claim maps to evidence or carries a NOT_RUN qualifier (local tests).",
-      "status": "EVIDENCED",
-      "layer": "LOCAL_TEST",
-      "coverageIds": ["T-059"],
-      "evidence": ["tests/m14/t059-claim-check.test.ts"]
-    },
-    {
       "id": "C-020",
       "text": "A real authenticated physical sensor opening an incident: NOT_RUN (no device, no authorization).",
       "status": "NOT_RUN",

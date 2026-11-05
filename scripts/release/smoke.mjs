@@ -473,13 +473,19 @@ function defaultSteps(plan, deps, state) {
         return { apiImage: running, readiness: r, session: a.session };
       };
       const back = await switchTo('previous');
+      const workerImage = (
+        await exec('docker', ['inspect', '--format', '{{.Image}}', `${plan.project}-worker-1`])
+      ).stdout.trim();
+      if (workerImage !== prevImages.worker) throw new Error('rollback did not switch the worker image');
       if (back.apiImage !== prevImages.api) throw new Error('rollback did not switch the api image');
       const forward = await switchTo('candidate');
       if (forward.apiImage !== state.build.imageIds.api) throw new Error('roll-forward did not restore the candidate');
       return {
         previousRef: plan.previousRef,
         previousSha: prevSha,
-        distinctFromCandidate: prevImages.api !== state.build.imageIds.api,
+        distinctFromCandidate: Object.fromEntries(
+          ROLLBACK_TARGETS.map((t) => [t, prevImages[t] !== state.build.imageIds[t]]),
+        ),
         rolledBack: back,
         rolledForward: forward,
       };
