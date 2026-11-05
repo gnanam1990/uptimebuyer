@@ -34,6 +34,7 @@
     "@uptimebuyer/resilience": "workspace:*",
     "@uptimebuyer/sensor-gateway": "workspace:*",
     "@uptimebuyer/telemetry": "workspace:*",
+    "@uptimebuyer/worker": "workspace:*",
     "fastify": "5.12.7",
     "jose": "6.2.12"
   }

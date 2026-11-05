@@ -66,6 +66,9 @@
     },
     {
       "path": "../../../packages/resilience"
+    },
+    {
+      "path": "../../worker"
     }
   ]
 }
