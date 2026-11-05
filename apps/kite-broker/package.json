@@ -24,6 +24,7 @@
     "@types/pg": "8.23.1",
     "@uptimebuyer/evidence": "workspace:*",
     "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/orders": "workspace:*",
     "@uptimebuyer/planning": "workspace:*",
     "@uptimebuyer/providers": "workspace:*",
     "@uptimebuyer/sensor-gateway": "workspace:*",

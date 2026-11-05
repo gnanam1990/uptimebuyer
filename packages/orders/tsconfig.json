@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../contracts" },
+    { "path": "../domain" },
+    { "path": "../data" },
+    { "path": "../kite-contracts" },
+    { "path": "../commerce" },
+    { "path": "../planning" },
+    { "path": "../incidents" },
+    { "path": "../providers" }
+  ]
+}
