@@ -338,7 +338,12 @@ function defaultSteps(plan, deps, state) {
       return { tenant: 'provisioned', label: 'synthetic' };
     },
     up: async () => {
-      await compose(['up', '-d', '--wait', '--wait-timeout', '240']);
+      try {
+        await compose(['up', '-d', '--wait', '--wait-timeout', '240']);
+      } catch (e) {
+        const logs = await compose(['logs', '--no-color', '--tail', '15']).catch(() => ({ stdout: '' }));
+        throw new Error(`${String(e.message).slice(-600)}\n--- logs ---\n${String(logs.stdout).slice(-3_000)}`, { cause: e });
+      }
       const ps = (await compose(['ps', '--format', 'json'])).stdout;
       const rows = ps.trim().startsWith('[')
         ? JSON.parse(ps)
@@ -503,7 +508,7 @@ export async function runSmoke(plan, deps) {
       entry.status = 'PASS';
     } catch (e) {
       entry.status = 'FAIL';
-      entry.detail = { error: String(e?.message ?? e).slice(0, 1_500) };
+      entry.detail = { error: String(e?.message ?? e).slice(-4_000) };
       if (entry.name !== 'teardown') failed = true;
     }
     entry.durationMs = Date.now() - t0;
