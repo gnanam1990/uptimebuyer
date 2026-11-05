@@ -94,7 +94,8 @@ describe('M13 security review S9: only original-offset characters below the kept
     ]) {
       const secret = make();
       const at = KEPT - Math.floor(secret.length / 2);
-      const input = 'k'.repeat(at) + secret + ' tail'.repeat(5_000);
+      // Separated from the padding by a space: the patterns anchor on word boundaries as real log text has them.
+      const input = 'k'.repeat(at - 1) + ' ' + secret + ' tail'.repeat(5_000);
       const out = redactString(input);
       const hidden = secret.slice(secret.length / 2 - 8);
       for (let i = 0; i + 6 <= hidden.length; i++) expect(out, secret).not.toContain(hidden.slice(i, i + 6));
