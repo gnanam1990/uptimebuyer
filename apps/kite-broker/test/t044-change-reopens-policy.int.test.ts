@@ -238,7 +238,7 @@ describe('T-044 service-job changes enter explicit states and reopen policy', ()
 });
 
 describe('T-044 egress linearization point', () => {
-  it('revocation before linearization prevents the send; the incident returns to planning (no possible egress)', async () => {
+  it('revocation before linearization prevents the send; nothing was in flight, so the plan stays approved for a linked successor', async () => {
     const o = await orderFor(w, 'PART_PURCHASE');
     const calls = w.adapter.executeCalls;
     await revokeOrder(w.db.pool, w.approver, { orderId: o.orderId, reasonCode: 'OPERATOR_CANCELLED' });
@@ -251,10 +251,14 @@ describe('T-044 egress linearization point', () => {
       true,
       true,
     ]);
+    // No possible egress: the plan is not in flight and stays APPROVED (a fresh authority may create the INV-07 linked
+    // successor, T-042); the incident keeps awaiting approval and is not escalated.
     const plan = await rowOf(w, 'recovery_plans', o.action.planId);
-    expect([plan.state, plan.in_flight_reconciliation]).toEqual(['INVALIDATED', false]);
-    await syncIncidentForOrder(w.db.pool, w.service, o.orderId);
-    expect(await incidentState(w, o.action.incidentId)).toBe('PLANNING');
+    expect([plan.state, plan.in_flight_reconciliation]).toEqual(['APPROVED', false]);
+    const sync = await syncIncidentForOrder(w.db.pool, w.service, o.orderId);
+    expect(sync.moves).toEqual([]);
+    expect(await incidentState(w, o.action.incidentId)).toBe('AWAITING_APPROVAL');
+    expect(v.changes.map((c) => c.changeKind)).toEqual(['REVOCATION']);
   });
 
   it('revocation after linearization preserves and reconciles the in-flight effect without duplicating it', async () => {

@@ -68,20 +68,21 @@ describe('T-010/T-011 order and job tenant, site and role scope', () => {
     const fw = await workerService({ ...w, admin: foreign.admin } as never, foreign.admin);
     const missing = 'pur_00000000-0000-0000-0000-000000000000';
     for (const id of [orderId, missing]) {
-      for (const p of [
-        getOrder(w.db.pool, foreign.admin, id),
-        getFulfillmentGate(w.db.pool, foreign.admin, id),
-        dispatchOrder(w.db.pool, fw, id, brokerDeps(w)),
-        reconcileOrder(w.db.pool, fw, id, brokerDeps(w)),
-        recordFulfillmentVerification(w.db.pool, foreign.admin, {
-          orderId: id,
-          outcome: 'VERIFIED',
-          idempotencyKey: 'verify-foreign-1',
-        }),
-        revokeOrder(w.db.pool, foreign.admin, { orderId: id, reasonCode: 'FOREIGN' }),
-        syncIncidentForOrder(w.db.pool, fw, id),
+      for (const call of [
+        () => getOrder(w.db.pool, foreign.admin, id),
+        () => getFulfillmentGate(w.db.pool, foreign.admin, id),
+        () => dispatchOrder(w.db.pool, fw, id, brokerDeps(w)),
+        () => reconcileOrder(w.db.pool, fw, id, brokerDeps(w)),
+        () =>
+          recordFulfillmentVerification(w.db.pool, foreign.admin, {
+            orderId: id,
+            outcome: 'VERIFIED',
+            idempotencyKey: 'verify-foreign-1',
+          }),
+        () => revokeOrder(w.db.pool, foreign.admin, { orderId: id, reasonCode: 'FOREIGN' }),
+        () => syncIncidentForOrder(w.db.pool, fw, id),
       ])
-        expect((await rejection(p)).reasonCode).toBe('RESOURCE_UNAVAILABLE');
+        expect((await rejection(call())).reasonCode).toBe('RESOURCE_UNAVAILABLE');
     }
     expect((await rejection(listIncidentOrders(w.db.pool, foreign.admin, incidentId))).reasonCode).toBe(
       'RESOURCE_UNAVAILABLE',
