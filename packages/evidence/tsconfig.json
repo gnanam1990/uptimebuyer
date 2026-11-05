@@ -4,6 +4,21 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "../contracts" }, { "path": "../domain" }, { "path": "../data" }]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../contracts"
+    },
+    {
+      "path": "../domain"
+    },
+    {
+      "path": "../data"
+    },
+    {
+      "path": "../resilience"
+    }
+  ]
 }

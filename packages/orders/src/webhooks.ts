@@ -177,7 +177,20 @@ export async function ingestFulfillmentWebhook(
     signatureValid: true,
     bodyDigest,
   });
-  if (delivery.duplicate) return { status: 'DUPLICATE', deliveryId: delivery.deliveryId, providerEventId: e.eventId };
+  if (delivery.duplicate) {
+    // M13 (T-056 callback boundary): the delivery record and its job are separate writes, so a process that died
+    // between them left a verified event that would otherwise be lost forever. The provider's redelivery of the SAME
+    // body re-enqueues it under the same dedupe key; an enqueued or processed delivery (or a different body reusing
+    // the event id) stays a no-effect DUPLICATE.
+    const orphan = await pool.query(
+      `SELECT 1 FROM webhook_deliveries d
+        WHERE d.tenant_id = $1 AND d.id = $2 AND d.processed_at IS NULL AND d.body_digest = $3
+          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.tenant_id = d.tenant_id AND j.dedupe_key = $4)`,
+      [binding.tenantId, delivery.deliveryId, bodyDigest, `fulfillment:${delivery.deliveryId}`],
+    );
+    if (orphan.rowCount !== 1)
+      return { status: 'DUPLICATE', deliveryId: delivery.deliveryId, providerEventId: e.eventId };
+  }
   const kind: OrderKind = e.type === 'purchase_order.status' ? 'PURCHASE_ORDER' : 'SERVICE_JOB';
   const { rows } = await pool.query<{ id: string; provider_account_revision_id: string; provider_ref: string | null }>(
     `SELECT id, provider_account_revision_id, provider_ref FROM ${KIND[kind].table}

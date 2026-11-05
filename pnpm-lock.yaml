@@ -62,6 +62,9 @@ importers:
       '@uptimebuyer/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@uptimebuyer/operations':
+        specifier: workspace:*
+        version: link:../../packages/operations
       '@uptimebuyer/orders':
         specifier: workspace:*
         version: link:../../packages/orders

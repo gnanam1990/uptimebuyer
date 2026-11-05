@@ -6,17 +6,50 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../../packages/contracts" },
-    { "path": "../../packages/domain" },
-    { "path": "../../packages/data" },
-    { "path": "../../packages/telemetry" },
-    { "path": "../../packages/incidents" },
-    { "path": "../../packages/evidence" },
-    { "path": "../../packages/compatibility" },
-    { "path": "../../packages/providers" },
-    { "path": "../../packages/planning" },
-    { "path": "../../packages/commerce" },
-    { "path": "../../packages/orders" },
-    { "path": "../../packages/recovery" }
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/data"
+    },
+    {
+      "path": "../../packages/telemetry"
+    },
+    {
+      "path": "../../packages/incidents"
+    },
+    {
+      "path": "../../packages/evidence"
+    },
+    {
+      "path": "../../packages/compatibility"
+    },
+    {
+      "path": "../../packages/providers"
+    },
+    {
+      "path": "../../packages/planning"
+    },
+    {
+      "path": "../../packages/commerce"
+    },
+    {
+      "path": "../../packages/orders"
+    },
+    {
+      "path": "../../packages/recovery"
+    },
+    {
+      "path": "../../packages/observability"
+    },
+    {
+      "path": "../../packages/resilience"
+    },
+    {
+      "path": "../../packages/operations"
+    }
   ]
 }

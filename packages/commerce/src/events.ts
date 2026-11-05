@@ -23,7 +23,15 @@ import {
   type EventType,
   type UtcInstant,
 } from '@uptimebuyer/contracts';
-import { appendOutboxEvent, dbNow, type TenantContext, type Tx } from '@uptimebuyer/data';
+import { canonicalize } from '@uptimebuyer/domain';
+import {
+  appendOutboxEvent,
+  appendRecordEvidence,
+  dbNow,
+  sha256Digest,
+  type TenantContext,
+  type Tx,
+} from '@uptimebuyer/data';
 import {
   CommercialIntentStateChangedEventSchema,
   type CommercialIntentAttemptView,
@@ -119,6 +127,20 @@ export const BudgetMovementRecordedEventSchema = defineDomainEvent(
 type AnySchema = Parameters<typeof encodeWire>[0];
 
 /** Validate then append; returns the envelope exactly as stored (same eventId and occurredAt). */
+/** M13 (FR-18): the ledger record that accompanies an event (kind/trust fixed by server code). */
+interface LedgerSpec {
+  kind: 'PAYMENT_STATE' | 'EXTERNAL_ACTION';
+  trust: 'AUTHORITATIVE' | 'PROVIDER_REPORTED' | 'CONTRACT_FAKE';
+  incidentId: string | null;
+}
+/** Results from the recorded contract or the local stand-in are never presented as provider-reported truth. */
+const trustOf = (attempt: { result_origin?: unknown } | null): LedgerSpec['trust'] =>
+  attempt === null
+    ? 'AUTHORITATIVE'
+    : attempt.result_origin === 'KITE_PASSPORT'
+      ? 'PROVIDER_REPORTED'
+      : 'CONTRACT_FAKE';
+
 async function emit<T>(
   c: Tx,
   ctx: TenantContext,
@@ -131,6 +153,7 @@ async function emit<T>(
     correlationId: string;
     payload: Record<string, unknown>;
   },
+  ledger?: LedgerSpec,
 ): Promise<T> {
   const occurredAt = await dbNow(c);
   const causationId = newId('command');
@@ -153,6 +176,18 @@ async function emit<T>(
     causationId,
     occurredAt: occurredAt as UtcInstant,
   });
+  if (ledger)
+    await appendRecordEvidence(c, ctx, {
+      kind: ledger.kind,
+      trust: ledger.trust,
+      subject: { aggregateType: event.aggregateType as never, aggregateId: event.aggregateId },
+      incidentId: ledger.incidentId,
+      payloadSchema: event.eventType,
+      payloadDigest: sha256Digest(canonicalize(wire.payload as never)),
+      payloadRef: null,
+      supersedesEvidenceId: null,
+      correlation: { correlationId: event.correlationId as never, causationId: causationId as never },
+    });
   return { ...draft, eventId } as T;
 }
 
@@ -171,23 +206,29 @@ export const attemptView = (a: any): CommercialIntentAttemptView =>
 const isoOrNull = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
 
 export async function emitIntentCreated(c: Tx, ctx: TenantContext, i: any) {
-  return emit(c, ctx, CommercialIntentCreatedEventSchema, {
-    eventType: 'commercial_intent.created.v1',
-    aggregateType: 'commercial_intent',
-    aggregateId: i.id,
-    aggregateVersion: i.version,
-    correlationId: i.correlation_id,
-    payload: {
-      commercialIntentId: i.id,
-      executionAuthorityId: i.execution_authority_id,
-      actionDigest: i.action_digest,
-      subjectType: i.subject_type,
-      subjectId: i.subject_id,
-      state: 'CREATED',
-      supersedesIntentId: i.supersedes_intent_id,
-      resultOrigin: RESULT_ORIGIN,
+  return emit(
+    c,
+    ctx,
+    CommercialIntentCreatedEventSchema,
+    {
+      eventType: 'commercial_intent.created.v1',
+      aggregateType: 'commercial_intent',
+      aggregateId: i.id,
+      aggregateVersion: i.version,
+      correlationId: i.correlation_id,
+      payload: {
+        commercialIntentId: i.id,
+        executionAuthorityId: i.execution_authority_id,
+        actionDigest: i.action_digest,
+        subjectType: i.subject_type,
+        subjectId: i.subject_id,
+        state: 'CREATED',
+        supersedesIntentId: i.supersedes_intent_id,
+        resultOrigin: RESULT_ORIGIN,
+      },
     },
-  });
+    { kind: 'PAYMENT_STATE', trust: 'AUTHORITATIVE', incidentId: i.incident_id ?? null },
+  );
 }
 
 export async function emitIntentStateChanged(
@@ -198,68 +239,86 @@ export async function emitIntentStateChanged(
   attempt: any | null,
   reasonCode: string | null,
 ): Promise<CommercialIntentStateChangedEvent> {
-  return emit<CommercialIntentStateChangedEvent>(c, ctx, CommercialIntentStateChangedEventSchema, {
-    eventType: 'commercial_intent.state_changed.v1',
-    aggregateType: 'commercial_intent',
-    aggregateId: i.id,
-    aggregateVersion: i.version,
-    correlationId: i.correlation_id,
-    payload: {
-      commercialIntentId: i.id,
-      actionDigest: i.action_digest,
-      executionAuthorityId: i.execution_authority_id,
-      priorState,
-      state: i.state,
-      attempt: attempt ? attemptView(attempt) : null,
-      reasonCode,
-      nextReconcileAt: i.state === 'UNKNOWN' && attempt ? isoOrNull(attempt.next_reconcile_at) : null,
-      resultOrigin: RESULT_ORIGIN,
+  return emit<CommercialIntentStateChangedEvent>(
+    c,
+    ctx,
+    CommercialIntentStateChangedEventSchema,
+    {
+      eventType: 'commercial_intent.state_changed.v1',
+      aggregateType: 'commercial_intent',
+      aggregateId: i.id,
+      aggregateVersion: i.version,
+      correlationId: i.correlation_id,
+      payload: {
+        commercialIntentId: i.id,
+        actionDigest: i.action_digest,
+        executionAuthorityId: i.execution_authority_id,
+        priorState,
+        state: i.state,
+        attempt: attempt ? attemptView(attempt) : null,
+        reasonCode,
+        nextReconcileAt: i.state === 'UNKNOWN' && attempt ? isoOrNull(attempt.next_reconcile_at) : null,
+        resultOrigin: RESULT_ORIGIN,
+      },
     },
-  });
+    { kind: 'PAYMENT_STATE', trust: trustOf(attempt), incidentId: i.incident_id ?? null },
+  );
 }
 
 export async function emitSendStarted(c: Tx, ctx: TenantContext, i: any, a: any) {
-  return emit(c, ctx, ExternalAttemptSendStartedEventSchema, {
-    eventType: 'external_attempt.send_started.v1',
-    aggregateType: 'external_attempt',
-    aggregateId: a.id,
-    aggregateVersion: a.version,
-    correlationId: i.correlation_id,
-    payload: {
-      externalAttemptId: a.id,
-      commercialIntentId: i.id,
-      providerAccountRevisionId: a.provider_account_revision_id,
-      clientOperationId: a.client_operation_id,
-      idempotencyKey: a.idempotency_key,
-      requestDigest: a.request_digest,
-      transportState: 'SEND_STARTED',
-      externalOutcomeState: 'AUTHORIZED',
-      economicIntentState: 'RESERVED',
-      reserved: { amountMinor: BigInt(i.open_reserved_minor), currency: i.currency },
+  return emit(
+    c,
+    ctx,
+    ExternalAttemptSendStartedEventSchema,
+    {
+      eventType: 'external_attempt.send_started.v1',
+      aggregateType: 'external_attempt',
+      aggregateId: a.id,
+      aggregateVersion: a.version,
+      correlationId: i.correlation_id,
+      payload: {
+        externalAttemptId: a.id,
+        commercialIntentId: i.id,
+        providerAccountRevisionId: a.provider_account_revision_id,
+        clientOperationId: a.client_operation_id,
+        idempotencyKey: a.idempotency_key,
+        requestDigest: a.request_digest,
+        transportState: 'SEND_STARTED',
+        externalOutcomeState: 'AUTHORIZED',
+        economicIntentState: 'RESERVED',
+        reserved: { amountMinor: BigInt(i.open_reserved_minor), currency: i.currency },
+      },
     },
-  });
+    { kind: 'EXTERNAL_ACTION', trust: 'AUTHORITATIVE', incidentId: i.incident_id ?? null },
+  );
 }
 
 export async function emitAttemptEvent(c: Tx, ctx: TenantContext, type: AttemptEventType, i: any, a: any) {
-  return emit(c, ctx, ATTEMPT_EVENT_SCHEMAS[type], {
-    eventType: type,
-    aggregateType: 'external_attempt',
-    aggregateId: a.id,
-    aggregateVersion: a.version,
-    correlationId: i.correlation_id,
-    payload: {
-      externalAttemptId: a.id,
-      commercialIntentId: i.id,
-      clientOperationId: a.client_operation_id,
-      transportState: a.transport_state,
-      externalOutcomeState: a.external_outcome_state,
-      adapterCapability: a.adapter_capability,
-      providerRef: a.provider_ref,
-      reasonCode: a.reason_code,
-      nextReconcileAt: isoOrNull(a.next_reconcile_at),
-      resultOrigin: RESULT_ORIGIN,
+  return emit(
+    c,
+    ctx,
+    ATTEMPT_EVENT_SCHEMAS[type],
+    {
+      eventType: type,
+      aggregateType: 'external_attempt',
+      aggregateId: a.id,
+      aggregateVersion: a.version,
+      correlationId: i.correlation_id,
+      payload: {
+        externalAttemptId: a.id,
+        commercialIntentId: i.id,
+        clientOperationId: a.client_operation_id,
+        transportState: a.transport_state,
+        externalOutcomeState: a.external_outcome_state,
+        adapterCapability: a.adapter_capability,
+        providerRef: a.provider_ref,
+        reasonCode: a.reason_code,
+        nextReconcileAt: isoOrNull(a.next_reconcile_at),
+        resultOrigin: RESULT_ORIGIN,
+      },
     },
-  });
+    { kind: 'EXTERNAL_ACTION', trust: trustOf(a), incidentId: i.incident_id ?? null },
+  );
 }
 
 export async function emitBudgetMovement(c: Tx, ctx: TenantContext, entry: any, account: any, correlationId: string) {

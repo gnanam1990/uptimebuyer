@@ -51,6 +51,7 @@ const M09_MIGRATIONS = ['0016_m09_kite_broker.sql'];
 const FORWARD_FIX_MIGRATIONS = ['0017_m07_contact_point_guard_null_safe.sql'];
 const M10_MIGRATIONS = ['0018_m10_orders_jobs.sql'];
 const M11_MIGRATIONS = ['0019_m11_recovery_verification_cmms.sql'];
+const M13_MIGRATIONS = ['0020_m13_data_lifecycle.sql', '0021_m13_separation_of_duties.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {
@@ -123,6 +124,7 @@ describe('T-009 migration and rollback on seeded tenant', () => {
       ...FORWARD_FIX_MIGRATIONS,
       ...M10_MIGRATIONS,
       ...M11_MIGRATIONS,
+      ...M13_MIGRATIONS,
     ]);
     expect(await migrate(db.url)).toEqual([]);
     const { rows } = await db.admin(`SELECT extname FROM pg_extension WHERE extname = 'btree_gist'`);
@@ -165,9 +167,13 @@ describe('T-009 migration and rollback on seeded tenant', () => {
     const old = await getAssetRevision(db.pool, dataA.admin, dataA.asset.assetRevisionId);
     expect(old.serial).toBe('alpha-SN-0001');
     const ledger = await readEvidenceLedger(db.pool, dataB.admin);
-    expect(ledger.map((e) => e.evidenceId)).toEqual([
+    // The two seeded material entries, then (since M13, FR-18) exactly one APPROVAL record for the seeded approval.
+    expect(ledger.slice(0, 2).map((e) => e.evidenceId)).toEqual([
       dataB.ledger.first.evidenceId,
       dataB.ledger.correction.evidenceId,
+    ]);
+    expect(ledger.slice(2).map((e) => [e.kind, e.subject.aggregateId])).toEqual([
+      ['APPROVAL', dataB.approval.approvalId],
     ]);
   });
 

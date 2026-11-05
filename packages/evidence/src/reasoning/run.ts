@@ -21,6 +21,7 @@ import {
   type Tx,
 } from '@uptimebuyer/data';
 import { DomainError } from '@uptimebuyer/contracts';
+import { ModelBudget } from '@uptimebuyer/resilience';
 import { policyHold } from '../errors.js';
 import { newEvidenceId, type ProposalId, type ReasoningRunId } from '../ids.js';
 import { REASONING_LIMITS } from '../limits.js';
@@ -90,9 +91,20 @@ export interface ReasoningRunResult {
   modelId: string | null;
 }
 
+export interface ReasoningBudget {
+  /** Cumulative prompt + completion tokens for the run (default REASONING_LIMITS.maxRunTokens). */
+  maxRunTokens?: number;
+  /** Cost ceiling in integer micro-units of the pricing currency; requires both prices and reported usage. */
+  maxCostMicros?: bigint;
+  pricePerMillionPromptMicros?: bigint;
+  pricePerMillionCompletionMicros?: bigint;
+}
+
 export interface ReasoningDeps {
   reasoner: ReasonerPort;
   store: ObjectStorePort;
+  /** M13 (T-054, NFR-04): per-run model token and cost bounds. */
+  budget?: ReasoningBudget;
   /** Environment whose secret-named values must never reach model input or stored output (default process.env). */
   env?: Readonly<Record<string, string | undefined>>;
 }
@@ -409,6 +421,20 @@ export async function runReasoning(
     timeoutMs: REASONING_LIMITS.callTimeoutMs,
   };
   const turns: ReasonerTurn[] = [];
+  const maxRunTokens = deps.budget?.maxRunTokens ?? REASONING_LIMITS.maxRunTokens;
+  const costBounded = deps.budget?.maxCostMicros !== undefined;
+  const budget = new ModelBudget({
+    maxPromptTokens: maxRunTokens,
+    maxCompletionTokens: maxRunTokens,
+    maxTotalTokens: maxRunTokens,
+    maxCostMicros: deps.budget?.maxCostMicros ?? null,
+    ...(deps.budget?.pricePerMillionPromptMicros !== undefined
+      ? { pricePerMillionPromptMicros: deps.budget.pricePerMillionPromptMicros }
+      : {}),
+    ...(deps.budget?.pricePerMillionCompletionMicros !== undefined
+      ? { pricePerMillionCompletionMicros: deps.budget.pricePerMillionCompletionMicros }
+      : {}),
+  });
   const flags = new Set<string>(prepared.excerptFlags);
   const reasons: string[] = [];
   let status: RunStatus = 'COMPLETED';
@@ -444,6 +470,25 @@ export async function runReasoning(
         break;
       }
       turns.push(t);
+      // Token/cost bound (NFR-04): charge this turn before acting on it; an exceeded budget stops the run.
+      const reported =
+        typeof t.usage?.promptTokens === 'number' && typeof t.usage?.completionTokens === 'number'
+          ? { promptTokens: t.usage.promptTokens, completionTokens: t.usage.completionTokens }
+          : null;
+      const charge = budget.charge(
+        reported ??
+          (costBounded
+            ? { promptTokens: null, completionTokens: null }
+            : {
+                promptTokens: Math.ceil(JSON.stringify(request).length / 4),
+                completionTokens: Math.ceil(JSON.stringify(t.kind === 'FINAL' ? t.content : t.calls).length / 4),
+              }),
+      );
+      if (!charge.ok) {
+        status = 'REJECTED';
+        reasons.push(charge.reason);
+        break;
+      }
       if (t.kind === 'FINAL') {
         finalContent = t.content;
         break;

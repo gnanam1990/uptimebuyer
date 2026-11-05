@@ -9,6 +9,17 @@ import { CORRELATION_HEADER, type PublicConfig } from '@uptimebuyer/contracts/ap
 import type { AuthoritySigner } from '@uptimebuyer/commerce';
 import type { CredentialResolver, Db, HumanSessionVerifier, TenantContext } from '@uptimebuyer/data';
 import type { ObjectStorePort } from '@uptimebuyer/evidence';
+import {
+  HealthRegistry,
+  platformMetrics,
+  type MetricsRegistry,
+  type PlatformMetrics,
+  type SloTracker,
+  type Span,
+  type StructuredLogger,
+  type Tracer,
+} from '@uptimebuyer/observability';
+import { Bulkhead } from '@uptimebuyer/resilience';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { authenticate } from './auth.js';
 import { serialize } from './http.js';
@@ -33,6 +44,10 @@ export interface ApiLimits {
   /** Authority-bearing commands (approve, hold, issue/revoke authority, publish policy) per principal. */
   sensitiveCommands: BucketConfig;
   webhookFailures: BucketConfig;
+  /** M13 bulkhead over /v1 work (public config and health are never shed): concurrent, queued, queue wait. */
+  maxConcurrentRequests: number;
+  maxQueuedRequests: number;
+  queueTimeoutMs: number;
 }
 
 export const DEFAULT_API_LIMITS: ApiLimits = Object.freeze({
@@ -41,7 +56,20 @@ export const DEFAULT_API_LIMITS: ApiLimits = Object.freeze({
   authFailures: { capacity: 30, refillPerSecond: 0.5, maxKeys: 50_000 },
   sensitiveCommands: { capacity: 30, refillPerSecond: 0.5, maxKeys: 50_000 },
   webhookFailures: { capacity: 30, refillPerSecond: 0.5, maxKeys: 50_000 },
+  maxConcurrentRequests: 64,
+  maxQueuedRequests: 256,
+  queueTimeoutMs: 10_000,
 });
+
+/** M13 observability wiring (NFR-08, NFR-09). Every member is optional; absent members are no-ops. */
+export interface ApiObservability {
+  logger?: StructuredLogger;
+  metrics?: MetricsRegistry;
+  tracer?: Tracer;
+  slo?: SloTracker;
+  /** Readiness checks; by default the database (critical) and, when an SLO tracker is given, SLO state. */
+  health?: HealthRegistry;
+}
 
 export interface ApiServerOptions {
   pool: Db;
@@ -59,6 +87,7 @@ export interface ApiServerOptions {
   logger?: boolean;
   /** Clock for the token buckets (tests). */
   now?: () => number;
+  observability?: ApiObservability;
 }
 
 export interface RouteDeps extends ApiServerOptions {
@@ -71,6 +100,9 @@ declare module 'fastify' {
   interface FastifyRequest {
     ubCorrelationId: CorrelationId;
     ubCtx: TenantContext | null;
+    ubSpan: Span | null;
+    ubStartedAt: number;
+    ubRelease: (() => void) | null;
   }
 }
 
@@ -92,6 +124,19 @@ export function spendSensitive(deps: RouteDeps, req: FastifyRequest): void {
 
 const PUBLIC_PATHS = new Set(['/v1/public-config']);
 
+/** Bounded route classes for metrics and logs; the URL itself (it carries identifiers) is never a label. */
+export function routeClassOf(
+  method: string,
+  path: string,
+): 'read' | 'command' | 'webhook' | 'health' | 'public' | 'static' {
+  if (path.startsWith('/health/')) return 'health';
+  if (PUBLIC_PATHS.has(path)) return 'public';
+  if (path.startsWith('/v1/fulfillment-webhooks/')) return 'webhook';
+  if (path.startsWith('/v1/')) return method === 'GET' || method === 'HEAD' ? 'read' : 'command';
+  return 'static';
+}
+const statusClass = (code: number) => (code >= 500 ? '5xx' : code >= 400 ? '4xx' : code >= 300 ? '3xx' : '2xx');
+
 export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyInstance> {
   const limits: ApiLimits = { ...DEFAULT_API_LIMITS, ...opts.limits };
   const now = opts.now ?? Date.now;
@@ -104,6 +149,29 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
   const failures = new TokenBuckets(limits.authFailures, now);
   const tokenOrigin = new URL(opts.publicConfig.oidc.tokenEndpoint).origin;
   const headers = securityHeaders(contentSecurityPolicy([tokenOrigin]));
+  const obs = opts.observability ?? {};
+  const pm: PlatformMetrics | null = obs.metrics ? platformMetrics(obs.metrics) : null;
+  const bulkhead = new Bulkhead(
+    {
+      name: 'api_requests',
+      maxConcurrent: limits.maxConcurrentRequests,
+      maxQueued: limits.maxQueuedRequests,
+      queueTimeoutMs: limits.queueTimeoutMs,
+    },
+    (bound) => pm?.loadShed.inc({ bound: bound as 'api_requests' }),
+  );
+  const health = obs.health ?? new HealthRegistry();
+  if (!obs.health) {
+    health.register(
+      'database',
+      async () => {
+        await opts.pool.query('SELECT 1');
+        return { status: 'pass' };
+      },
+      { critical: true },
+    );
+    if (obs.slo) health.register('slo', obs.slo.healthCheck(), { critical: false });
+  }
 
   const app = Fastify({
     logger: opts.logger ?? false,
@@ -121,12 +189,64 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
   app.addHook('onRequest', async (req, reply) => {
     req.ubCorrelationId = newId('correlation');
     req.ubCtx = null;
+    req.ubStartedAt = Date.now();
+    req.ubRelease = null;
+    req.ubSpan = null;
+    if (obs.tracer) {
+      const inbound = req.headers.traceparent;
+      req.ubSpan = obs.tracer.startSpan('http.request', {
+        parent: typeof inbound === 'string' ? inbound : null,
+        correlationId: req.ubCorrelationId,
+      });
+      void reply.header('traceparent', req.ubSpan.traceparent());
+    }
     void reply.header(CORRELATION_HEADER, req.ubCorrelationId);
     for (const [k, v] of Object.entries(headers)) void reply.header(k, v);
     const path = req.url.split('?')[0] ?? '';
     if (path.startsWith('/v1/')) void reply.header('cache-control', 'no-store');
+    // Backpressure: /v1 work beyond the bulkhead is shed explicitly (429 LOAD_SHED + Retry-After), never queued
+    // without bound. Health and public configuration are never shed.
+    if (path.startsWith('/v1/') && !PUBLIC_PATHS.has(path)) req.ubRelease = await bulkhead.acquire();
     if (path.startsWith('/v1/') && !PUBLIC_PATHS.has(path) && !path.startsWith('/v1/fulfillment-webhooks/'))
       req.ubCtx = await authenticate({ pool: opts.pool, verifier: opts.verifier, failures }, req, req.ubCorrelationId);
+  });
+
+  // A client that disconnects mid-request must not leak its bulkhead slot.
+  app.addHook('onRequestAbort', async (req) => {
+    req.ubRelease?.();
+    req.ubRelease = null;
+  });
+
+  app.addHook('onResponse', async (req, reply) => {
+    req.ubRelease?.();
+    req.ubRelease = null;
+    const path = req.url.split('?')[0] ?? '';
+    const routeClass = routeClassOf(req.method, path);
+    const status = reply.statusCode;
+    const latencyMs = Date.now() - (req.ubStartedAt ?? Date.now());
+    pm?.httpRequests.inc({ route_class: routeClass, status_class: statusClass(status) });
+    pm?.httpDuration.observe({ route_class: routeClass }, latencyMs);
+    if (obs.slo && routeClass === 'read' && status < 400) obs.slo.record('operator_read', latencyMs);
+    if (obs.slo && (routeClass === 'read' || routeClass === 'command'))
+      obs.slo.recordOutcome('api_availability', status < 500);
+    if (req.ubSpan) {
+      req.ubSpan.setAttribute('routeClass', routeClass).setAttribute('status', status);
+      if (status >= 500) req.ubSpan.setStatus('ERROR', statusClass(status));
+      else if (status === 422) req.ubSpan.setStatus('HELD', String(status));
+      else if (status >= 400) req.ubSpan.setStatus('REJECTED', String(status));
+      req.ubSpan.end();
+    }
+    obs.logger?.info('http.request', {
+      correlationId: req.ubCorrelationId,
+      traceId: req.ubSpan?.context.traceId,
+      tenantId: req.ubCtx?.tenantId,
+      principalKind: req.ubCtx?.principal.kind,
+      method: req.method,
+      route: req.routeOptions?.url ?? null,
+      routeClass,
+      status,
+      latencyMs,
+    });
   });
 
   app.setErrorHandler((err: unknown, req: FastifyRequest, reply: FastifyReply) => {
@@ -154,6 +274,7 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
     } else {
       // Never log request content or token material; the correlation id ties the opaque 500 to server logs.
       req.log.error({ correlationId, errorName: (err as Error)?.name ?? 'unknown' }, 'unhandled API error');
+      obs.logger?.errorFrom('http.unhandled_error', err, { correlationId });
       domain = new DomainError('INTERNAL', 'Internal error.');
       status = 500;
     }
@@ -173,14 +294,12 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
       );
   });
 
-  app.get('/health/live', async () => ({ status: 'live' }));
+  app.get('/health/live', async () => health.live());
+  // Readiness is visible: degraded (a missed SLO, a non-critical failure) still serves 200 with the reason; an
+  // unavailable critical dependency is 503. Check details never carry error text.
   app.get('/health/ready', async (_req, reply) => {
-    try {
-      await opts.pool.query('SELECT 1');
-      return { status: 'ready' };
-    } catch {
-      return reply.status(503).send({ status: 'unavailable' });
-    }
+    const r = await health.ready();
+    return reply.status(r.status === 'unavailable' ? 503 : 200).send(r);
   });
   app.get('/v1/public-config', async () => opts.publicConfig);
 

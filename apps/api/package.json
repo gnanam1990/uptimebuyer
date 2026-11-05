@@ -18,6 +18,7 @@
     "@uptimebuyer/evidence": "workspace:*",
     "@uptimebuyer/incidents": "workspace:*",
     "@uptimebuyer/observability": "workspace:*",
+    "@uptimebuyer/operations": "workspace:*",
     "@uptimebuyer/orders": "workspace:*",
     "@uptimebuyer/planning": "workspace:*",
     "@uptimebuyer/providers": "workspace:*",

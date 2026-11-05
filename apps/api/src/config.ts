@@ -5,11 +5,40 @@ import { z } from 'zod';
 
 // Identity-provider endpoints must be https: the JWKS decides which keys authenticate humans and the token endpoint
 // receives authorization codes. Plain http is allowed only on loopback (local development and the test harness).
+// M13 (T-053 SSRF, SECURITY.md §6): the API fetches the JWKS itself, so an endpoint may never be an IP literal other
+// than loopback (no metadata, link-local, private or unspecified addresses in any numeric encoding — the URL parser
+// normalizes them to literals), an internal-only or single-label host name, or carry userinfo or a fragment. A
+// private IdP is reached by DNS name; resolution-time egress policy is the deployment's network boundary (M14).
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
-const Url = z.url().refine((u) => {
-  const url = new URL(u);
-  return url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK.has(url.hostname));
-}, 'https URL required (http only on loopback)');
+const INTERNAL_SUFFIXES = [
+  '.internal',
+  '.local',
+  '.localhost',
+  '.lan',
+  '.corp',
+  '.intranet',
+  '.home.arpa',
+  '.localdomain',
+];
+const isIpLiteral = (host: string) => host.startsWith('[') || /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+export function idpUrlAllowed(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password || url.hash) return false;
+  const host = url.hostname.toLowerCase().replace(/\.$/, '');
+  if (LOOPBACK.has(host) || LOOPBACK.has(url.hostname)) return url.protocol === 'https:' || url.protocol === 'http:';
+  if (url.protocol !== 'https:') return false;
+  if (isIpLiteral(url.hostname)) return false;
+  if (!host.includes('.') || INTERNAL_SUFFIXES.some((s) => host.endsWith(s))) return false;
+  return /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(host);
+}
+const Url = z
+  .url()
+  .refine(idpUrlAllowed, 'https URL to a public identity-provider host required (http only on loopback)');
 export const ApiConfigSchema = z.object({
   DATABASE_URL: z.string().min(1),
   UB_API_HOST: z.string().default('127.0.0.1'),
