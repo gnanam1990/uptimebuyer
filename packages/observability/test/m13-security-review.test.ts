@@ -66,3 +66,66 @@ describe('M13 security review S4: bounded redaction work', () => {
     expect(out.endsWith('…[TRUNCATED]')).toBe(true);
   });
 });
+
+// S9 — redaction shortened the text (REDACTED is shorter than what it replaces) before the kept prefix was cut, so
+//      characters from beyond the original kept length — including a partly matched secret at the scan-window cut —
+//      could shift into the output, and a secret straddling the kept length was half kept. Output now holds only
+//      characters whose ORIGINAL offset is below the kept length; a match starting there is redacted whole.
+// S10 — the userinfo rule stopped at `/`, `?` or `#`, so passwords containing them were logged. Userinfo now runs to
+//      the last `@` of the authority (a query or fragment that follows a path is not authority).
+describe('M13 security review S9: only original-offset characters below the kept length survive', () => {
+  const KEPT = 1_024;
+  it('short secrets early cannot pull a window-straddling canary into the output', () => {
+    const early = Array.from({ length: 60 }, () => ` Bearer ${randomBytes(12).toString('hex')}`).join('');
+    const pad = 'z'.repeat(Math.max(0, KEPT + 300 - early.length));
+    const canaryValue = `ghp_${randomBytes(30).toString('hex')}`;
+    const input = early + pad + canaryValue + 'w'.repeat(20_000);
+    const out = redactString(input);
+    for (let i = 0; i + 6 <= canaryValue.length; i++) expect(out).not.toContain(canaryValue.slice(i, i + 6));
+    expect(out.endsWith('…[TRUNCATED]')).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(KEPT + 20);
+  });
+
+  it('a secret straddling the kept length appears in neither full nor partial form', () => {
+    for (const make of [
+      () => `Bearer ${randomBytes(40).toString('hex')}`,
+      () => `ghp_${randomBytes(30).toString('hex')}`,
+      () => `postgres://svc:${randomBytes(20).toString('hex')}@db:5432/x`,
+    ]) {
+      const secret = make();
+      const at = KEPT - Math.floor(secret.length / 2);
+      const input = 'k'.repeat(at) + secret + ' tail'.repeat(5_000);
+      const out = redactString(input);
+      const hidden = secret.slice(secret.length / 2 - 8);
+      for (let i = 0; i + 6 <= hidden.length; i++) expect(out, secret).not.toContain(hidden.slice(i, i + 6));
+      expect(out.endsWith('…[TRUNCATED]')).toBe(true);
+    }
+  });
+});
+
+describe('M13 security review S10: userinfo runs to the last @ of the authority', () => {
+  it.each([
+    ['token-only with slash', (p: string) => `postgres://${p}/x@db/ub`],
+    ['user:pass with slash', (p: string) => `postgres://u:${p}/ss@db/x`],
+    ['user:pass with question mark', (p: string) => `postgres://u:${p}?ss@db/x`],
+    ['user:pass with hash', (p: string) => `postgres://u:${p}#ss@db/x`],
+    ['user:pass with colon', (p: string) => `postgres://u:${p}:ss@db/x`],
+    ['multiple @', (p: string) => `postgres://u:${p}@ss@db/x`],
+    ['percent-encoded @', (p: string) => `postgres://u:${p}%40ss@db/x`],
+    ['unicode', (p: string) => `postgres://u:${p}é密码@db/x`],
+  ])('redacts a password: %s', (_n, url) => {
+    const p = `pw${randomBytes(10).toString('hex')}`;
+    const out = redactString(`connect ${url(p)} now`);
+    expect(out).not.toContain(p);
+    expect(out).toContain(REDACTED);
+  });
+
+  it('leaves a URL without userinfo intact and keeps the host when a query carries an e-mail address', () => {
+    expect(redactString('see https://docs.example.com/guide?page=2#top')).toBe(
+      'see https://docs.example.com/guide?page=2#top',
+    );
+    const out = redactString('open https://portal.example.com/search?email=tech@example.org&x=1');
+    expect(out).toContain('https://portal.example.com/search?email=');
+    expect(out).not.toContain('tech@example.org');
+  });
+});
