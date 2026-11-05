@@ -39,6 +39,14 @@ export class TokenBuckets {
     return true;
   }
 
+  /** Give back one token taken by `take` (a reservation that turned out not to be a failure); never above capacity. */
+  refund(key: string): void {
+    const b = this.buckets.get(key);
+    if (!b) return;
+    const cur = this.current(key);
+    this.buckets.set(key, { tokens: Math.min(this.cfg.capacity, cur.tokens + 1), at: cur.at });
+  }
+
   /** Spend without consuming when empty; returns whether the key still has budget. */
   has(key: string): boolean {
     return this.current(key).tokens >= 1;

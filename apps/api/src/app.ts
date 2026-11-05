@@ -21,7 +21,7 @@ import {
 } from '@uptimebuyer/observability';
 import { Bulkhead } from '@uptimebuyer/resilience';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
-import { authenticate } from './auth.js';
+import { PreAuthGate, authenticate } from './auth.js';
 import { serialize } from './http.js';
 import { registerCommerceRoutes } from './routes/commerce.js';
 import { registerEvidenceRoutes } from './routes/evidence.js';
@@ -48,6 +48,9 @@ export interface ApiLimits {
   maxConcurrentRequests: number;
   maxQueuedRequests: number;
   queueTimeoutMs: number;
+  /** M13 S11: concurrent token verifications per source and in total (pre-authentication work). */
+  maxConcurrentAuthPerSource: number;
+  maxConcurrentAuth: number;
 }
 
 export const DEFAULT_API_LIMITS: ApiLimits = Object.freeze({
@@ -59,6 +62,8 @@ export const DEFAULT_API_LIMITS: ApiLimits = Object.freeze({
   maxConcurrentRequests: 64,
   maxQueuedRequests: 256,
   queueTimeoutMs: 10_000,
+  maxConcurrentAuthPerSource: 8,
+  maxConcurrentAuth: 64,
 });
 
 /** M13 observability wiring (NFR-08, NFR-09). Every member is optional; absent members are no-ops. */
@@ -147,6 +152,7 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
     webhookFailures: new TokenBuckets(limits.webhookFailures, now),
   };
   const failures = new TokenBuckets(limits.authFailures, now);
+  const gate = new PreAuthGate({ perSource: limits.maxConcurrentAuthPerSource, global: limits.maxConcurrentAuth });
   const tokenOrigin = new URL(opts.publicConfig.oidc.tokenEndpoint).origin;
   const headers = securityHeaders(contentSecurityPolicy([tokenOrigin]));
   const obs = opts.observability ?? {};
@@ -220,7 +226,11 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
     // Authenticate first (bounded by the per-source failure bucket): anonymous traffic never holds operator capacity
     // (M13 security review S7).
     if (operator)
-      req.ubCtx = await authenticate({ pool: opts.pool, verifier: opts.verifier, failures }, req, req.ubCorrelationId);
+      req.ubCtx = await authenticate(
+        { pool: opts.pool, verifier: opts.verifier, failures, gate },
+        req,
+        req.ubCorrelationId,
+      );
     // Backpressure: /v1 work beyond the bulkhead is shed explicitly (429 LOAD_SHED + Retry-After), never queued
     // without bound. Health and public configuration are never shed. The slot is tied to the response's lifetime:
     // released once on close whatever the lifecycle path, a waiter whose client left is removed from the queue, and a
