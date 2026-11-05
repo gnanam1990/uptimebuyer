@@ -43,15 +43,51 @@ const STATUSES = ['EVIDENCED', 'NOT_RUN', 'UNSUPPORTED', 'UNKNOWN'];
 // Diagrams and command blocks are not prose; every other fenced block (for example the X post text) is checked.
 const stripCode = (text) => text.replace(/```(?:mermaid|sh|bash|json)\n[\s\S]*?```/g, (m) => m.replace(/[^\n]/g, ' '));
 
+// Rendered-visible view of a draft (M14 security review R9). Only text a reader sees can qualify a claim:
+//   - HTML comments are removed across the WHOLE document (not per line); an unclosed `<!--` hides the rest of the file;
+//   - link reference definitions (`[x]: url "title"`) render nothing;
+//   - characters are replaced by spaces and newlines are kept, so line numbers stay exact.
+// Constructs that can hide or disguise text fail closed with their own finding: zero-width and bidi control characters,
+// HTML character references other than &amp; &lt; &gt; &quot;, collapsed `<details>` (decision: a collapsed body is
+// not rendered-visible, so drafts may not use `<details>` at all) and any raw HTML element.
+const blank = (m) => m.replace(/[^\n]/g, ' ');
+const INVISIBLE = /[\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/;
+const ENTITY = /&(?:#[0-9]+|#x[0-9a-f]+|(?!amp;|lt;|gt;|quot;)[a-z][a-z0-9]*);/i;
+const RAW_HTML = /<\/?[a-z][a-z0-9-]*(?:\s[^<>]*)?\/?>/i;
+
+export function visibleText(text) {
+  let unclosedAt = -1;
+  let out = text.replace(/<!--[\s\S]*?-->/g, blank);
+  const open = out.indexOf('<!--');
+  if (open >= 0) {
+    unclosedAt = open;
+    out = out.slice(0, open) + blank(out.slice(open));
+  }
+  out = out.replace(/^ {0,3}\[[^\]\n]+\]:[^\n]*$/gm, blank);
+  return { text: out, unclosedAt };
+}
+
 export function checkDraftText(file, text, { ledger }) {
   const findings = [];
   const claims = new Map((ledger?.claims ?? []).map((c) => [c.id, c]));
-  const lines = stripCode(text).split('\n');
-  lines.forEach((line, i) => {
+  const prose = stripCode(text);
+  const { text: shown, unclosedAt } = visibleText(prose);
+  const lineOf = (index) => prose.slice(0, index).split('\n').length;
+  if (unclosedAt >= 0) findings.push({ rule: 'UNCLOSED_COMMENT', file, line: lineOf(unclosedAt) });
+  const raw = prose.split('\n');
+  const visibleLines = shown.split('\n');
+  raw.forEach((line, i) => {
     const where = { file, line: i + 1 };
-    // A qualifier must be visible: text inside an HTML comment does not qualify (M14 security review R2).
-    const visible = line.replace(/<!--[\s\S]*?-->/g, '');
+    const visible = visibleLines[i] ?? '';
+    if (INVISIBLE.test(line)) findings.push({ rule: 'INVISIBLE_CHARACTER', ...where });
+    if (ENTITY.test(visible)) findings.push({ rule: 'ENCODED_TEXT', ...where });
+    // Inline code spans render their text literally (`<GATE>` is not an element).
+    const markup = visible.replace(/`[^`\n]*`/g, '');
+    if (/<details\b/i.test(markup) || RAW_HTML.test(markup))
+      findings.push({ rule: 'HIDDEN_CONTENT', ...where, detail: 'raw HTML or collapsed details are not allowed' });
+    // A qualifier counts only in rendered-visible text on the claim line (M14 security review R2/R9).
     const qualified = QUALIFIER.test(visible);
+    // Claim markers are read from the source line (they usually live in comments).
     for (const m of line.matchAll(CLAIM_ID)) {
       const c = claims.get(m[0]);
       if (!c) findings.push({ rule: 'CLAIM_UNDEFINED', ...where, detail: m[0] });
