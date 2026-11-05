@@ -15,6 +15,7 @@ import {
 } from '@uptimebuyer/contracts';
 import { createCommercialIntentInTx, issueReference, type ReferenceSigner } from '@uptimebuyer/commerce';
 import {
+  lockKey,
   pgCode,
   recordAudit,
   requireAuthorized,
@@ -27,7 +28,7 @@ import {
 import { CommercialIntentRequestSchema, type SignedExecutionReference } from '@uptimebuyer/kite-contracts';
 import { z } from 'zod';
 import { mirrorIntentInTx } from './apply.js';
-import { KIND, actorFields, hold, invalid, lockOrder, readOrder } from './internal.js';
+import { KIND, actorFields, hold, invalid, lockOrder, planningLock, readOrder } from './internal.js';
 import { loadOrderViewInTx, type OrderView } from './views.js';
 import { COMPLETION_REPORTED_STATES, type OrderKind } from './vocabulary.js';
 
@@ -117,6 +118,9 @@ export async function requestOrder(
         idempotencyKey: input.idempotencyKey,
       } as never),
     );
+    // Global lock order (planning -> authority -> intent -> order), the broker linearization's and revokeOrder's: the
+    // planning lock is taken before M09 locks any intent row of this digest.
+    await lockKey(c, planningLock(ctx.tenantId, x.incident_id));
     const { row: intent } = await createCommercialIntentInTx(c, ctx, request, meta);
     const k = KIND[kind];
     const existing = (

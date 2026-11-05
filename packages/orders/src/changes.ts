@@ -13,7 +13,7 @@
 // Verification (VERIFIED / DISPUTED) is the operator's receiving inspection of a delivered order or reported work.
 // It is fulfillment evidence only: it never proves recovery, and a blocked (materially changed) order cannot be
 // verified as the approved fulfillment.
-import { IdempotencyKeySchema } from '@uptimebuyer/contracts';
+import { DomainError, IdempotencyKeySchema } from '@uptimebuyer/contracts';
 import { transitionAuthorityInTx } from '@uptimebuyer/commerce';
 import {
   lockKey,
@@ -140,10 +140,12 @@ export async function recordFulfillmentVerification(
     ).rows[0];
     const key = `operator:${input.idempotencyKey}`;
     const prior = await c.query(
-      `SELECT 1 FROM fulfillment_observations WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_event_key = $3
+      `SELECT raw_status FROM fulfillment_observations WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_event_key = $3
           AND ${k.fk} = $4`,
       [ctx.tenantId, o.provider_account_id, key, o.id],
     );
+    if (prior.rows[0] && prior.rows[0].raw_status !== input.outcome.toLowerCase())
+      throw new DomainError('IDEMPOTENCY_KEY_REUSED', 'The idempotency key was used for a different verification.');
     if (prior.rowCount === 0) {
       if (o.blocked_reason && input.outcome === 'VERIFIED')
         throw hold('FULFILLMENT_BLOCKED', { blockedReason: o.blocked_reason });

@@ -199,6 +199,16 @@ export async function applyObservationInTx(
   let refused: string | null = null;
   if (obs.providerAccountRevisionId !== o.provider_account_revision_id) refused = 'REVISION_MISMATCH';
   else if (obs.providerRef && o.provider_ref && obs.providerRef !== o.provider_ref) refused = 'PROVIDER_REF_CONFLICT';
+  else if (obs.providerRef && !o.provider_ref && (await providerRefTaken(c, ctx.tenantId, o, obs.providerRef)))
+    refused = 'PROVIDER_REF_CONFLICT'; // bound to another order of the account: never adopted (no cross-order mapping)
+  else if (obs.source === 'WEBHOOK' || obs.source === 'POLL') {
+    // Nothing can have reached the provider before the intent's attempt exists: a provider statement now is drift.
+    const sent = await c.query(`SELECT 1 FROM external_attempts WHERE tenant_id = $1 AND intent_id = $2`, [
+      ctx.tenantId,
+      o.commercial_intent_id,
+    ]);
+    if (sent.rowCount === 0) refused = 'NOTHING_SENT';
+  }
   if (obs.forced) {
     plan = isTransitionAllowed(kind, o.state, obs.forced.target)
       ? {
@@ -219,7 +229,6 @@ export async function applyObservationInTx(
       obs: { rawStatus: obs.rawStatus, observedAt: obs.observedAt, sequence: obs.sequence, details: obs.details },
     });
   if (refused) {
-    // A refused observation cannot even be recorded against the order (its FK pins the order's revision): audit it.
     await recordAudit(c, ctx, {
       action: 'orders.observation',
       resourceType: k.aggregateType,
@@ -227,7 +236,11 @@ export async function applyObservationInTx(
       result: 'DENIED',
       reasonCode: refused,
     });
-    return { duplicate: false, observationId: null, disposition: 'REFUSED', transitioned: false, changeKind: null };
+    // Under a foreign revision the observation cannot attach to the order at all (its FK pins the order's revision);
+    // otherwise the refused evidence is kept immutably and never applied.
+    const id =
+      refused === 'REVISION_MISMATCH' ? null : await insertObservation(c, ctx, kind, o, obs, null, 'REFUSED', refused);
+    return { duplicate: false, observationId: id, disposition: 'REFUSED', transitioned: false, changeKind: null };
   }
   const disposition = DISPOSITION[plan.disposition];
   const observationId = await insertObservation(
@@ -319,6 +332,17 @@ export async function applyObservationInTx(
   }
   Object.assign(o, up);
   return { duplicate: false, observationId, disposition, transitioned: true, changeKind };
+}
+
+async function providerRefTaken(c: Tx, tenantId: string, o: any, providerRef: string): Promise<boolean> {
+  for (const t of [KIND.PURCHASE_ORDER.table, KIND.SERVICE_JOB.table]) {
+    const r = await c.query(
+      `SELECT 1 FROM ${t} WHERE tenant_id = $1 AND provider_account_id = $2 AND provider_ref = $3 AND id <> $4`,
+      [tenantId, o.provider_account_id, providerRef, o.id],
+    );
+    if (r.rowCount) return true;
+  }
+  return false;
 }
 
 function proposedOf(obs: IncomingObservation): Record<string, unknown> {
