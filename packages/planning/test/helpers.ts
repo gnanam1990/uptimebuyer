@@ -101,6 +101,8 @@ export interface Offer {
   validForMs?: number;
   noQuote?: boolean;
   partNumber?: string;
+  /** Candidate action kind (default PART_PURCHASE); SERVICE_JOB candidates quote REPAIR_LABOR. */
+  kind?: 'PART_PURCHASE' | 'SERVICE_JOB';
 }
 
 export interface ScenarioPair {
@@ -192,6 +194,7 @@ export async function scenario(
     const cand = await exactCandidate(w, inc, {
       merchantId: merchant(),
       amount: money(o.priceMinor, 'USD'),
+      ...(o.kind ? { kind: o.kind, purpose: o.kind } : {}),
     });
     const d = await evaluateCandidate(w.db.pool, w.service, { candidateActionId: cand.candidateActionId }, w.signing);
     let quoteId: string | null = null;
@@ -214,7 +217,7 @@ export async function scenario(
       const q = await recordQuote(w.db.pool, w.people.operator!.ctx, {
         contactRequestId: req.contactRequestId,
         sourceKind: 'OPERATOR_ENTRY',
-        scopeKind: 'PART_SUPPLY',
+        scopeKind: o.kind === 'SERVICE_JOB' ? 'REPAIR_LABOR' : 'PART_SUPPLY',
         partNumber: o.partNumber ?? '5A1-0402',
         manufacturer: MANUFACTURER,
         amount: amount === null ? null : money(amount, o.quoteCurrency ?? 'USD'),

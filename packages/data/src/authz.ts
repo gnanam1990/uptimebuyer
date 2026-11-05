@@ -197,6 +197,25 @@ export const ACTIONS = Object.freeze({
   'commerce.manual_resolve': human(['finance_approver', 'admin'], 'REQUIRED'),
   /** The exclusive broker's own server engine: linearization, reconciliation and decision gates (M09). */
   'commerce.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
+  /** Purchase orders, service jobs, observations, change proposals and the fulfillment gate at the site (M10). */
+  'orders.read': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: [...HUMAN_ROLES, 'worker'],
+    site: 'REQUIRED',
+    workerAllowed: true,
+  },
+  /** Request (create) the order/job of an issued authority, dispatch it to the broker and reconcile it (M10). */
+  'orders.request': {
+    principals: ['HUMAN', 'SERVICE'],
+    roles: ['operator', 'worker'],
+    site: 'REQUIRED',
+  },
+  /** Record receiving inspection / work verification (VERIFIED or DISPUTED) of a delivered order or completed job. */
+  'orders.verify': human(['operator'], 'REQUIRED'),
+  /** Revoke an order/job intent (cancellation request; serializes with the broker linearization; M10). */
+  'orders.manage': human(['maintenance_approver', 'finance_approver', 'admin'], 'REQUIRED'),
+  /** Server-side order engine: apply provider observations, poll, mirror broker results, drive incidents (M10). */
+  'orders.engine': { principals: ['SERVICE'], roles: ['worker'], site: 'TENANT', workerAllowed: true },
 } as const satisfies Record<string, ActionSpec>);
 export type ActionName = keyof typeof ACTIONS;
 

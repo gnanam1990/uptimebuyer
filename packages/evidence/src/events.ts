@@ -75,7 +75,21 @@ export const PlanInvalidatedByPlanningPayloadSchema = z.strictObject({
   incidentId: IncidentIdSchema,
   reasonCode: z.enum(['PLAN_INPUT_STALE', 'PLAN_SUPERSEDED_BY_REVISION']),
   staleInputs: z
-    .array(z.enum(['EVIDENCE', 'ASSET', 'POLICY', 'DEADLINE', 'QUOTE', 'DECISION', 'RISK_ESTIMATE', 'INVENTORY', 'RECOMPUTE']))
+    .array(
+      z.enum([
+        'EVIDENCE',
+        'ASSET',
+        'POLICY',
+        'DEADLINE',
+        'QUOTE',
+        'DECISION',
+        'RISK_ESTIMATE',
+        'INVENTORY',
+        'RECOMPUTE',
+        // M10: an order/job material change or revocation invalidated the executing plan.
+        'EXECUTION',
+      ]),
+    )
     .max(16),
   invalidatedPlanIds: PlanIdListSchema,
   inFlightPlanIds: PlanIdListSchema,

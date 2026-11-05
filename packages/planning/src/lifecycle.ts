@@ -19,6 +19,7 @@ export const STALE_INPUTS = Object.freeze([
   'RISK_ESTIMATE',
   'INVENTORY',
   'RECOMPUTE',
+  'EXECUTION',
 ] as const);
 export type StaleInput = (typeof STALE_INPUTS)[number];
 
@@ -32,6 +33,7 @@ const REASON_FOR: Record<StaleInput, string> = {
   RISK_ESTIMATE: 'RISK_ESTIMATE_CHANGED',
   INVENTORY: 'INVENTORY_VALUE_CHANGED',
   RECOMPUTE: 'PLAN_STALE',
+  EXECUTION: 'EXECUTION_CHANGED',
 };
 
 export async function transitionPlan(
@@ -237,5 +239,64 @@ export async function revalidateIncidentPlans(
     if (s.length > 0) stale.push({ id: p.id, state: p.state, version: p.version, plan_hash: p.plan_hash, stale: s });
   }
   return invalidatePlans(c, ctx, incidentId, stale, 'PLAN_INPUT_STALE');
+}
+
+/**
+ * M10: a material order/job change (partial fill, substitute, quantity/price/ETA/stock change, cancellation, provider
+ * failure, reschedule/no-show, scope change, dispute) or an order revocation invalidates the bound plan: an EXECUTING
+ * plan becomes INVALIDATED with IN_FLIGHT_RECONCILIATION (its possible external effect keeps reconciling), an APPROVED
+ * plan becomes INVALIDATED before any egress; unexecuted approvals bound to its hash are invalidated with it, so no new
+ * reserve can happen. Idempotent: a plan already out of the open states is left alone. Caller is authorized.
+ */
+export async function invalidatePlanForExecutionChange(
+  c: Tx,
+  ctx: TenantContext,
+  incidentId: string,
+  planId: string,
+): Promise<InvalidationResult> {
+  await lockKey(c, planningLock(ctx.tenantId, incidentId));
+  const { rows } = await c.query(
+    `SELECT * FROM recovery_plans WHERE tenant_id = $1 AND incident_id = $2 AND id = $3
+        AND state IN ('DRAFT', 'EVALUATED', 'APPROVABLE', 'APPROVED', 'EXECUTING') FOR UPDATE`,
+    [ctx.tenantId, incidentId, planId],
+  );
+  const p = rows[0];
+  if (!p) return invalidatePlans(c, ctx, incidentId, [], 'PLAN_INPUT_STALE');
+  return invalidatePlans(
+    c,
+    ctx,
+    incidentId,
+    [{ id: p.id, state: p.state, version: p.version, plan_hash: p.plan_hash, stale: ['EXECUTION'] }],
+    'PLAN_INPUT_STALE',
+  );
+}
+
+/**
+ * M10: EXECUTING -> COMPLETED once every executed plan action reached a terminal reconciled outcome (the caller checks
+ * that). Completion is fulfillment bookkeeping only: it never moves the incident to RECOVERED or releases value.
+ */
+export async function completeExecutingPlanInTx(
+  c: Tx,
+  ctx: TenantContext,
+  incidentId: string,
+  planId: string,
+  reasonCode: string,
+): Promise<boolean> {
+  await lockKey(c, planningLock(ctx.tenantId, incidentId));
+  const { rows } = await c.query(
+    `SELECT id, state, version FROM recovery_plans WHERE tenant_id = $1 AND incident_id = $2 AND id = $3 FOR UPDATE`,
+    [ctx.tenantId, incidentId, planId],
+  );
+  const p = rows[0];
+  if (!p || p.state !== 'EXECUTING') return false;
+  await transitionPlan(c, ctx, p, 'COMPLETED', reasonCode);
+  await recordAudit(c, ctx, {
+    action: 'planning.complete',
+    resourceType: 'recovery_plan',
+    resourceId: planId,
+    result: 'SUCCEEDED',
+    reasonCode,
+  });
+  return true;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

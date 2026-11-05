@@ -68,6 +68,12 @@
       "path": "./packages/commerce"
     },
     {
+      "path": "./packages/orders"
+    },
+    {
+      "path": "./packages/orders/test"
+    },
+    {
       "path": "./apps/kite-broker"
     },
     {

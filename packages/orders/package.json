@@ -1,0 +1,25 @@
+{
+  "name": "@uptimebuyer/orders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Order, service-job and external-outcome reconciliation (M10): purchase-order and service-job command handlers over their separate machines, one order/job per action digest and execution authority, verified fulfillment webhooks and bounded polling pinned to the exact provider-account revision, UNKNOWN reconciliation through the exclusive broker, material-change reopening of policy and replay-safe order/job facts. Credential-free: paid egress stays in the Kite broker, and nothing here proves recovery.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/commerce": "workspace:*",
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/domain": "workspace:*",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/kite-contracts": "workspace:*",
+    "@uptimebuyer/planning": "workspace:*",
+    "@uptimebuyer/providers": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
