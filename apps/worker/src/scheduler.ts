@@ -54,6 +54,8 @@ export class PgAdvisoryLocks implements LockProvider {
   private client: pg.PoolClient | null = null;
   private connecting: Promise<pg.PoolClient> | null = null;
   private readonly held = new Map<string, AbortController>();
+  /** Queries on the shared session run one at a time (pg deprecates overlapping queries on one client). */
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly pool: pg.Pool,
@@ -79,6 +81,12 @@ export class PgAdvisoryLocks implements LockProvider {
     return this.connecting;
   }
 
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const p = this.queue.then(fn, fn);
+    this.queue = p.catch(() => {});
+    return p;
+  }
+
   private lose(client: pg.PoolClient, e: Error): void {
     if (this.client !== client) return;
     this.client = null;
@@ -92,9 +100,8 @@ export class PgAdvisoryLocks implements LockProvider {
     const client = await this.session();
     let ok: boolean;
     try {
-      const { rows } = await client.query<{ ok: boolean }>(
-        'SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS ok',
-        [key],
+      const { rows } = await this.serial(() =>
+        client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS ok', [key]),
       );
       ok = rows[0]?.ok === true;
     } catch (e) {
@@ -112,9 +119,11 @@ export class PgAdvisoryLocks implements LockProvider {
         released = true;
         if (this.held.get(name) !== lost || this.client !== client) return; // session already gone with the lock
         this.held.delete(name);
-        await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]).catch((e: Error) => {
-          this.lose(client, e);
-        });
+        await this.serial(() => client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key])).catch(
+          (e: Error) => {
+            this.lose(client, e);
+          },
+        );
       },
     };
   }
