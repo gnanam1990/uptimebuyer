@@ -348,6 +348,7 @@ SELECT ub_make_append_only('recovery_evaluation_transitions');
 
 CREATE TABLE recovery_evaluation_channels (
   tenant_id text NOT NULL REFERENCES tenants (id),
+  id text NOT NULL DEFAULT ('rch_' || gen_random_uuid()) CHECK (ub_id_ok(id, 'rch')),
   evaluation_id text NOT NULL,
   ordinal integer NOT NULL CHECK (ordinal BETWEEN 1 AND 16),
   device_id text NOT NULL,
@@ -357,6 +358,7 @@ CREATE TABLE recovery_evaluation_channels (
   calibration_revision integer NOT NULL CHECK (calibration_revision >= 1),
   asset_revision_id text NOT NULL,
   PRIMARY KEY (tenant_id, evaluation_id, ordinal),
+  UNIQUE (tenant_id, id),
   UNIQUE (tenant_id, evaluation_id, channel_id),
   FOREIGN KEY (tenant_id, evaluation_id) REFERENCES recovery_evaluations (tenant_id, id),
   FOREIGN KEY (tenant_id, device_id, device_assignment_id) REFERENCES device_asset_assignments (tenant_id, device_id, id),
@@ -367,10 +369,12 @@ SELECT ub_make_append_only('recovery_evaluation_channels');
 
 CREATE TABLE recovery_evaluation_samples (
   tenant_id text NOT NULL REFERENCES tenants (id),
+  id text NOT NULL DEFAULT ('rsm_' || gen_random_uuid()) CHECK (ub_id_ok(id, 'rsm')),
   evaluation_id text NOT NULL,
   sample_id text NOT NULL,
   ordinal integer NOT NULL CHECK (ordinal BETWEEN 1 AND 100000),
   PRIMARY KEY (tenant_id, evaluation_id, sample_id),
+  UNIQUE (tenant_id, id),
   UNIQUE (tenant_id, evaluation_id, ordinal),
   FOREIGN KEY (tenant_id, evaluation_id) REFERENCES recovery_evaluations (tenant_id, id),
   FOREIGN KEY (tenant_id, sample_id) REFERENCES telemetry_samples (tenant_id, id)
@@ -379,10 +383,12 @@ SELECT ub_make_append_only('recovery_evaluation_samples');
 
 CREATE TABLE recovery_evaluation_signoffs (
   tenant_id text NOT NULL REFERENCES tenants (id),
+  id text NOT NULL DEFAULT ('rsg_' || gen_random_uuid()) CHECK (ub_id_ok(id, 'rsg')),
   evaluation_id text NOT NULL,
   requirement text NOT NULL CHECK (requirement IN ('CMMS_WORK_ORDER', 'OPERATOR_ATTESTATION', 'INSTALLED_PART')),
   evidence_id text NOT NULL,
   PRIMARY KEY (tenant_id, evaluation_id, requirement, evidence_id),
+  UNIQUE (tenant_id, id),
   FOREIGN KEY (tenant_id, evaluation_id) REFERENCES recovery_evaluations (tenant_id, id),
   FOREIGN KEY (tenant_id, evidence_id) REFERENCES recovery_evidence (tenant_id, id)
 );
@@ -736,6 +742,7 @@ CREATE CONSTRAINT TRIGGER recovery_closeouts_commit_guard AFTER INSERT ON recove
 
 CREATE TABLE recovery_command_receipts (
   tenant_id text NOT NULL REFERENCES tenants (id),
+  id text NOT NULL DEFAULT ('rcr_' || gen_random_uuid()) CHECK (ub_id_ok(id, 'rcr')),
   idempotency_key text NOT NULL CHECK (idempotency_key ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$'),
   command_type text NOT NULL CHECK (command_type ~ '^recovery\.[a-z_]+\.v[1-9]$'),
   request_digest text NOT NULL CHECK (request_digest ~ '^sha256:[0-9a-f]{64}$'),
@@ -743,7 +750,8 @@ CREATE TABLE recovery_command_receipts (
   actor_kind text NOT NULL CHECK (actor_kind IN ('HUMAN', 'SERVICE', 'WORKER', 'INTEGRATION')),
   actor_id text NOT NULL CHECK (length(actor_id) BETWEEN 1 AND 128),
   recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  PRIMARY KEY (tenant_id, idempotency_key)
+  PRIMARY KEY (tenant_id, idempotency_key),
+  UNIQUE (tenant_id, id)
 );
 SELECT ub_make_append_only('recovery_command_receipts');
 
