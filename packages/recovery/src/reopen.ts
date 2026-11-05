@@ -107,108 +107,152 @@ export interface DisputeResult extends Record<string, unknown> {
   incidentEffect: 'NONE' | 'EVALUATION_FAILED' | 'ESCALATED' | 'REOPENED';
 }
 
+export interface DisputeFaults {
+  /** Thrown from here simulates a crash after the dispute committed and before its reopen/escalation. */
+  beforeEffect?(): void;
+}
+
+/**
+ * Dispute recovery evidence. The dispute row commits first (incident -> open evaluation locked, the closeout's order,
+ * so a racing PASSED either commits before it or never). Its incident effect (escalate an open evaluation's incident,
+ * or reopen a recovered one whose closeout pins this evidence) is then applied and the Idempotency-Key receipt is
+ * written only once that effect is durable. A replay or a new request on already-disputed evidence re-derives the
+ * effect from durable state and completes it, so a crash between the two never yields a cached success.
+ */
 export async function disputeRecoveryEvidence(
   pool: Db,
   ctx: TenantContext,
   raw: z.input<typeof DisputeSchema>,
+  opts: { faults?: DisputeFaults } = {},
 ): Promise<DisputeResult> {
   const input = parseInput(DisputeSchema, raw);
   const meta = { action: 'recovery.evidence.dispute', resourceType: 'recovery_evidence', resourceId: input.evidenceId };
-  const planned = await tenantCommand(pool, ctx, meta, async (c) => {
+  const first = await tenantCommand(pool, ctx, meta, async (c) => {
     const ev0 = await loadEvidence(c, ctx.tenantId, input.evidenceId);
     if (!ev0) throw unavailable(meta);
-    // Lock order: incident first (as the closeout), then the evaluation.
+    // Lock order: incident first (as the closeout), then the open evaluation, then the dispute insert.
     const inc = await loadIncident(c, ctx, meta, ev0.incident_id, { action: 'recovery.dispute', lock: 'UPDATE' });
     const digest = requestDigest(ctx, 'recovery.dispute.v1', { evidenceId: ev0.id, reasonCode: input.reasonCode });
     const prior = await readReceipt<DisputeResult>(c, ctx, input.idempotencyKey, digest);
-    if (prior) return { result: prior, effect: null };
-    const existing = await c.query<{ id: string }>(
-      `SELECT id FROM recovery_evidence_disputes WHERE tenant_id = $1 AND evidence_id = $2`,
-      [ctx.tenantId, ev0.id],
-    );
-    if (existing.rows[0]) {
-      const result: DisputeResult = { disputeId: existing.rows[0].id, evidenceId: ev0.id, incidentEffect: 'NONE' };
-      return {
-        result: await writeReceipt(c, ctx, input.idempotencyKey, 'recovery.dispute.v1', digest, result),
-        effect: null,
-      };
-    }
-    // Lock the open evaluation (incident -> evaluation, the closeout's order) before the dispute exists.
+    if (prior) return { settled: prior, digest, incidentId: inc.id, disputeId: prior.disputeId, evidenceId: ev0.id };
     const openLocked = await c.query<EvaluationRow>(
       `SELECT * FROM recovery_evaluations WHERE tenant_id = $1 AND incident_id = $2 AND state IN ('PENDING', 'OBSERVING')
         FOR UPDATE`,
       [ctx.tenantId, inc.id],
     );
-    const disputeId = newRecoveryId('dispute');
-    const actor = actorFor(ctx);
-    await c.query(
-      `INSERT INTO recovery_evidence_disputes (tenant_id, id, evidence_id, incident_id, reason_code, actor_kind, actor_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [ctx.tenantId, disputeId, ev0.id, inc.id, input.reasonCode, actor.kind, actor.id],
+    const existing = await c.query<{ id: string }>(
+      `SELECT id FROM recovery_evidence_disputes WHERE tenant_id = $1 AND evidence_id = $2`,
+      [ctx.tenantId, ev0.id],
     );
-    let effect:
-      { kind: 'ESCALATE'; evaluationId: string } | { kind: 'REOPEN'; closeout: CloseoutRow; version: number } | null =
-      null;
-    if (inc.state === 'VERIFYING') {
-      const ev = openLocked.rows[0];
-      const milestone = ev
-        ? (
-            await c.query<{ source_evidence_id: string }>(
-              `SELECT source_evidence_id FROM intervention_milestones WHERE tenant_id = $1 AND id = $2`,
-              [ctx.tenantId, ev.milestone_id],
-            )
-          ).rows[0]
-        : undefined;
+    let disputeId = existing.rows[0]?.id;
+    if (!disputeId) {
+      disputeId = newRecoveryId('dispute');
+      const actor = actorFor(ctx);
+      await c.query(
+        `INSERT INTO recovery_evidence_disputes (tenant_id, id, evidence_id, incident_id, reason_code, actor_kind, actor_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [ctx.tenantId, disputeId, ev0.id, inc.id, input.reasonCode, actor.kind, actor.id],
+      );
+      await recordAudit(c, ctx, {
+        ...meta,
+        result: 'SUCCEEDED',
+        reasonCode: input.reasonCode,
+        metadata: { disputeId },
+      });
+    }
+    // An open evaluation resting on this evidence fails in the same transaction as the dispute.
+    const ev = openLocked.rows[0];
+    if (inc.state === 'VERIFYING' && ev) {
+      const milestone = (
+        await c.query<{ source_evidence_id: string }>(
+          `SELECT source_evidence_id FROM intervention_milestones WHERE tenant_id = $1 AND id = $2`,
+          [ctx.tenantId, ev.milestone_id],
+        )
+      ).rows[0];
       const bound =
-        ev &&
-        (milestone?.source_evidence_id === ev0.id ||
-          (ev0.plan_id === ev.plan_id &&
-            ev0.action_digest === ev.action_digest &&
-            (ev0.source_kind === 'CMMS' || ev0.source_kind === 'AUTHORIZED_OPERATOR')));
-      if (ev && bound) {
+        milestone?.source_evidence_id === ev0.id ||
+        (ev0.plan_id === ev.plan_id &&
+          ev0.action_digest === ev.action_digest &&
+          (ev0.source_kind === 'CMMS' || ev0.source_kind === 'AUTHORIZED_OPERATOR'));
+      if (bound) {
         const { atMs } = await evaluationInstant(c, undefined);
         await decide(c, ctx, ev, 'FAILED', 'EVIDENCE_DISPUTED', atMs, [input.reasonCode]);
-        effect = { kind: 'ESCALATE', evaluationId: ev.id };
       }
-    } else if (inc.state === 'RECOVERED') {
-      const co = await c.query<CloseoutRow>(
-        `SELECT co.* FROM recovery_closeouts co
-          WHERE co.tenant_id = $1 AND co.incident_id = $2 AND co.recovery_cycle = $3 AND co.reopened_at IS NULL
-            AND (EXISTS (SELECT 1 FROM intervention_milestones m WHERE m.tenant_id = co.tenant_id AND m.id = co.milestone_id
-                           AND m.source_evidence_id = $4)
-              OR EXISTS (SELECT 1 FROM recovery_evaluation_signoffs g WHERE g.tenant_id = co.tenant_id
-                           AND g.evaluation_id = co.evaluation_id AND g.evidence_id = $4))`,
-        [ctx.tenantId, inc.id, inc.reopen_count, ev0.id],
-      );
-      if (co.rows[0]) effect = { kind: 'REOPEN', closeout: co.rows[0], version: inc.version };
     }
-    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', reasonCode: input.reasonCode, metadata: { disputeId } });
-    const result: DisputeResult = {
-      disputeId,
-      evidenceId: ev0.id,
-      incidentEffect: effect === null ? 'NONE' : effect.kind === 'ESCALATE' ? 'ESCALATED' : 'REOPENED',
-    };
-    return {
-      result: await writeReceipt(c, ctx, input.idempotencyKey, 'recovery.dispute.v1', digest, result),
-      effect,
-      incidentId: inc.id,
-    };
+    return { settled: null, digest, incidentId: inc.id, disputeId, evidenceId: ev0.id };
   });
-  const { result, effect } = planned;
-  if (!effect) return result;
-  const incidentId = (planned as { incidentId: string }).incidentId;
-  if (effect.kind === 'ESCALATE') {
-    const r = await escalate(pool, ctx, incidentId, { evaluationId: effect.evaluationId, reason: 'EVIDENCE_DISPUTED' });
-    return r.incidentState === 'ESCALATED' ? result : { ...result, incidentEffect: 'EVALUATION_FAILED' };
+  if (first.settled) return first.settled;
+  opts.faults?.beforeEffect?.();
+  const incidentEffect = await applyDisputeEffect(
+    pool,
+    ctx,
+    first.incidentId,
+    first.evidenceId,
+    first.disputeId,
+    input.reasonCode,
+  );
+  const result: DisputeResult = { disputeId: first.disputeId, evidenceId: first.evidenceId, incidentEffect };
+  // The receipt is written only now that the effect is durable.
+  return tenantCommand(pool, ctx, meta, (c) =>
+    writeReceipt(c, ctx, input.idempotencyKey, 'recovery.dispute.v1', first.digest, result),
+  );
+}
+
+/** Re-derive and complete a dispute's incident effect from durable state (idempotent). */
+async function applyDisputeEffect(
+  pool: Db,
+  ctx: TenantContext,
+  incidentId: string,
+  evidenceId: string,
+  disputeId: string,
+  reasonCode: string,
+): Promise<DisputeResult['incidentEffect']> {
+  const meta = { action: 'recovery.evidence.dispute', resourceType: 'incident', resourceId: incidentId };
+  const state = await tenantCommand(pool, ctx, meta, async (c) => {
+    const inc = await loadIncident(c, ctx, meta, incidentId, { action: 'recovery.dispute', lock: null });
+    const pinning = await c.query<CloseoutRow & { reopen_ref: string | null }>(
+      `SELECT co.* FROM recovery_closeouts co
+        WHERE co.tenant_id = $1 AND co.incident_id = $2
+          AND (EXISTS (SELECT 1 FROM intervention_milestones m WHERE m.tenant_id = co.tenant_id AND m.id = co.milestone_id
+                         AND m.source_evidence_id = $3)
+            OR EXISTS (SELECT 1 FROM recovery_evaluation_signoffs g WHERE g.tenant_id = co.tenant_id
+                         AND g.evaluation_id = co.evaluation_id AND g.evidence_id = $3))
+        ORDER BY co.recovery_cycle DESC LIMIT 1`,
+      [ctx.tenantId, inc.id, evidenceId],
+    );
+    const failed = await c.query<{ id: string }>(
+      `SELECT ev.id FROM recovery_evaluations ev
+        WHERE ev.tenant_id = $1 AND ev.incident_id = $2 AND ev.recovery_cycle = $3 AND ev.state = 'FAILED'
+          AND ev.state_reason = 'EVIDENCE_DISPUTED'
+          AND EXISTS (SELECT 1 FROM recovery_evaluation_transitions t WHERE t.tenant_id = ev.tenant_id
+                        AND t.evaluation_id = ev.id AND t.to_state = 'FAILED')
+        ORDER BY ev.decided_at DESC LIMIT 1`,
+      [ctx.tenantId, inc.id, inc.reopen_count],
+    );
+    return { inc, closeout: pinning.rows[0], failedEvaluationId: failed.rows[0]?.id ?? null };
+  });
+  const { inc, closeout } = state;
+  if (closeout) {
+    if (closeout.reopened_at !== null) return 'REOPENED';
+    if (inc.state === 'RECOVERED' && closeout.recovery_cycle === inc.reopen_count) {
+      await reopenIncident(pool, ctx, inc.id, {
+        expectedVersion: inc.version,
+        idempotencyKey: `rcv-dispute-${disputeId.slice(4, 44)}`,
+        reasonCode: 'RECOVERY_EVIDENCE_DISPUTED',
+        note: `Recovery evidence ${evidenceId} disputed (${reasonCode}).`,
+      });
+      await stampAfterReopen(pool, ctx, closeout, 'RECOVERY_EVIDENCE_DISPUTED', disputeId);
+      return 'REOPENED';
+    }
   }
-  await reopenIncident(pool, ctx, incidentId, {
-    expectedVersion: effect.version,
-    idempotencyKey: `rcv-dispute-${result.disputeId.slice(4, 44)}`,
-    reasonCode: 'RECOVERY_EVIDENCE_DISPUTED',
-    note: `Recovery evidence ${result.evidenceId} disputed (${input.reasonCode}).`,
-  });
-  await stampAfterReopen(pool, ctx, effect.closeout, 'RECOVERY_EVIDENCE_DISPUTED', result.disputeId);
-  return result;
+  if (state.failedEvaluationId) {
+    const r = await escalate(pool, ctx, inc.id, {
+      evaluationId: state.failedEvaluationId,
+      reason: 'EVIDENCE_DISPUTED',
+    });
+    return r.incidentState === 'ESCALATED' ? 'ESCALATED' : 'EVALUATION_FAILED';
+  }
+  return 'NONE';
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -193,7 +193,7 @@ async function phaseA(
       [ctx.tenantId, inc.id],
     );
     let ev: EvaluationRow | undefined = openRows.rows[0];
-    const desired = await desiredBinding(c, inc);
+    const desired = await desiredBinding(c, inc, signing);
     if (ev && (typeof desired === 'string' || desired.bindingDigest !== ev.binding_digest)) {
       const reason = await supersessionReason(c, ev, desired);
       await decide(c, ctx, ev, 'FAILED', reason, atMs, []);

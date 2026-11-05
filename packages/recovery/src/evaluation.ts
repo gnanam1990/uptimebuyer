@@ -6,15 +6,21 @@
 // work-order signoff/attestation, and the exact approved installed-part identity.
 import type { TenantContext, Tx } from '@uptimebuyer/data';
 import { canonicalDigest } from '@uptimebuyer/domain';
-import { attesterStillAuthorized, evidenceSealValid, type EvidenceRow } from './evidence.js';
+import { attesterStillAuthorized, evidenceSealValid, loadEvidence, type EvidenceRow } from './evidence.js';
+import { MILESTONE_SEAL_DOMAIN, milestoneSealFields } from './milestones.js';
 import { activeIntegrations, approvedActions, cycleStart, disputedIds, type ApprovedAction } from './facts.js';
-import { isoOf, ms, type IncidentRow, type RecoverySigning } from './internal.js';
+import { isoOf, ms, verifySeal, type IncidentRow, type RecoverySigning } from './internal.js';
 import { loadPolicy, num, type PolicyRow } from './policy.js';
 import { evaluateStableWindow, type WindowResult, type WindowSample } from './window.js';
 
 export interface MilestoneRow {
+  tenant_id: string;
   id: string;
   incident_id: string;
+  asset_id: string;
+  asset_revision_id: string;
+  observed_at: Date;
+  signature_key_id: string;
   recovery_cycle: number;
   plan_id: string;
   plan_action_id: string;
@@ -91,8 +97,16 @@ export async function loadRule(c: Tx, tenantId: string, id: string): Promise<Rul
   return rows[0]!;
 }
 
-/** The designated milestone of the current cycle: the latest one whose source evidence is undisputed and still authorized. */
-export async function currentMilestone(c: Tx, inc: IncidentRow): Promise<MilestoneRow | undefined> {
+/**
+ * The designated milestone of the current cycle: the latest one whose own signature verifies against the recovery
+ * keyring, whose source evidence is sealed, undisputed and from a still-active CMMS integration of the site or an
+ * attester who still holds the stored, policy-named role there. A row failing any check is skipped (never trusted).
+ */
+export async function currentMilestone(
+  c: Tx,
+  inc: IncidentRow,
+  signing: RecoverySigning,
+): Promise<MilestoneRow | undefined> {
   const { rows } = await c.query<MilestoneRow>(
     `SELECT m.* FROM intervention_milestones m
        JOIN recovery_evidence e ON e.tenant_id = m.tenant_id AND e.id = m.source_evidence_id
@@ -101,10 +115,20 @@ export async function currentMilestone(c: Tx, inc: IncidentRow): Promise<Milesto
         AND (e.cmms_integration_id IS NULL OR EXISTS (
           SELECT 1 FROM cmms_integrations ci WHERE ci.tenant_id = e.tenant_id AND ci.id = e.cmms_integration_id
              AND ci.site_id = m.site_id AND ci.revoked_at IS NULL))
-      ORDER BY m.occurred_at DESC, m.verified_at DESC, m.id DESC LIMIT 1`,
+      ORDER BY m.occurred_at DESC, m.verified_at DESC, m.id DESC LIMIT 50`,
     [inc.tenant_id, inc.id, inc.reopen_count],
   );
-  return rows[0];
+  for (const m of rows) {
+    if (!verifySeal(signing, MILESTONE_SEAL_DOMAIN, milestoneSealFields(m), m.signature, m.signature_key_id)) continue;
+    const ev = await loadEvidence(c, inc.tenant_id, m.source_evidence_id);
+    if (!ev || !evidenceSealValid(signing, ev)) continue;
+    if (ev.source_kind === 'AUTHORIZED_OPERATOR') {
+      const policy = await loadPolicy(c, inc.tenant_id, m.recovery_policy_revision_id);
+      if (!(await attesterStillAuthorized(c, inc.tenant_id, ev, inc.site_id, policy.attestation_roles))) continue;
+    }
+    return m;
+  }
+  return undefined;
 }
 
 /** Open, non-revoked assignment/channel revisions of the asset's pinned revision for the rule's channel kind. */
@@ -135,8 +159,12 @@ export async function pinnedChannels(c: Tx, tenantId: string, evaluationId: stri
 export type BindingProblem = 'MILESTONE_MISSING' | 'EVIDENCE_REVISION_MISSING' | 'NO_RECOVERY_CHANNEL';
 
 /** Everything an evaluation for this incident must pin right now (or why none can be opened). */
-export async function desiredBinding(c: Tx, inc: IncidentRow): Promise<DesiredBinding | BindingProblem> {
-  const milestone = await currentMilestone(c, inc);
+export async function desiredBinding(
+  c: Tx,
+  inc: IncidentRow,
+  signing: RecoverySigning,
+): Promise<DesiredBinding | BindingProblem> {
+  const milestone = await currentMilestone(c, inc, signing);
   if (!milestone) return 'MILESTONE_MISSING';
   const policy = await loadPolicy(c, inc.tenant_id, milestone.recovery_policy_revision_id);
   const rule = await loadRule(c, inc.tenant_id, inc.rule_revision_id);

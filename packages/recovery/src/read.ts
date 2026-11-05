@@ -25,10 +25,28 @@ async function gateOf(c: Tx, inc: IncidentRow): Promise<RecoveryGate> {
     (r) => r.recovery_cycle === inc.reopen_count && r.reopened_at === null && r.state === 'PASSED',
   );
   const reasons: string[] = [];
+  // Fail closed while any evidence behind the current closeout is disputed (even before its reopen has committed).
+  const disputed = current
+    ? (
+        await c.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM recovery_evidence_disputes d
+            WHERE d.tenant_id = $1 AND d.evidence_id IN (
+              SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                JOIN recovery_closeouts co ON co.tenant_id = g.tenant_id AND co.evaluation_id = g.evaluation_id
+               WHERE co.tenant_id = $1 AND co.id = $2
+              UNION ALL
+              SELECT m.source_evidence_id FROM intervention_milestones m
+                JOIN recovery_closeouts co ON co.tenant_id = m.tenant_id AND co.milestone_id = m.id
+               WHERE co.tenant_id = $1 AND co.id = $2)`,
+          [inc.tenant_id, current.id],
+        )
+      ).rows[0]!.n > 0
+    : false;
+  if (disputed) reasons.push('PINNED_EVIDENCE_DISPUTED');
   if (inc.state !== 'RECOVERED') reasons.push('INCIDENT_NOT_RECOVERED');
   if (!current) reasons.push('NO_ACTIVE_CLOSEOUT');
   if (rows.some((r) => r.reopened_at !== null)) reasons.push('CLOSEOUT_REOPENED');
-  const recovered = inc.state === 'RECOVERED' && current !== undefined;
+  const recovered = inc.state === 'RECOVERED' && current !== undefined && !disputed;
   return {
     incidentId: inc.id,
     recovered,

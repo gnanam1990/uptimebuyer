@@ -105,7 +105,7 @@ async function finalize(
   );
   const ev = rows[0];
   if (!ev || ev.state !== 'OBSERVING' || ev.asset_revision_id !== incident.assetRevisionId) return null;
-  const desired = await desiredBinding(c, inc);
+  const desired = await desiredBinding(c, inc, signing);
   if (typeof desired === 'string' || desired.bindingDigest !== ev.binding_digest) return null;
   const now = ms(await dbNow(c));
   const atMs = Math.max(now, args.asOfMs ?? now);

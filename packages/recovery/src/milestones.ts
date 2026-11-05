@@ -63,6 +63,43 @@ const REFUSED_KIND: Record<string, string> = {
 
 export const MILESTONE_SEAL_DOMAIN = 'intervention-milestone-signature.v1';
 
+/** The fields a milestone signature binds, rebuilt identically from a stored row for verification. */
+export function milestoneSealFields(m: {
+  tenant_id: string;
+  id: string;
+  incident_id: string;
+  asset_id: string;
+  asset_revision_id: string;
+  recovery_cycle: number;
+  plan_id: string;
+  plan_action_id: string;
+  action_digest: string;
+  milestone_type: string;
+  source_evidence_id: string;
+  source_kind: string;
+  recovery_policy_revision_id: string;
+  occurred_at: Date | string;
+  observed_at: Date | string;
+}) {
+  return {
+    tenantId: m.tenant_id,
+    interventionMilestoneId: m.id,
+    incidentId: m.incident_id,
+    assetId: m.asset_id,
+    assetRevisionId: m.asset_revision_id,
+    recoveryCycle: m.recovery_cycle,
+    planId: m.plan_id,
+    planActionId: m.plan_action_id,
+    actionDigest: m.action_digest,
+    milestoneType: m.milestone_type,
+    sourceEvidenceId: m.source_evidence_id,
+    sourceKind: m.source_kind,
+    recoveryPolicyRevisionId: m.recovery_policy_revision_id,
+    occurredAt: isoOf(m.occurred_at),
+    observedAt: isoOf(m.observed_at),
+  };
+}
+
 export async function recordInterventionMilestone(
   pool: Db,
   ctx: TenantContext,
@@ -141,23 +178,23 @@ export async function recordInterventionMilestone(
 
     const id = newRecoveryId('milestone');
     const actor = actorFor(ctx);
-    const fields = {
-      tenantId: ctx.tenantId,
-      interventionMilestoneId: id,
-      incidentId: inc.id,
-      assetId: inc.asset_id,
-      assetRevisionId: inc.asset_revision_id,
-      recoveryCycle: inc.reopen_count,
-      planId: action.plan_id,
-      planActionId: action.plan_action_id,
-      actionDigest: action.action_digest,
-      milestoneType: policy.completion_milestone_type,
-      sourceEvidenceId: ev.id,
-      sourceKind: ev.source_kind,
-      recoveryPolicyRevisionId: policy.id,
-      occurredAt: isoOf(occurred),
-      observedAt: isoOf(observed),
-    };
+    const fields = milestoneSealFields({
+      tenant_id: ctx.tenantId,
+      id,
+      incident_id: inc.id,
+      asset_id: inc.asset_id,
+      asset_revision_id: inc.asset_revision_id,
+      recovery_cycle: inc.reopen_count,
+      plan_id: action.plan_id,
+      plan_action_id: action.plan_action_id,
+      action_digest: action.action_digest,
+      milestone_type: policy.completion_milestone_type,
+      source_evidence_id: ev.id,
+      source_kind: ev.source_kind,
+      recovery_policy_revision_id: policy.id,
+      occurred_at: isoOf(occurred),
+      observed_at: isoOf(observed),
+    });
     const sig = seal(signing, MILESTONE_SEAL_DOMAIN, fields);
     const verifiedAt = await dbNow(c);
     await c.query(
