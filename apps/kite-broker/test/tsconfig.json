@@ -16,6 +16,7 @@
     { "path": "../../../packages/data" },
     { "path": "../../../packages/kite-contracts" },
     { "path": "../../../packages/commerce" },
+    { "path": "../../../packages/orders" },
     { "path": "../../../packages/compatibility" },
     { "path": "../../../packages/evidence" },
     { "path": "../../../packages/incidents" },

@@ -218,6 +218,21 @@ const ALLOWED: Record<ActionName, Identity[]> = {
   'commerce.budget_adjust': ['finance_approver'],
   'commerce.manual_resolve': ['finance_approver', 'admin', 'site_admin'],
   'commerce.engine': ['service'],
+  'orders.read': [
+    'viewer',
+    'operator',
+    'maintenance_approver',
+    'finance_approver',
+    'engineer',
+    'admin',
+    'site_admin',
+    'auditor',
+    'service',
+  ],
+  'orders.request': ['operator', 'maintenance_approver', 'engineer', 'service'],
+  'orders.verify': ['operator', 'maintenance_approver', 'engineer'],
+  'orders.manage': ['maintenance_approver', 'finance_approver', 'admin', 'site_admin'],
+  'orders.engine': ['service'],
 };
 
 function requestFor(action: ActionName, siteId: SiteId | null = s1): AuthorizationRequest {
