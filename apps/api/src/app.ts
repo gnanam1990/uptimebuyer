@@ -51,6 +51,11 @@ export interface ApiLimits {
   /** M13 S11: concurrent token verifications per source and in total (pre-authentication work). */
   maxConcurrentAuthPerSource: number;
   maxConcurrentAuth: number;
+  /** Requests waiting for a global pre-auth slot (bounded queue) and how long one may wait. */
+  maxQueuedAuth: number;
+  authQueueTimeoutMs: number;
+  /** Hard bound on one authentication's verification work. */
+  authTimeoutMs: number;
 }
 
 export const DEFAULT_API_LIMITS: ApiLimits = Object.freeze({
@@ -63,7 +68,10 @@ export const DEFAULT_API_LIMITS: ApiLimits = Object.freeze({
   maxQueuedRequests: 256,
   queueTimeoutMs: 10_000,
   maxConcurrentAuthPerSource: 8,
-  maxConcurrentAuth: 64,
+  maxConcurrentAuth: 256,
+  maxQueuedAuth: 64,
+  authQueueTimeoutMs: 2_000,
+  authTimeoutMs: 10_000,
 });
 
 /** M13 observability wiring (NFR-08, NFR-09). Every member is optional; absent members are no-ops. */
@@ -152,7 +160,12 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
     webhookFailures: new TokenBuckets(limits.webhookFailures, now),
   };
   const failures = new TokenBuckets(limits.authFailures, now);
-  const gate = new PreAuthGate({ perSource: limits.maxConcurrentAuthPerSource, global: limits.maxConcurrentAuth });
+  const gate = new PreAuthGate({
+    perSource: limits.maxConcurrentAuthPerSource,
+    global: limits.maxConcurrentAuth,
+    queued: limits.maxQueuedAuth,
+    queueTimeoutMs: limits.authQueueTimeoutMs,
+  });
   const tokenOrigin = new URL(opts.publicConfig.oidc.tokenEndpoint).origin;
   const headers = securityHeaders(contentSecurityPolicy([tokenOrigin]));
   const obs = opts.observability ?? {};
@@ -227,7 +240,7 @@ export async function buildApiServer(opts: ApiServerOptions): Promise<FastifyIns
     // (M13 security review S7).
     if (operator)
       req.ubCtx = await authenticate(
-        { pool: opts.pool, verifier: opts.verifier, failures, gate },
+        { pool: opts.pool, verifier: opts.verifier, failures, gate, timeoutMs: limits.authTimeoutMs },
         req,
         req.ubCorrelationId,
       );

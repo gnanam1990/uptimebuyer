@@ -241,6 +241,8 @@ describe('M13 security review S11: bounded pre-authentication work', () => {
     await app.close();
   });
 
+  // Superseded in part by S12: a slot is no longer returned on client close (that let aborted work run uncapped); it
+  // returns when the verification settles or its hard timeout fires. The property kept: aborts never lock a source out.
   it('every pre-auth slot returns after clients abort mid-verification', async () => {
     const { request } = await http();
     const v = verifierProbe();
@@ -250,7 +252,7 @@ describe('M13 security review S11: bounded pre-authentication work', () => {
       publicConfig: PUBLIC,
       store: {} as never,
       credentials: { resolveSigningKey: async () => null } as never,
-      limits: { authFailures: { capacity: 10_000, refillPerSecond: 100, maxKeys: 100 } },
+      limits: { authFailures: { capacity: 10_000, refillPerSecond: 100, maxKeys: 100 }, authTimeoutMs: 100 },
     });
     await app.listen({ host: '127.0.0.1', port: 0 });
     const port = (app.server.address() as { port: number }).port;
@@ -270,7 +272,8 @@ describe('M13 security review S11: bounded pre-authentication work', () => {
       reqs.forEach((r) => r.destroy());
       await new Promise((r) => setTimeout(r, 60));
     }
-    // The verifications are still pending (their promises never settled), yet the source may verify again.
+    // The verifier promises never settled; their slots came back when the hard timeout fired, so the source may verify again.
+    await new Promise((r) => setTimeout(r, 150));
     const before = v.stats.calls;
     const next = await new Promise<number>((resolve) => {
       const r = request(
