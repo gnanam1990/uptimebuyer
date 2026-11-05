@@ -5,28 +5,33 @@
     "REPO_PUBLICATION": {
       "action": "Push the repository to its remote and/or change its visibility.",
       "scope": ["repository", "visibility", "sourceSha"],
-      "preflight": ["verify-green", "secret-scan-history", "license-reviewed", "claim-check", "clean-tree"]
+      "preflight": ["verify-green", "secret-scan-history", "license-reviewed", "claim-check", "clean-tree"],
+      "maxValidityHours": 24
     },
     "X_POST": {
       "action": "Publish the X post from the approved draft.",
       "scope": ["account", "contentSha256"],
-      "preflight": ["claim-check", "link-check", "secret-scan", "event-rules-revalidated"]
+      "preflight": ["claim-check", "link-check", "secret-scan", "event-rules-revalidated"],
+      "maxValidityHours": 24
     },
     "VIDEO_UPLOAD": {
       "action": "Upload the demo video.",
       "scope": ["destination", "fileSha256"],
-      "preflight": ["claim-check", "subtitles-present", "no-secret-on-screen", "simulation-labels-visible"]
+      "preflight": ["claim-check", "subtitles-present", "no-secret-on-screen", "simulation-labels-visible"],
+      "maxValidityHours": 24
     },
     "RELEASE_TAG": {
       "action": "Create a release or tag.",
       "scope": ["tag", "sourceSha"],
-      "preflight": ["verify-green", "smoke-local", "backup-restore-verified", "rollback-exercised", "clean-tree"]
+      "preflight": ["verify-green", "smoke-local", "backup-restore-verified", "rollback-exercised", "clean-tree"],
+      "maxValidityHours": 24
     },
     "PAYMENT": {
       "action": "Execute one real bounded Kite-paid action through the broker.",
       "scope": ["merchant", "amountMinor", "currency", "purpose", "environment"],
       "capFields": ["amountMinor"],
-      "preflight": ["broker-isolation", "budget-bound", "reconciliation-ready", "kill-switch-ready"]
+      "preflight": ["broker-isolation", "budget-bound", "reconciliation-ready", "kill-switch-ready"],
+      "maxValidityHours": 4
     },
     "HACKATHON_SUBMISSION": {
       "action": "Submit the hackathon form.",
@@ -38,7 +43,8 @@
         "repository-public",
         "video-uploaded",
         "x-posted"
-      ]
+      ],
+      "maxValidityHours": 24
     },
     "DEPLOY": {
       "action": "Deploy the images to a hosted environment.",
@@ -50,7 +56,8 @@
         "backup-restore-verified",
         "rollback-exercised",
         "migrations-forward-only"
-      ]
+      ],
+      "maxValidityHours": 24
     }
   }
 }

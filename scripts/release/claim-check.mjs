@@ -20,8 +20,10 @@ import { PATTERNS } from '../secret-scan.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+// Only explicit evidence-status words qualify a real-world assertion (M14 security review R1): generic negations such as
+// "without", "never" or "is not" can be part of the assertion itself ("completed without errors").
 const QUALIFIER =
-  /NOT_RUN|not run|not yet|simulat|SIMULATED_INPUT|recorded[- ]contract|contract[- ]fake|RECORDED_CONTRACT|CONTRACT_FAKE|no real|has not|have not|is not|are not|was not|were not|never|without|does not|did not|cannot|pending|would|requires? (?:explicit )?(?:user )?authori[sz]ation|UNKNOWN|UNSUPPORTED|proposed|planned|not claimed|no claim/i;
+  /NOT_RUN|\bnot run\b|\bnot yet\b|simulat|recorded[- ]contract|contract[- ]fake|RECORDED_CONTRACT|CONTRACT_FAKE|\bUNSUPPORTED\b|needs? (?:its own )?explicit authori[sz]ation/i;
 const ASSERTIONS = [
   /\bdeployed\b/i,
   /\bin production\b/i,
@@ -47,14 +49,15 @@ export function checkDraftText(file, text, { ledger }) {
   const lines = stripCode(text).split('\n');
   lines.forEach((line, i) => {
     const where = { file, line: i + 1 };
-    const qualified = QUALIFIER.test(line);
+    // A qualifier must be visible: text inside an HTML comment does not qualify (M14 security review R2).
+    const visible = line.replace(/<!--[\s\S]*?-->/g, '');
+    const qualified = QUALIFIER.test(visible);
     for (const m of line.matchAll(CLAIM_ID)) {
       const c = claims.get(m[0]);
       if (!c) findings.push({ rule: 'CLAIM_UNDEFINED', ...where, detail: m[0] });
       else if (c.status !== 'EVIDENCED' && !qualified)
         findings.push({ rule: 'NOT_RUN_CLAIM_UNQUALIFIED', ...where, detail: m[0] });
     }
-    const visible = line.replace(/<!--[\s\S]*?-->/g, '');
     if (!qualified && ASSERTIONS.some((re) => re.test(visible)))
       findings.push({ rule: 'UNQUALIFIED_ASSERTION', ...where, detail: visible.trim().slice(0, 120) });
   });

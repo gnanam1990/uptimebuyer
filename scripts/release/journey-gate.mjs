@@ -15,7 +15,8 @@
 // The journey PASSes only when every part does. The database cross-check (collectDatabaseFacts) can only REFUSE what
 // the database itself labels non-real; it never proves realness. This script reads files and the database; it performs
 // no external action.
-//   node scripts/release/journey-gate.mjs [--manifest <file>] [--json] [--database-url <url> --tenant <id> --incident <id>]
+//   node scripts/release/journey-gate.mjs [--manifest <file>] [--json] [--database --tenant <id> --incident <id>]
+// With --database the URL is read from JOURNEY_DATABASE_URL (never argv, which other users can read).
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -96,7 +97,7 @@ function factReasons(part, p, ctx) {
   return r;
 }
 
-function artifactReasons(p, ctx) {
+function artifactReasons(p, ctx, journeyId) {
   const list = Array.isArray(p.artifacts) ? p.artifacts : [];
   if (list.length === 0) return { fail: [], unknown: ['NO_ARTIFACT'] };
   const fail = [];
@@ -111,6 +112,13 @@ function artifactReasons(p, ctx) {
     const full = path.resolve(root, a.path);
     if (!full.startsWith(`${evidenceRoot}${path.sep}`)) {
       fail.push('ARTIFACT_OUTSIDE_EVIDENCE_ROOT');
+      continue;
+    }
+    // Artifacts are bound to their own run's directory (M14 security review R3): evidence of another journey cannot be
+    // borrowed.
+    const own = path.join(evidenceRoot, 'journeys', String(journeyId));
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(String(journeyId)) || !full.startsWith(`${own}${path.sep}`)) {
+      fail.push('ARTIFACT_FROM_OTHER_JOURNEY');
       continue;
     }
     if (ctx.simulatedDigests?.has(a.sha256)) fail.push('KNOWN_SIMULATED_ARTIFACT');
@@ -150,7 +158,7 @@ function classifyPart(part, manifest, ctx) {
   if (manifest.sourceSha !== ctx.expectedSha) fail.push('SOURCE_SHA_MISMATCH');
   const db = ctx.databaseFacts?.[part];
   if (db && db.real !== true) fail.push(`DATABASE_ORIGIN:${db.origin}`);
-  const art = artifactReasons(p, ctx);
+  const art = artifactReasons(p, ctx, manifest.journeyId);
   fail.push(...art.fail);
   unknown.push(...art.unknown);
   const facts = factReasons(part, p, ctx);
@@ -310,10 +318,18 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const val = (k) => (args.includes(k) ? args[args.indexOf(k) + 1] : undefined);
   const manifestFile = val('--manifest') ?? findManifests(repo)[0];
   const manifest = manifestFile ? JSON.parse(readFileSync(manifestFile, 'utf8')) : null;
+  if (args.includes('--database-url')) {
+    console.error('refusing a database URL on argv; set JOURNEY_DATABASE_URL and pass --database');
+    process.exit(2);
+  }
   let databaseFacts;
-  if (val('--database-url')) {
+  if (args.includes('--database')) {
+    if (!process.env.JOURNEY_DATABASE_URL) {
+      console.error('JOURNEY_DATABASE_URL is required with --database');
+      process.exit(2);
+    }
     const pg = (await import('pg')).default;
-    const pool = new pg.Pool({ connectionString: val('--database-url'), max: 2 });
+    const pool = new pg.Pool({ connectionString: process.env.JOURNEY_DATABASE_URL, max: 2 });
     try {
       databaseFacts = await collectDatabaseFacts(pool, { tenantId: val('--tenant'), incidentId: val('--incident') });
     } finally {

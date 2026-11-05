@@ -14,7 +14,7 @@
 //   node scripts/release/release-gate.mjs status [--json]
 //   node scripts/release/release-gate.mjs check <GATE> [--request <file>] [--preflight <file>] [--authorization <id>]
 import { createPublicKey, sign, verify } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,7 +47,7 @@ export function loadAuthorizations(root = repo) {
   const dir = path.join(root, 'evidence', 'authorizations');
   if (!existsSync(dir)) return { records: [], consumed: new Set() };
   const records = readdirSync(dir)
-    .filter((f) => f.endsWith('.json') && f !== 'consumed.json')
+    .filter((f) => f.endsWith('.json') && f !== 'consumed.json' && f !== 'decisions.jsonl')
     .map((f) => JSON.parse(readFileSync(path.join(dir, f), 'utf8')));
   const c = path.join(dir, 'consumed.json');
   const consumed = new Set(existsSync(c) ? (JSON.parse(readFileSync(c, 'utf8')).consumed ?? []) : []);
@@ -141,8 +141,10 @@ export function evaluateGate(gate, request, ctx) {
     reasons.push(...signatureReasons(record, ctx.authorizers ?? {}));
     const from = Date.parse(record.authorizedAt);
     const to = Date.parse(record.expiresAt);
-    if (!Number.isFinite(from) || !Number.isFinite(to)) reasons.push('VALIDITY_INVALID');
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) reasons.push('VALIDITY_INVALID');
     else {
+      // A standing authorization is not an authorization for one action (M14 security review R4).
+      if (to - from > (gateCfg.maxValidityHours ?? 24) * 3_600_000) reasons.push('VALIDITY_TOO_LONG');
       if (now < from) reasons.push('AUTHORIZATION_NOT_YET_VALID');
       if (now > to) reasons.push('AUTHORIZATION_EXPIRED');
     }
@@ -160,6 +162,40 @@ export function evaluateGate(gate, request, ctx) {
     reasons: best.reasons,
     authorizationId: best.record.authorizationId ?? null,
   };
+}
+
+/**
+ * Decide a gate against the repository at `root` and record the decision (M14 security review R5): an AUTHORIZED
+ * decision consumes its authorization (evidence/authorizations/consumed.json) so the tooling itself enforces single
+ * use, and every decision that involved an authorization record is appended to decisions.jsonl.
+ */
+export function checkAndRecord(root, gate, request, { preflight = {}, now = new Date(), authorizationId } = {}) {
+  const { records, consumed } = loadAuthorizations(root);
+  const d = evaluateGate(gate, request, {
+    authorizations: records,
+    authorizers: loadAuthorizers(root),
+    consumed,
+    now,
+    preflight,
+    config: loadGateConfig(root),
+    ...(authorizationId ? { authorizationId } : {}),
+  });
+  const dir = path.join(root, 'evidence', 'authorizations');
+  if (d.authorizationId) {
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(
+      path.join(dir, 'decisions.jsonl'),
+      `${JSON.stringify({ at: now.toISOString(), gate, decision: d.decision, reasons: d.reasons, authorizationId: d.authorizationId })}\n`,
+    );
+  }
+  if (d.decision === 'AUTHORIZED') {
+    consumed.add(d.authorizationId);
+    writeFileSync(
+      path.join(dir, 'consumed.json'),
+      `${JSON.stringify({ schema: 'release-authorizations-consumed.v1', consumed: [...consumed] }, null, 2)}\n`,
+    );
+  }
+  return d;
 }
 
 /** True only for a signed, unexpired, unused record of exactly this gate (used by the journey gate for PAYMENT). */
@@ -201,13 +237,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       for (const g of s.gates) console.log(`| ${g.gate} | ${g.decision} | ${g.reasons.join(', ')} |`);
     }
   } else if (cmd === 'check' && gate) {
-    const { records, consumed } = loadAuthorizations(repo);
-    const d = evaluateGate(gate, readJson(val('--request')), {
-      authorizations: records,
-      authorizers: loadAuthorizers(repo),
-      consumed,
-      now: new Date(),
+    const d = checkAndRecord(repo, gate, readJson(val('--request')), {
       preflight: readJson(val('--preflight')),
+      now: new Date(),
       ...(val('--authorization') ? { authorizationId: val('--authorization') } : {}),
     });
     console.log(JSON.stringify(d, null, 2));
