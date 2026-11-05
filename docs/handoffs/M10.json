@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "MODULE_HANDOFF",
+  "project": "UptimeBuyer",
+  "moduleId": "M10",
+  "status": "PASS",
+  "startingCommit": "f8707a2",
+  "endingCommit": "bb05704",
+  "branch": "feat/m10-order-job-reconciliation",
+  "workingTree": "clean at handoff (this handoff file is committed separately on top of endingCommit)",
+  "localCommits": [
+    "bb05704 fix(m10): mirrorOrder authorizes against the order's site; no longer exported",
+    "227c71e test(m10): cross-site sweep over every order/job command; mirrorOrder site IDOR (red)",
+    "2379357 docs(m10): ADR 0004 order/job reconciliation, webhook verifier model and linearization point",
+    "9c25a3b test(m10): T-043 outbox facts drive orders and incidents replay-safely",
+    "9aab84d fix(m10): security review F1-F4 - lock order, nothing-sent drift, provider-ref conflicts, verification key reuse",
+    "faf2f8a test(m10): self security review regressions F1-F4 (red)",
+    "58411de test(m10): correct three test-side mistakes found while turning the suite green",
+    "c88d856 feat(m10): @uptimebuyer/orders order, service-job and reconciliation engine",
+    "760537f feat(m10): planning invalidation on execution change and plan completion (coordinated M08/M05 addition)",
+    "c0fa2df feat(m10): migration 0018 order/job tables and orders.* RBAC actions",
+    "4a7d880 test(m10): T-041..T-044, T-006 order/job SQL edges, T-009/T-010/T-011 order scope (red)"
+  ],
+  "ownedIds": {
+    "functional": ["FR-13", "FR-17"],
+    "nonfunctional": ["NFR-02", "NFR-03", "NFR-11"],
+    "invariants": ["INV-07", "INV-08", "INV-12", "INV-14"],
+    "tests": ["T-041", "T-042", "T-043", "T-044"]
+  },
+  "jointlyEnforced": [
+    "T-006 re-run: ub_purchase_order_edge_ok / ub_service_job_edge_ok compared pair-by-pair over both vocabularies with the domain machines (packages/orders/test/t006-order-job-sql-edges.int.test.ts)",
+    "T-009 migration list extended with 0018_m10_orders_jobs.sql",
+    "T-010/T-011 re-run over the six M10 tables and every M10 command (apps/kite-broker/test/t010-t011-orders-scope.int.test.ts); T-011 action catalogue extended with orders.read, orders.request, orders.verify, orders.manage, orders.engine",
+    "T-010/T-011 cross-site sweep: members of another site of the same tenant are refused with nothing written on every human-callable M10 command/query (apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts)",
+    "INV-07 re-asserted at the order layer on top of M09's commercial_intents_one_live_per_digest_ux (T-030's real-broker reuse obligation, T-042)",
+    "FR-17: M10 emits the order/job facts; the CMMS write side is M11 (T-047)"
+  ],
+  "changedFiles": [
+    "packages/data/migrations/0018_m10_orders_jobs.sql",
+    "packages/data/src/authz.ts (orders.* actions)",
+    "packages/data/test/t009-migration-forward-fix.int.test.ts, packages/data/test/t011-role-authority-denial.int.test.ts",
+    "packages/planning/src/lifecycle.ts, packages/planning/src/index.ts (invalidatePlanForExecutionChange, completeExecutingPlanInTx, stale input EXECUTION)",
+    "packages/evidence/src/events.ts (PlanInvalidatedByPlanningPayloadSchema accepts staleInputs EXECUTION)",
+    "packages/planning/test/helpers.ts (scenario Offer.kind for SERVICE_JOB candidates)",
+    "packages/orders/** (new @uptimebuyer/orders: src + unit/T-006 tests)",
+    "apps/kite-broker/test/m10-helpers.ts and t041/t042/t043/t044/t043-t044-security-review/t010-t011-orders-scope tests; apps/kite-broker/test/tsconfig.json, apps/kite-broker/package.json (devDependency @uptimebuyer/orders)",
+    "apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
+    "tsconfig.json, pnpm-lock.yaml (workspace links only)",
+    "docs/adr/0004-orders-jobs-reconciliation.md, docs/handoffs/M10.json"
+  ],
+  "diffSummary": "Migration 0018: purchase_orders and service_jobs (separate state CHECKs and SQL edge functions, one row per commercial intent, UNIQUE (tenant, digest, authority), partial unique (tenant, digest) WHERE no_effect_proven_at IS NULL, provider-ref uniqueness per account, poll scheduling columns), append-only fulfillment_observations (namespaced event key, raw body bytes, composite FK pinning the order's provider-account revision), per-kind transition tables, append-only fulfillment_change_proposals (auto_accepted constrained false), insert/update guards UB101-UB104. @uptimebuyer/orders: per-kind vocabulary and pure observation planner, requestOrder/getOrder/listIncidentOrders/getFulfillmentGate, dispatchOrder/reconcileOrder through the broker port (internal authorized mirror), applyObservation with material-change handling, verified fulfillment webhooks + job applier, bounded polling with RECORDED and LIVE-shaped HTTPS adapters, revokeOrder (linearization point), recordFulfillmentVerification, syncIncidentForOrder and two outbox consumers.",
+  "configChanges": [
+    "root tsconfig references packages/orders and packages/orders/test",
+    "apps/kite-broker devDependency @uptimebuyer/orders (tests only; the broker source does not import it)",
+    "pnpm-lock.yaml: workspace links only, no new external dependency"
+  ],
+  "commands": [
+    {
+      "command": "npx vitest run --project unit packages/orders/test; DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev npx vitest run --project integration apps/kite-broker/test/t042-order-intent-dedupe.int.test.ts packages/orders/test packages/data/test/t009-migration-forward-fix.int.test.ts packages/data/test/t011-role-authority-denial.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "4a7d880",
+      "exitCode": 1,
+      "resultSummary": "RED: every new M10 test file failed to load (@uptimebuyer/orders and migration 0018 absent); T-009 failed on the missing migration; T-011 failed 2 cases on the action catalogue (orders.* absent)"
+    },
+    {
+      "command": "DATABASE_URL=... npx vitest run --project integration apps/kite-broker/test/t043-t044-security-review.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "faf2f8a",
+      "exitCode": 1,
+      "resultSummary": "RED (self security review F1-F4): 4/4 failed - NOWAIT probe 55P03 (intent row locked before the planning lock), fabricated ACCEPTED before any send, no REFUSED provider-ref observation, no IDEMPOTENCY_KEY_REUSED"
+    },
+    {
+      "command": "DATABASE_URL=... npx vitest run --project integration apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts",
+      "cwd": "repo root",
+      "commitSha": "227c71e",
+      "exitCode": 1,
+      "resultSummary": "RED (coordinator MEDIUM): 1 failed / 2 passed - a site-B operator mirrored and read a site-A order via mirrorOrder (expected rejection); the sweep over every other command/query already refused cross-site access"
+    },
+    {
+      "command": "pnpm format && DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev pnpm verify",
+      "cwd": "repo root",
+      "commitSha": "bb05704",
+      "exitCode": 0,
+      "testCounts": {
+        "unitFiles": 38,
+        "unit": 790,
+        "integrationFiles": 73,
+        "integration": 385
+      },
+      "resultSummary": "PASS: lint, format:check, typecheck, unit, integration, build, check:pack, secrets:scan"
+    }
+  ],
+  "redEvidence": "Test-first: 4a7d880 committed only tests (T-041..T-044 unit + integration, T-006 order/job edges, T-009/T-011 catalogue entries, T-010/T-011 orders scope); run before any implementation they failed as listed above. While turning green, three test-side mistakes were corrected in a separate commit (58411de) without loosening any behavioural assertion: (1) pre-egress revocation keeps the plan APPROVED and the incident AWAITING_APPROVAL because nothing can be in flight and the INV-07 successor path (T-042) needs that approval request alive; (2) the rotation case used the illegal purchase edge ACCEPTED -> SHIPPED and rotated the shared account (now its own account, ORDERED then a polled SHIPPED); a whole-sweep poller call count was replaced by the per-order bound it was meant to check; (3) T-010 foreign calls made lazy (unhandled rejections). Migration 0018's provider_event_key regex used a repetition > 255 (PostgreSQL limit) and was corrected before 0018 was ever committed. The self security review produced F1-F4 (red faf2f8a, fix 9aab84d).",
+  "evidence": {
+    "T-041": "packages/orders/test/t041-order-job-state-progression.test.ts (both machines, every pair against an independent transcription of STATE-MACHINES §8/§9; per-kind vocabulary; planner paths for every named state) and apps/kite-broker/test/t041-order-job-db-guards.int.test.ts (cross-kind states, illegal edges, observation-backed transitions, immutable raw evidence/transitions/proposals, revision-pinned observation FK)",
+    "T-042": "apps/kite-broker/test/t042-order-intent-dedupe.int.test.ts: 8 concurrent requests per kind -> 1 intent, 1 order; restart via a fresh pool; concurrent dispatch under a hanging provider -> 1 send; successor only behind definite no effect (linked supersedes ids); CONFIRMED and UNKNOWN predecessors block; database refuses a second live order and a cross-kind row",
+    "T-043": "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts + packages/orders/test/t043-webhook-verification-and-poll-egress.test.ts: verified webhook keeps raw bytes and is idempotent; forged/expired/future/oversized/out-of-schema/unknown-binding rejected; cross-tenant and cross-kind quarantined; regression and out-of-order recorded not applied; rotation (new verifier cannot retarget, pinned verifier and pinned-revision polling continue); 4 concurrent pollers + restarted pool apply each event once; terminal orders not polled; UNKNOWN reconciles by pre-egress key with one charge; UNSUPPORTED capability -> MANUAL_REVIEW, no retry; not-found is not no-effect; fulfillment cancel moves no money; outbox facts replay-safe; HMAC constant time, strict schema, endpoint policy bound to the pinned revision, traversal and metadata addresses refused",
+    "T-044": "apps/kite-broker/test/t044-change-reopens-policy.int.test.ts: partial fill, substitute (not auto-accepted, substitute candidate not ALLOW), stock/quantity/ETA/price change (repriced candidate = new digest, own decision, re-planning allowed, old order untouched), cancellation, provider failure, reschedule, no-show, scope change, polled failure; each blocks, invalidates the plan with in-flight reconciliation and its approval, escalates the incident; revocation before/after linearization and a revocation-vs-dispatch race; delivery/verification -> VERIFYING and plan COMPLETED, never RECOVERED, no ledger movement",
+    "Security review": "apps/kite-broker/test/t043-t044-security-review.int.test.ts (F1-F4) and apps/kite-broker/test/t010-t011-orders-cross-site.int.test.ts (coordinator MEDIUM cross-site IDOR + sweep)"
+  },
+  "verification": "pnpm verify exit 0 at bb05704 (790 unit / 385 integration; 38 + 73 files); also exit 0 at 2379357 before the cross-site fix (790 / 382). This handoff is committed on top (docs only).",
+  "externalEvidence": {
+    "realProviderWebhooks": "NOT_RUN (signed webhooks only from in-test synthetic keys; no merchant or dispatch system has sent one)",
+    "realStatusPolling": "NOT_RUN (RECORDED_CONTRACT adapter; HttpsFulfillmentStatusAdapter never pointed at a real endpoint; no status credential exists)",
+    "realOrders": "NOT_RUN (no real purchase order, shipment or delivery)",
+    "realServiceJobs": "NOT_RUN (no real technician booking, arrival or completion)",
+    "realPayments": "NOT_RUN (broker in-process with the RECORDED_CONTRACT adapter; no Kite session or payment)",
+    "providerSideCancellation": "UNSUPPORTED (never attempted; no adapter proves it safe)",
+    "cmmsWrite": "NOT_RUN (M11 owns the CMMS adapter; M10 only emits facts)",
+    "physicalRecovery": "NOT_RUN (out of scope; M10 cannot prove it by design)"
+  },
+  "schemaOrApiChanges": [
+    "Tables: purchase_orders, service_jobs, fulfillment_observations, purchase_order_transitions, service_job_transitions, fulfillment_change_proposals.",
+    "SQL helpers: ub_purchase_order_edge_ok, ub_service_job_edge_ok, ub_order_insert_guard, ub_order_update_guard; SQLSTATEs UB101 (bad insert), UB102 (successor/linkage), UB103 (illegal edge or missing observation), UB104 (set-once evidence).",
+    "RBAC actions (@uptimebuyer/data): orders.read, orders.request, orders.verify, orders.manage, orders.engine (T-011 matrix).",
+    "@uptimebuyer/planning (coordinated additive): invalidatePlanForExecutionChange(c, ctx, incidentId, planId), completeExecutingPlanInTx(c, ctx, incidentId, planId, reasonCode); STALE_INPUTS gains EXECUTION (reason EXECUTION_CHANGED).",
+    "@uptimebuyer/evidence (coordinated additive): PlanInvalidatedByPlanningPayloadSchema.staleInputs accepts EXECUTION.",
+    "@uptimebuyer/orders: requestOrder(pool, ctx, {executionAuthorityId, idempotencyKey}, referenceSigner) -> {order, executionReference, created}; getOrder; listIncidentOrders; getFulfillmentGate -> {installable, reasons, provesRecovery:false, releasesValue:false}; dispatchOrder / reconcileOrder(pool, ctx, orderId, {broker: {execute, reconcile}, referenceSigner}) (mirrorOrder is module-internal); revokeOrder(pool, ctx, {orderId, reasonCode}); recordFulfillmentVerification(pool, ctx, {orderId, outcome VERIFIED|DISPUTED, idempotencyKey}); ingestFulfillmentWebhook(pool, {binding, signature, rawBody}, {credentials}) + runFulfillmentObservationJobs(pool, {workerId}); pollFulfillmentStatus(pool, ctx, {adapters}, {limit, dueBefore}); FulfillmentAdapterRegistry, RecordedFulfillmentAdapter, HttpsFulfillmentStatusAdapter; syncIncidentForOrder(pool, ctx, orderId); handleCommercialIntentEvent / handleOrderStateEvent (consumers orders-intent-mirror.v1 / orders-incident-driver.v1); pure planObservation, normalizeRawStatus, RAW_STATUS_VOCABULARY, MATERIAL_CHANGE_STATES, COMPLETION_REPORTED_STATES, TERMINAL_STATES.",
+    "Events emitted: purchase_order.state_changed.v1 and service_job.state_changed.v1 (M01 contract payloads; aggregateVersion = order/job version; rawEvidence null), plan.invalidated.v1 (via M08, staleInputs [EXECUTION]), incident.state_changed.v1 (via M04). Job kind: orders.fulfillment_observation. No new event types (the catalog is fixed by API-EVENT-SPEC §6).",
+    "API-EVENT-SPEC endpoints realised as functions (no HTTP server exists): POST /v1/fulfillment-webhooks/{binding} -> ingestFulfillmentWebhook; order/job reads and commands as listed above."
+  ],
+  "migrationOrRollback": "0018_m10_orders_jobs.sql is additive (new tables, functions, triggers only; no change to existing tables). Forward-only per packages/data/migrations/README.md; a release that stops using orders can drop the new tables in a later migration. Observations, transitions and change proposals are append-only and must not be rewritten. Numbering: the coordinator reserved 0017 for a main hotfix (0017_m07_contact_point_guard_null_safe.sql); this branch therefore uses 0018. T-009's list on this branch names 0018 only because 0017 does not exist here yet (adding it would make T-009 fail); when origin/main with the hotfix is merged (the coordinator merges it), T-009 must list both 0017 and 0018 in order.",
+  "specAmbiguitiesResolved": [
+    "An order/job is the fulfillment projection of exactly one M09 commercial intent (PURCHASE -> purchase order, SERVICE_BOOKING -> service job); PAID_CONTACT/PAID_LOOKUP are not orders.",
+    "Order REQUESTED means requested by UptimeBuyer (created with the CREATED intent); transport/egress truth stays on the intent/attempt axes, so nothing fabricates REQUESTED on the external-outcome axis.",
+    "Broker mirror: SUBMITTED/CONFIRMED/REFUNDED/REVERSED -> order ACCEPTED (provider acceptance only, never ORDERED/fulfilled); UNKNOWN -> UNKNOWN; FAILED -> CANCELLED (cancellation requested), REJECTED (after an attempt) or FAILED, with the no-effect stamp.",
+    "Material changes include a routine update whose quantity, price/currency or ETA is worse than the approved terms (approved terms = candidate quantity, intent max, plan action recovery ETA); equal or better terms are not material.",
+    "A pre-egress revocation is definite no effect: it does not invalidate the plan or move the incident, so a fresh approval can create the INV-07 linked successor; a post-egress revocation blocks, invalidates the executing plan (in-flight) and escalates.",
+    "VERIFIED/DISPUTED are operator outcomes (receiving inspection / work verification), never provider words; a blocked order cannot be VERIFIED.",
+    "Incident VERIFYING is driven when every live order/job of the plan reports completion; plan COMPLETED when every one is VERIFIED and its payment is CONFIRMED/REFUNDED/REVERSED. RECOVERED stays M11's.",
+    "Fulfillment webhooks for broker-paid accounts are verified in M10 with webhook_verifier_ref only (ADR 0004); superseded verifiers stay valid 30 days, only for orders pinned to that revision.",
+    "Polling needs a separately provisioned status credential; the paid credential_ref is never resolved outside the broker (HTTPS adapter is UNSUPPORTED without one)."
+  ],
+  "securityReview": [
+    "Webhook forgery/replay: constant-time HMAC over timestamp + raw bytes, 300 s window both directions, >= 32-byte keys, strict schema (no URL/tenant/revision), 64 KiB cap before any lookup, replay key (tenant, account, event id), observation dedupe by namespaced event key; INVALID deliveries recorded without occupying the replay key (M02 design).",
+    "Stale-revision retargeting: target must be pinned to the verifying revision (quarantine REVISION_MISMATCH) and the observation FK pins the order's revision in the database.",
+    "SSRF: polling targets only from the pinned revision; HTTPS adapter path from validated tokens, endpoint policy bound by digest, M07 guarded transport (no private/metadata addresses, no redirects); webhook bodies cannot carry URLs.",
+    "IDOR/cross-tenant: binding-derived tenant; every read/command resolves ids inside the caller tenant with uniform RESOURCE_UNAVAILABLE; foreign worker sweeps see nothing (T-010).",
+    "Races: one lock order (planning -> authority -> intent -> order, FOR NO KEY UPDATE) shared with the M09 linearization; polling claims SKIP LOCKED; concurrent request/dispatch/poll/revoke tested.",
+    "FIXED F1 (red faf2f8a, fix 9aab84d): requestOrder locked predecessor intent rows before the planning lock (deadlock with revokeOrder/broker).",
+    "FIXED F2: a signed provider observation before any attempt existed fabricated ACCEPTED; now REFUSED NOTHING_SENT.",
+    "FIXED F3: a provider reference already bound to another order crashed on the unique index (retry loop, cross-order mapping risk); now REFUSED PROVIDER_REF_CONFLICT.",
+    "FIXED F4: verification idempotency key reuse for another outcome returned the first result; now IDEMPOTENCY_KEY_REUSED.",
+    "COORDINATOR MEDIUM FIXED (red 227c71e, fix bb05704): mirrorOrder locked, mirrored and returned the full view without a site check (meta action orders.mirror did not exist). It now authorizes inside its transaction after lockOrder and before any write/view (orders.request at the order's site for humans, orders.engine for service/worker principals), uses a real ACTIONS key, and is no longer exported from the package index. Sweep: every other exported command/query already authorized per site or is engine-/binding-only; each has a cross-site test.",
+    "Fail-open drift: no-effect stamp only for a FAILED intent (DB guard); leaving UNKNOWN only by BROKER/POLL/WEBHOOK evidence; webhook/poll never touch payment; not-found never no-effect; completion never RECOVERED; gate requires VERIFIED + unblocked + CONFIRMED payment."
+  ],
+  "unresolvedRisks": [
+    "No real merchant/technician webhook, status endpoint, order or payment has run; vendor raw-status vocabularies are illustrative and must be mapped per real provider adapter.",
+    "Superseded webhook verifiers remain valid for 30 days for orders pinned to them; a leaked old verifier can forge fulfillment observations for those orders until then (never payment).",
+    "Invalid webhook deliveries are recorded (unauthenticated write amplification without an edge rate limit), as in M07.",
+    "Raw webhook bodies are stored in fulfillment_observations (and transiently in job payloads) without a retention/erasure worker; they may contain personal data (FR-23 retention is M13/M02).",
+    "Scheduling (runFulfillmentObservationJobs, pollFulfillmentStatus, the two outbox consumers, syncIncidentForOrder) must be wired by the deployment (M14); nothing runs on a timer.",
+    "Provider-side cancellation after egress is UNSUPPORTED: the operator gets a blocked order with a cancellation request and must cancel with the provider out of band.",
+    "rawEvidence on the contract events is null (raw bodies are not M05 blobs); M11 reads observations through the order view.",
+    "T-009 on this branch omits 0017 until main's hotfix is merged (see migrationOrRollback)."
+  ],
+  "nextModuleInputs": [
+    "M11 (recovery + CMMS): consume purchase_order.state_changed.v1 / service_job.state_changed.v1 (dedupe by event id, order version as monotonic aggregate version) and read getOrder / listIncidentOrders / getFulfillmentGate; installed-part identity comes from the VERIFIED purchase order of the approved action; provesRecovery and releasesValue are always false. Incident VERIFYING is already driven by M10; RECOVERED remains M11's (recovery hook).",
+    "M12 (UI): show order/job state, economic state, attempt axes and reconciliation (NONE/SCHEDULED/MANUAL_REVIEW) separately; change proposals require re-entry and are never auto-accepted; verification via recordFulfillmentVerification (orders.verify, operators).",
+    "M13: include fulfillment webhook forgery/replay/rotation, poll SSRF and order IDOR in T-053; add load bounds for polling (POLL_LIMITS) to T-054.",
+    "M14 deploy: expose POST /v1/fulfillment-webhooks/{binding} -> ingestFulfillmentWebhook (raw body bytes, no JSON pre-parse, 64 KiB limit at the edge too); schedule runFulfillmentObservationJobs, pollFulfillmentStatus (service worker context), handleCommercialIntentEvent and handleOrderStateEvent on the outbox; wire dispatchOrder/reconcileOrder to KiteBrokerPort; provision per-provider status credentials only if a real HTTPS status adapter is enabled."
+  ],
+  "notRun": [
+    "real provider webhooks",
+    "real status polling against a provider endpoint",
+    "real purchase orders, shipments or deliveries",
+    "real service-job bookings, technician arrival or completion",
+    "real payments or Kite sessions",
+    "provider-side cancellation",
+    "CMMS writes",
+    "physical recovery"
+  ],
+  "externalActions": [],
+  "userAuthorizations": [],
+  "truthStatement": "M10's order, service-job, webhook, polling, reconciliation and policy-reopening code is implemented and verified locally against synthetic signed webhooks, a RECORDED_CONTRACT status adapter and the in-process M09 broker with its RECORDED_CONTRACT payment adapter; no real provider webhook, order, service job, payment, CMMS write, deployment or physical recovery has been run or is claimed."
+}
