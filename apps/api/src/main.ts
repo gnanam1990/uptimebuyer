@@ -63,7 +63,8 @@ const app = await buildApiServer({
   observability: { logger, metrics, tracer: new Tracer({ service: 'api', secrets }), slo, health },
 });
 const address = await app.listen({ host: cfg.UB_API_HOST, port: cfg.UB_API_PORT });
-logger.info('api.listening', { address });
+// The startup marker is a stable contract for process supervisors and the browser-suite harness.
+console.log(JSON.stringify({ event: 'api.listening', address }));
 // Operations listener (metrics, alerts, readiness) on a separate loopback/private address. Its bearer token is read
 // from a 0600 file delivered by the secret channel, never from an environment value.
 let ops: Awaited<ReturnType<typeof buildOperationsServer>> | null = null;
