@@ -23,6 +23,7 @@
     "0018_m10_orders_jobs.sql": "337f968b2a30df13420c10d5a4ed9842365aad8f4b07779445d94cdb984da48f",
     "0019_m11_recovery_verification_cmms.sql": "1200394a26b2509f98565cafc8f47ef16d666c2d105090b9a67ec3924dccdb70",
     "0020_m13_data_lifecycle.sql": "1d26a20c9f1a54ab96b6668b3cca2bb8a90c2af75c899a0b5ae23e5ae7afb3ce",
-    "0021_m13_separation_of_duties.sql": "41ddc00e31c74e6f5c5fcb147601884f544243fdf003bf910b65dea1680a6ec7"
+    "0021_m13_separation_of_duties.sql": "41ddc00e31c74e6f5c5fcb147601884f544243fdf003bf910b65dea1680a6ec7",
+    "0022_m13_policy_governance.sql": "6a693f801a146f39b49e6c1ff4557e0ecb6414f4ec09a8fcdcb8c4ee44343840"
   }
 }

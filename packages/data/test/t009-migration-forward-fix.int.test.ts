@@ -51,7 +51,11 @@ const M09_MIGRATIONS = ['0016_m09_kite_broker.sql'];
 const FORWARD_FIX_MIGRATIONS = ['0017_m07_contact_point_guard_null_safe.sql'];
 const M10_MIGRATIONS = ['0018_m10_orders_jobs.sql'];
 const M11_MIGRATIONS = ['0019_m11_recovery_verification_cmms.sql'];
-const M13_MIGRATIONS = ['0020_m13_data_lifecycle.sql', '0021_m13_separation_of_duties.sql'];
+const M13_MIGRATIONS = [
+  '0020_m13_data_lifecycle.sql',
+  '0021_m13_separation_of_duties.sql',
+  '0022_m13_policy_governance.sql',
+];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {

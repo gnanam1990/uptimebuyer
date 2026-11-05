@@ -198,11 +198,22 @@ describe('T-053 separation of duties: compatibility authority', () => {
 
 describe('T-053 separation of duties: high-risk policy dual approval', () => {
   it('direct publication works until dual approval is configured, then requires a second administrator', async () => {
-    // Configure dual approval for AUTHORITY and RETENTION (the last single-admin AUTHORITY change).
-    await publishCompatibilityPolicy(w.db.pool, w.admin, {
+    // While a separation-of-duties section is active (the spend rule above), even turning on dual approval needs
+    // the second administrator (security review S5).
+    expect(
+      await deniedReason(
+        publishCompatibilityPolicy(w.db.pool, w.admin, {
+          body: sodPolicy({ dualApprovalPolicyKeys: ['AUTHORITY', 'RETENTION'] }),
+          source: 'API',
+        }),
+      ),
+    ).toBe('POLICY_HOLD:DUAL_APPROVAL_REQUIRED');
+    const enable = await proposePolicyRevision(w.db.pool, w.admin, {
+      policyKey: 'AUTHORITY',
       body: sodPolicy({ dualApprovalPolicyKeys: ['AUTHORITY', 'RETENTION'] }),
       source: 'API',
     });
+    await approveCompatibilityPolicyProposal(w.db.pool, admin2.ctx, enable.policyChangeProposalId);
     const retention = { telemetryDays: 30, communicationDays: 30, auditDays: 365 };
     expect(
       await deniedReason(

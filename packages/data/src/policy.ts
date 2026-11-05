@@ -88,7 +88,11 @@ async function assertSitesExist(
   if (s.rows[0].n !== sites.length) throw unavailable(meta, null, 'site');
 }
 
-/** Is this policy key named for dual approval by the AUTHORITY revision in force now (M13, UI-SPEC §10)? */
+/**
+ * Does publishing this key need a second administrator (M13, UI-SPEC §10; security review S5)? Decided over the
+ * AUTHORITY revision in force and every scheduled one: AUTHORITY while any of them has a non-empty separationOfDuties
+ * section, any other key while any of them names it in dualApprovalPolicyKeys (migration 0022).
+ */
 export async function dualApprovalRequired(q: Queryable, tenantId: TenantId, policyKey: PolicyKey): Promise<boolean> {
   const { rows } = await q.query<{ required: boolean }>(`SELECT ub_policy_dual_approval_required($1, $2) AS required`, [
     tenantId,
@@ -98,15 +102,17 @@ export async function dualApprovalRequired(q: Queryable, tenantId: TenantId, pol
 }
 
 /**
- * M13 security review S2: enabling dual approval must not be pre-empted by a revision queued before it. When an
- * AUTHORITY body names dual-approval keys, refuse while any unreviewed (no proposal) future-dated revision of
- * AUTHORITY or a named key is queued: it would take effect later and could silently undo the control.
+ * M13 security review S2/S5: enabling separation of duties must not be pre-empted by a revision queued before it. When
+ * an AUTHORITY body carries a non-empty separationOfDuties section, refuse while any unreviewed (no proposal)
+ * future-dated revision of AUTHORITY or a key it names for dual approval is queued: it would take effect later and
+ * could silently undo the control. The database guard (migration 0022) enforces the same rule.
  */
 async function assertNoQueuedBypass(c: Tx, tenantId: TenantId, policyKey: PolicyKey, wire: Record<string, unknown>) {
   if (policyKey !== 'AUTHORITY') return;
-  const sod = wire.separationOfDuties as { dualApprovalPolicyKeys?: unknown } | undefined;
+  const sod = wire.separationOfDuties as { dualApprovalPolicyKeys?: unknown; spend?: unknown } | undefined;
   const keys = Array.isArray(sod?.dualApprovalPolicyKeys) ? (sod.dualApprovalPolicyKeys as string[]) : [];
-  if (keys.length === 0) return;
+  const spend = Array.isArray(sod?.spend) ? sod.spend : [];
+  if (keys.length === 0 && spend.length === 0) return;
   const { rowCount } = await c.query(
     `SELECT 1 FROM policy_revisions r JOIN policies p ON p.tenant_id = r.tenant_id AND p.id = r.policy_id
       WHERE r.tenant_id = $1 AND p.policy_key = ANY($2) AND r.effective_at > clock_timestamp() AND r.proposal_id IS NULL

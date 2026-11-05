@@ -12,7 +12,7 @@
 // - nothing in logs, spans, broker lines, trace or export carries secrets or another tenant's identifiers, and another
 //   tenant cannot read the trace.
 import http from 'node:http';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -285,7 +285,12 @@ describe('T-055 platform signals for the alert rules', () => {
     );
     const h = new HealthRegistry();
     readinessChecks(h, w.db.pool, {
-      expectedLatestMigration: '0021_m13_separation_of_duties.sql',
+      expectedLatestMigration: readdirSync(
+        join(import.meta.dirname, '..', '..', '..', 'packages', 'data', 'migrations'),
+      )
+        .filter((f) => f.endsWith('.sql'))
+        .sort()
+        .at(-1)!,
       outboxWarnSeconds: 1e9,
     });
     expect(await h.ready()).toMatchObject({ status: 'ready' });
