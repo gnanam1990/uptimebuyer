@@ -198,14 +198,23 @@ export function checkAndRecord(root, gate, request, { preflight = {}, now = new 
   return d;
 }
 
-/** True only for a signed, unexpired, unused record of exactly this gate (used by the journey gate for PAYMENT). */
-export function authorizationVerifies(root, gate, authorizationId, now = new Date()) {
+/**
+ * True only for a signed, unexpired, unused record of exactly this gate whose scope covers `request` (used by the
+ * journey gate for PAYMENT: the cap is the signed scope's, never the manifest's; M14 security review R8).
+ */
+export function authorizationVerifies(root, gate, authorizationId, now = new Date(), request = undefined) {
+  if (!request) return false;
   const { records, consumed } = loadAuthorizations(root);
   const record = records.find((r) => r?.authorizationId === authorizationId);
   if (!record || record.gate !== gate) return false;
+  const config = loadGateConfig(root);
   if (signatureReasons(record, loadAuthorizers(root)).length) return false;
+  if (scopeReasons(config.gates[gate], record.scope, request).length) return false;
   const t = now.getTime();
-  return Date.parse(record.authorizedAt) <= t && t <= Date.parse(record.expiresAt) && !consumed.has(authorizationId);
+  const from = Date.parse(record.authorizedAt);
+  const to = Date.parse(record.expiresAt);
+  if (!(from <= t && t <= to) || to - from > (config.gates[gate].maxValidityHours ?? 24) * 3_600_000) return false;
+  return !consumed.has(authorizationId);
 }
 
 /** The repository's current decision for every gate (no request, no preflight). */

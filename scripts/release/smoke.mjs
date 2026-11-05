@@ -530,10 +530,40 @@ export async function runSmoke(plan, deps) {
   return JSON.parse(redact(JSON.stringify(report)));
 }
 
+/**
+ * Cleanup for an interrupted run (M14 security review R7): the compose project (containers, networks, volumes) and the
+ * work directory holding throwaway private keys must not outlive SIGINT/SIGTERM.
+ */
+export async function interruptCleanup(plan, deps) {
+  const exec = deps.exec ?? run;
+  const composeFile = path.join(plan.cloneDir, 'infra', 'deploy', 'compose.json');
+  await exec(
+    'docker',
+    ['compose', '-f', composeFile, '-p', plan.project, '--profile', 'smoke', 'down', '-v', '--remove-orphans'],
+    {
+      env: {
+        ...process.env,
+        UB_SECRETS_DIR: plan.secretsDir,
+        UB_OIDC_ISSUER: 'x',
+        UB_OIDC_AUDIENCE: 'x',
+        UB_OIDC_JWKS_URL: 'x',
+        UB_OIDC_AUTHORIZATION_ENDPOINT: 'x',
+        UB_OIDC_TOKEN_ENDPOINT: 'x',
+      },
+    },
+  ).catch(() => {});
+  await (deps.removeDir ?? (async (d) => rmSync(d, { recursive: true, force: true })))(plan.workDir);
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const val = (k) => (args.includes(k) ? args[args.indexOf(k) + 1] : undefined);
   const plan = planSmoke({ previousRef: val('--previous-ref') ?? 'HEAD~1' });
+  for (const sig of ['SIGINT', 'SIGTERM'])
+    process.once(sig, () => {
+      process.stderr.write(`[smoke] ${sig}: cleaning up ${plan.project}\n`);
+      void interruptCleanup(plan, {}).finally(() => process.exit(130));
+    });
   const report = await runSmoke(plan, { keepImages: args.includes('--keep-images') });
   const text = `${JSON.stringify(report, null, 2)}\n`;
   if (args.includes('--record'))

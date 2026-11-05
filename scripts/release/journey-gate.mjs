@@ -77,7 +77,9 @@ function factReasons(part, p, ctx) {
       if (typeof f.runId !== 'string' || !f.runId) r.push('FACT_MISSING:runId');
       break;
     case 'payment': {
-      if (typeof p.authorizationId !== 'string' || !ctx.isAuthorized?.('PAYMENT', p.authorizationId))
+      // The cap is the signed authorization's scope (merchant, amount, currency, purpose, environment), checked by the
+      // release-gate tooling; the manifest's own cap is only a consistency check.
+      if (typeof p.authorizationId !== 'string' || !ctx.isAuthorized?.('PAYMENT', p.authorizationId, f.request ?? f))
         r.push('PAYMENT_NOT_AUTHORIZED');
       if (!Number.isSafeInteger(f.amountMinor) || !Number.isSafeInteger(f.capMinor) || f.amountMinor > f.capMinor)
         r.push('PAYMENT_OVER_CAP');
@@ -339,7 +341,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   // No authorization registry is consulted for payments here: scripts/release/release-gate.mjs owns it, and with no
   // registered authorizer no PAYMENT authorization can verify.
   const rg = await import('./release-gate.mjs');
-  const isAuthorized = (gate, id) => rg.authorizationVerifies(repo, gate, id);
+  const isAuthorized = (gate, id, request) => rg.authorizationVerifies(repo, gate, id, new Date(), request);
   const r = evaluateJourney(manifest, {
     artifactRoot: repo,
     expectedSha: headSha(repo),
