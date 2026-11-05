@@ -6,7 +6,7 @@
 // work-order signoff/attestation, and the exact approved installed-part identity.
 import type { TenantContext, Tx } from '@uptimebuyer/data';
 import { canonicalDigest } from '@uptimebuyer/domain';
-import { attesterRoleAt, evidenceSealValid, type EvidenceRow } from './evidence.js';
+import { attesterStillAuthorized, evidenceSealValid, type EvidenceRow } from './evidence.js';
 import { activeIntegrations, approvedActions, cycleStart, disputedIds, type ApprovedAction } from './facts.js';
 import { isoOf, ms, type IncidentRow, type RecoverySigning } from './internal.js';
 import { loadPolicy, num, type PolicyRow } from './policy.js';
@@ -328,12 +328,10 @@ export async function computeGates(
     if (e.source_kind === 'CMMS') {
       if (!e.cmms_integration_id || active.get(e.cmms_integration_id) !== inc.site_id) continue;
     } else {
-      if (!roleOk.has(e.actor_id))
-        roleOk.set(
-          e.actor_id,
-          (await attesterRoleAt(c, ctx.tenantId, e.actor_id, inc.site_id, policy.attestation_roles)) !== null,
-        );
-      if (!roleOk.get(e.actor_id)) continue;
+      const k = `${e.attester_user_id}|${e.attester_role}`;
+      if (!roleOk.has(k))
+        roleOk.set(k, await attesterStillAuthorized(c, ctx.tenantId, e, inc.site_id, policy.attestation_roles));
+      if (!roleOk.get(k)) continue;
     }
     valid.push(e);
   }

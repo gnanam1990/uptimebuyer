@@ -133,6 +133,12 @@ export async function disputeRecoveryEvidence(
         effect: null,
       };
     }
+    // Lock the open evaluation (incident -> evaluation, the closeout's order) before the dispute exists.
+    const openLocked = await c.query<EvaluationRow>(
+      `SELECT * FROM recovery_evaluations WHERE tenant_id = $1 AND incident_id = $2 AND state IN ('PENDING', 'OBSERVING')
+        FOR UPDATE`,
+      [ctx.tenantId, inc.id],
+    );
     const disputeId = newRecoveryId('dispute');
     const actor = actorFor(ctx);
     await c.query(
@@ -144,12 +150,7 @@ export async function disputeRecoveryEvidence(
       { kind: 'ESCALATE'; evaluationId: string } | { kind: 'REOPEN'; closeout: CloseoutRow; version: number } | null =
       null;
     if (inc.state === 'VERIFYING') {
-      const open = await c.query<EvaluationRow>(
-        `SELECT * FROM recovery_evaluations WHERE tenant_id = $1 AND incident_id = $2 AND state IN ('PENDING', 'OBSERVING')
-          FOR UPDATE`,
-        [ctx.tenantId, inc.id],
-      );
-      const ev = open.rows[0];
+      const ev = openLocked.rows[0];
       const milestone = ev
         ? (
             await c.query<{ source_evidence_id: string }>(

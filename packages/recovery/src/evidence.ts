@@ -83,6 +83,8 @@ export interface EvidenceRow {
   supersedes_record_id: string | null;
   actor_kind: string;
   actor_id: string;
+  attester_user_id: string | null;
+  attester_role: string | null;
   claimed_asset_id: string | null;
   claimed_asset_revision_id: string | null;
   plan_id: string | null;
@@ -119,6 +121,8 @@ export function evidenceSealValue(r: {
   supersedes_record_id: string | null;
   actor_kind: string;
   actor_id: string;
+  attester_user_id: string | null;
+  attester_role: string | null;
   claimed_asset_revision_id: string | null;
   plan_id: string | null;
   action_digest: string | null;
@@ -141,6 +145,7 @@ export function evidenceSealValue(r: {
     externalRecordId: r.external_record_id,
     supersedesRecordId: r.supersedes_record_id,
     actor: `${r.actor_kind}:${r.actor_id}`,
+    attester: r.attester_user_id === null ? null : [r.attester_user_id, r.attester_role],
     claimedAssetRevisionId: r.claimed_asset_revision_id,
     planId: r.plan_id,
     actionDigest: r.action_digest,
@@ -168,6 +173,7 @@ interface InsertEvidence {
   sourceKind: EvidenceRow['source_kind'];
   trust: string;
   actor: { kind: string; id: string };
+  attester?: { userId: string; role: string } | null;
   cmmsIntegrationId?: string | null;
   externalRecordId?: string | null;
   supersedesRecordId?: string | null;
@@ -207,6 +213,8 @@ async function insertEvidence(
     supersedes_record_id: e.supersedesRecordId ?? null,
     actor_kind: e.actor.kind,
     actor_id: e.actor.id,
+    attester_user_id: e.attester?.userId ?? null,
+    attester_role: e.attester?.role ?? null,
     claimed_asset_revision_id: e.claimedAssetRevisionId ?? null,
     plan_id: e.planId ?? null,
     action_digest: e.actionDigest ?? null,
@@ -232,12 +240,13 @@ async function insertEvidence(
   }
   const { rows } = await c.query<{ id: string }>(
     `INSERT INTO recovery_evidence (tenant_id, id, incident_id, site_id, asset_id, kind, source_kind, trust,
-       cmms_integration_id, external_record_id, supersedes_record_id, actor_kind, actor_id, claimed_asset_id,
+       cmms_integration_id, external_record_id, supersedes_record_id, actor_kind, actor_id, attester_user_id, attester_role,
+       claimed_asset_id,
        claimed_asset_revision_id, plan_id, action_digest, milestone_type, occurred_at, observed_at, work_order_ref,
        technician_ref, signer_ref, part_manufacturer, part_number, part_serial, part_barcode, note, source_ref, body,
        body_digest, signature_digest, signature_key_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-       $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
+       $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
      ${onConflictRecord ? 'ON CONFLICT (tenant_id, cmms_integration_id, external_record_id) DO NOTHING' : ''}
      RETURNING id`,
     [
@@ -254,6 +263,8 @@ async function insertEvidence(
       row.supersedes_record_id,
       e.actor.kind,
       e.actor.id,
+      row.attester_user_id,
+      row.attester_role,
       e.claimedAssetId ?? null,
       row.claimed_asset_revision_id,
       row.plan_id,
@@ -303,6 +314,22 @@ export async function attesterRoleAt(
     [tenantId, userId, siteId, roles],
   );
   return rows[0]?.role ?? null;
+}
+
+/**
+ * An authorized-operator row still authorizes when its stored attester role is one `roles` names AND the attester
+ * still holds exactly that role at the site (or tenant-wide) with an active membership.
+ */
+export async function attesterStillAuthorized(
+  c: Tx,
+  tenantId: string,
+  e: Pick<EvidenceRow, 'source_kind' | 'attester_user_id' | 'attester_role'>,
+  siteId: string,
+  roles: readonly string[],
+): Promise<boolean> {
+  if (e.source_kind !== 'AUTHORIZED_OPERATOR' || !e.attester_user_id || !e.attester_role) return false;
+  if (!roles.includes(e.attester_role)) return false;
+  return (await attesterRoleAt(c, tenantId, e.attester_user_id, siteId, [e.attester_role])) !== null;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -366,6 +393,7 @@ export async function recordRecoveryEvidence(
     checkOccurred(input.occurredAt, now);
     let sourceKind: EvidenceRow['source_kind'];
     let trust: string;
+    let attester: { userId: string; role: string } | null = null;
     if (input.kind === 'OPERATOR_ATTESTATION' || input.kind === 'INSTALLED_PART') {
       if (!input.planId || !input.actionDigest) throw validation('ACTION_BINDING_REQUIRED');
       if (input.kind === 'INSTALLED_PART' && !input.installedPart) throw validation('INSTALLED_PART_REQUIRED');
@@ -377,6 +405,7 @@ export async function recordRecoveryEvidence(
         throw hold('ATTESTER_ROLE_NOT_PERMITTED', 'The recovery policy does not name this role as an attester.');
       sourceKind = 'AUTHORIZED_OPERATOR';
       trust = 'OPERATOR_ATTESTED';
+      attester = { userId: humanActor(ctx), role };
     } else if (input.kind === 'OPERATOR_NOTE' || input.kind === 'TECHNICIAN_RECORD') {
       if (input.kind === 'OPERATOR_NOTE' && !input.note) throw validation('NOTE_REQUIRED');
       sourceKind = 'OPERATOR';
@@ -402,6 +431,7 @@ export async function recordRecoveryEvidence(
         sourceKind,
         trust,
         actor: actorFor(ctx),
+        attester,
         planId: authority ? input.planId! : null,
         actionDigest: authority ? input.actionDigest! : null,
         milestoneType: authority && input.kind === 'OPERATOR_ATTESTATION' ? (input.milestoneType ?? null) : null,

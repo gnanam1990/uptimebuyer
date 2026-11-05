@@ -19,7 +19,7 @@ import {
 import { canonicalDigest } from '@uptimebuyer/domain';
 import { newId } from '@uptimebuyer/contracts';
 import { z } from 'zod';
-import { attesterRoleAt, evidenceSealValid, loadEvidence } from './evidence.js';
+import { attesterStillAuthorized, evidenceSealValid, loadEvidence } from './evidence.js';
 import { activeIntegrations, approvedActions, disputedIds, executingSince } from './facts.js';
 import {
   IdempotencyKey,
@@ -109,7 +109,8 @@ export async function recordInterventionMilestone(
     const refused = REFUSED_KIND[ev.kind];
     if (refused) throw hold(refused, 'This evidence cannot establish an intervention milestone.');
     if ((await disputedIds(c, ctx.tenantId, [ev.id])).has(ev.id)) throw hold('EVIDENCE_DISPUTED');
-    const policy = await effectivePolicy(c, ctx.tenantId, inc.site_id);
+    // The policy in force for the incident's scope when the evidence was observed (the database re-derives the same).
+    const policy = await effectivePolicy(c, ctx.tenantId, inc.site_id, ev.observed_at);
     if (!policy) throw hold('RECOVERY_POLICY_MISSING');
     if (!policy.milestone_sources.includes(ev.source_kind as 'CMMS')) throw hold('MILESTONE_SOURCE_NOT_PERMITTED');
     if (!evidenceSealValid(signing, ev)) throw hold('EVIDENCE_SEAL_INVALID');
@@ -118,8 +119,8 @@ export async function recordInterventionMilestone(
       if (!ev.cmms_integration_id || active.get(ev.cmms_integration_id) !== inc.site_id)
         throw hold('CMMS_AUTHORITY_REVOKED');
     } else {
-      const role = await attesterRoleAt(c, ctx.tenantId, ev.actor_id, inc.site_id, policy.attestation_roles);
-      if (ev.actor_kind !== 'HUMAN' || !role) throw hold('ATTESTER_ROLE_NOT_PERMITTED');
+      if (!(await attesterStillAuthorized(c, ctx.tenantId, ev, inc.site_id, policy.attestation_roles)))
+        throw hold('ATTESTER_ROLE_NOT_PERMITTED');
     }
     if (ev.milestone_type !== policy.completion_milestone_type) throw hold('WRONG_MILESTONE_TYPE');
     if (

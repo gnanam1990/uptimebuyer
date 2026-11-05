@@ -100,6 +100,9 @@ CREATE TABLE recovery_evidence (
   supersedes_record_id text CHECK (supersedes_record_id IS NULL OR supersedes_record_id ~ '^[\x21-\x7E]{1,128}$'),
   actor_kind text NOT NULL CHECK (actor_kind IN ('HUMAN', 'SERVICE', 'WORKER', 'INTEGRATION')),
   actor_id text NOT NULL CHECK (length(actor_id) BETWEEN 1 AND 128),
+  -- The authorized attester and the role they held at attestation time (authorized-operator evidence only).
+  attester_user_id text,
+  attester_role text CHECK (attester_role IS NULL OR attester_role IN ('operator', 'maintenance_approver', 'engineer')),
   claimed_asset_id text,
   claimed_asset_revision_id text,
   plan_id text CHECK (plan_id IS NULL OR ub_id_ok(plan_id, 'pln')),
@@ -131,6 +134,10 @@ CREATE TABLE recovery_evidence (
   -- A CMMS record is only ever accepted from an integration bound to the incident's own site.
   FOREIGN KEY (tenant_id, cmms_integration_id, site_id) REFERENCES cmms_integrations (tenant_id, id, site_id),
   FOREIGN KEY (tenant_id, claimed_asset_id, claimed_asset_revision_id) REFERENCES asset_revisions (tenant_id, asset_id, id),
+  FOREIGN KEY (tenant_id, attester_user_id) REFERENCES tenant_memberships (tenant_id, user_id),
+  CHECK ((source_kind = 'AUTHORIZED_OPERATOR') = (attester_user_id IS NOT NULL)
+     AND (attester_user_id IS NULL) = (attester_role IS NULL)
+     AND (attester_user_id IS NULL OR attester_user_id = actor_id)),
   CHECK ((part_number IS NULL) = (part_manufacturer IS NULL) AND (part_number IS NULL) = (part_serial IS NULL)),
   CHECK (part_barcode IS NULL OR part_number IS NOT NULL),
   CHECK ((plan_id IS NULL) = (action_digest IS NULL)),
@@ -230,6 +237,19 @@ BEGIN
       JOIN plan_actions pa ON pa.tenant_id = NEW.tenant_id AND pa.plan_id = NEW.plan_id AND pa.id = NEW.plan_action_id
       JOIN recovery_policy_revisions p ON p.tenant_id = NEW.tenant_id AND p.id = NEW.recovery_policy_revision_id
      WHERE e.tenant_id = NEW.tenant_id AND e.id = NEW.source_evidence_id AND e.incident_id = NEW.incident_id
+       -- The policy is the revision in force for the incident's scope at the observed time: site over tenant, latest.
+       AND p.scope_key IN (i.site_id, 'TENANT') AND p.effective_at <= NEW.observed_at
+       AND NOT EXISTS (
+         SELECT 1 FROM recovery_policy_revisions q
+          WHERE q.tenant_id = NEW.tenant_id AND q.scope_key IN (i.site_id, 'TENANT') AND q.effective_at <= NEW.observed_at
+            AND ((q.scope_key = i.site_id AND p.scope_key = 'TENANT')
+              OR (q.scope_key = p.scope_key AND q.effective_at > p.effective_at)))
+       -- An attestation backs a milestone only from a policy-named role the attester still holds at the site.
+       AND (e.source_kind <> 'AUTHORIZED_OPERATOR' OR (e.attester_role = ANY (p.attestation_roles) AND EXISTS (
+         SELECT 1 FROM role_assignments ra
+           JOIN tenant_memberships tm ON tm.tenant_id = ra.tenant_id AND tm.user_id = ra.user_id AND tm.status = 'ACTIVE'
+          WHERE ra.tenant_id = e.tenant_id AND ra.user_id = e.attester_user_id AND ra.role = e.attester_role
+            AND ra.revoked_at IS NULL AND (ra.site_id IS NULL OR ra.site_id = NEW.site_id))))
        AND e.kind IN ('CMMS_SIGNOFF', 'OPERATOR_ATTESTATION')
        AND e.trust IN ('VERIFIED_CMMS', 'OPERATOR_ATTESTED')
        AND e.source_kind = NEW.source_kind AND NEW.source_kind = ANY (p.milestone_sources)
@@ -408,7 +428,12 @@ BEGIN
       SELECT 1 FROM incidents i
         JOIN intervention_milestones m ON m.tenant_id = i.tenant_id AND m.incident_id = i.id
         JOIN evidence_revisions er ON er.tenant_id = i.tenant_id AND er.incident_id = i.id
+        JOIN recovery_policy_revisions rp ON rp.tenant_id = i.tenant_id AND rp.id = NEW.recovery_policy_revision_id
        WHERE i.tenant_id = NEW.tenant_id AND i.id = NEW.incident_id AND i.state = 'VERIFYING'
+         -- The evaluation is governed by exactly the policy its milestone pinned: its window and observation limit.
+         AND m.recovery_policy_revision_id = NEW.recovery_policy_revision_id
+         AND NEW.stable_window_ms = rp.stable_window_ms
+         AND NEW.expires_at = NEW.observation_boundary_at + rp.max_observation_ms * interval '1 millisecond'
          AND m.id = NEW.milestone_id AND er.id = NEW.evidence_revision_id
          AND NEW.state = 'PENDING' AND NEW.version = 1 AND NEW.decided_at IS NULL AND NEW.state_reason IS NULL
          AND NEW.observation_boundary_at = m.occurred_at
@@ -435,6 +460,38 @@ BEGIN
     RAISE EXCEPTION 'a decided recovery evaluation is immutable' USING ERRCODE = 'UB201';
   END IF;
   IF NEW.state = 'PASSED' AND OLD.state IS DISTINCT FROM 'PASSED' THEN
+    -- Serialize with disputes and revocations of the evidence behind the decision: a dispute insert needs a key-share
+    -- lock on its evidence row and a revocation updates the integration row, so whichever commits first is seen by the
+    -- other (READ COMMITTED re-reads after the lock wait).
+    PERFORM 1 FROM recovery_evidence e
+     WHERE e.tenant_id = NEW.tenant_id
+       AND (e.id IN (SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                      WHERE g.tenant_id = NEW.tenant_id AND g.evaluation_id = NEW.id)
+         OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
+                     WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id))
+     ORDER BY e.id FOR UPDATE;
+    PERFORM 1 FROM cmms_integrations ci
+     WHERE ci.tenant_id = NEW.tenant_id AND ci.id IN (
+       SELECT e.cmms_integration_id FROM recovery_evidence e
+        WHERE e.tenant_id = NEW.tenant_id AND e.cmms_integration_id IS NOT NULL
+          AND (e.id IN (SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                         WHERE g.tenant_id = NEW.tenant_id AND g.evaluation_id = NEW.id)
+            OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
+                        WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id)))
+     ORDER BY ci.id FOR SHARE;
+    IF EXISTS (
+      SELECT 1 FROM recovery_evidence e
+       WHERE e.tenant_id = NEW.tenant_id
+         AND (e.id IN (SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                        WHERE g.tenant_id = NEW.tenant_id AND g.evaluation_id = NEW.id)
+           OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
+                       WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id))
+         AND (EXISTS (SELECT 1 FROM recovery_evidence_disputes d WHERE d.tenant_id = e.tenant_id AND d.evidence_id = e.id)
+           OR EXISTS (SELECT 1 FROM cmms_integrations ci WHERE ci.tenant_id = e.tenant_id AND ci.id = e.cmms_integration_id
+                        AND ci.revoked_at IS NOT NULL))
+    ) THEN
+      RAISE EXCEPTION 'a PASSED recovery evaluation cannot rest on disputed or revoked evidence' USING ERRCODE = 'UB201';
+    END IF;
     SELECT * INTO p FROM recovery_policy_revisions WHERE tenant_id = NEW.tenant_id AND id = NEW.recovery_policy_revision_id;
     IF coalesce((SELECT count(*) FROM recovery_evaluation_samples s
                   WHERE s.tenant_id = NEW.tenant_id AND s.evaluation_id = NEW.id) >= p.min_samples, false) IS NOT TRUE
@@ -538,7 +595,13 @@ BEGIN
       JOIN recovery_evidence e ON e.tenant_id = ev.tenant_id AND e.id = NEW.evidence_id
       JOIN plan_actions pa ON pa.tenant_id = ev.tenant_id AND pa.plan_id = ev.plan_id AND pa.id = ev.plan_action_id
       JOIN candidate_actions ca ON ca.tenant_id = pa.tenant_id AND ca.id = pa.candidate_action_id
+      JOIN recovery_policy_revisions rp ON rp.tenant_id = ev.tenant_id AND rp.id = ev.recovery_policy_revision_id
      WHERE ev.tenant_id = NEW.tenant_id AND ev.id = NEW.evaluation_id AND ev.state = 'OBSERVING'
+       AND (e.source_kind <> 'AUTHORIZED_OPERATOR' OR (e.attester_role = ANY (rp.attestation_roles) AND EXISTS (
+         SELECT 1 FROM role_assignments ra
+           JOIN tenant_memberships tm ON tm.tenant_id = ra.tenant_id AND tm.user_id = ra.user_id AND tm.status = 'ACTIVE'
+          WHERE ra.tenant_id = e.tenant_id AND ra.user_id = e.attester_user_id AND ra.role = e.attester_role
+            AND ra.revoked_at IS NULL AND (ra.site_id IS NULL OR ra.site_id = ev.site_id))))
        AND e.incident_id = ev.incident_id AND e.plan_id = ev.plan_id AND e.action_digest = ev.action_digest
        AND NOT EXISTS (SELECT 1 FROM recovery_evidence_disputes d WHERE d.tenant_id = e.tenant_id AND d.evidence_id = e.id)
        AND (e.cmms_integration_id IS NULL OR EXISTS (
