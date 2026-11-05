@@ -7,8 +7,12 @@
 import { IdempotencyKeySchema, type ApprovalId, type Money } from '@uptimebuyer/contracts';
 import { transition } from '@uptimebuyer/domain';
 import {
+  Denial,
+  appendOperatorEvidence,
   lockKey,
+  notPermitted,
   recordApproval,
+  sha256Digest,
   recordAudit,
   requireAuthorized,
   tenantCommand,
@@ -193,3 +197,66 @@ export async function approvePlanAction(
   return viewOf(outcome.binding, r, outcome.created);
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+const HoldSchema = z.strictObject({
+  approvalRequestId: z.string().regex(/^apq_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/),
+  reasonCode: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/),
+});
+const HOLD_ROLES = new Set(['maintenance_approver', 'finance_approver', 'engineer']);
+
+/**
+ * Record an approver's explicit HOLD of a pending plan-action approval request (M12 operator surface, additive). A
+ * hold authorizes nothing and changes no lifecycle: the request stays PENDING, the plan stays APPROVABLE, and the
+ * decision is appended to the evidence ledger as the approver's own attested material input (FR-18) with an audit
+ * entry. Only a human holding an approver role at the request's site, who may also submit evidence there, can hold.
+ */
+export async function recordApprovalHold(
+  pool: Db,
+  ctx: TenantContext,
+  raw: z.input<typeof HoldSchema>,
+): Promise<{ approvalRequestId: string; held: true; ledgerEntryId: string; reasonCode: string }> {
+  const parsed = HoldSchema.safeParse(raw);
+  if (!parsed.success) throw invalid('INVALID_APPROVAL_HOLD');
+  const input = parsed.data;
+  const meta = { action: 'approval.hold', resourceType: 'plan_approval_request', resourceId: input.approvalRequestId };
+  return tenantCommand(pool, ctx, meta, async (c) => {
+    const r = await loadRequest(c, ctx, input.approvalRequestId, meta);
+    requireAuthorized(ctx, { action: 'planning.read', siteId: r.site_id }, undefined, {
+      type: 'plan_approval_request',
+      id: input.approvalRequestId,
+    });
+    if (
+      ctx.principal.kind !== 'HUMAN' ||
+      !ctx.grants.some((g) => HOLD_ROLES.has(g.role) && (g.siteId === null || g.siteId === r.site_id))
+    )
+      throw new Denial(notPermitted('APPROVER_ROLE_REQUIRED'), {
+        ...meta,
+        reasonCode: 'APPROVER_ROLE_REQUIRED',
+      });
+    if (r.invalidated_at) throw hold('APPROVAL_REQUEST_INVALIDATED');
+    const entry = await appendOperatorEvidence(
+      c,
+      ctx,
+      {
+        kind: 'MATERIAL_INPUT',
+        trust: 'OPERATOR_ATTESTED',
+        subject: { aggregateType: 'plan', aggregateId: r.plan_id },
+        incidentId: r.incident_id,
+        payloadSchema: 'approval.hold.v1',
+        payloadDigest: sha256Digest(
+          JSON.stringify({ approvalRequestId: r.id, requestDigest: r.request_digest, reasonCode: input.reasonCode }),
+        ),
+        payloadRef: null,
+        supersedesEvidenceId: null,
+      },
+      { siteId: r.site_id },
+    );
+    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { reasonCode: input.reasonCode } });
+    return {
+      approvalRequestId: r.id,
+      held: true as const,
+      ledgerEntryId: entry.evidenceId,
+      reasonCode: input.reasonCode,
+    };
+  });
+}

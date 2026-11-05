@@ -46,6 +46,7 @@ export {
 } from './commands.js';
 export {
   getIncident,
+  getIncidentPins,
   getIncidentTimeline,
   listIncidents,
   type AssignmentView,

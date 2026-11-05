@@ -171,7 +171,13 @@ export const deny = (meta: CommandMeta, reasonCode: string, resourceId: string |
   });
 
 export function assertVersion(row: IncidentRow, expectedVersion: number): void {
-  if (row.version !== expectedVersion) throw versionConflict();
+  // The current version is returned so a client reloads instead of overwriting (M12 conflict recovery). The caller
+  // has already passed the incident's site authorization, so it learns nothing it could not read.
+  if (row.version !== expectedVersion)
+    throw new DomainError('VERSION_CONFLICT', 'The resource changed; reload and retry.', {
+      reasonCode: 'VERSION_CONFLICT',
+      currentVersion: row.version,
+    });
 }
 
 /** Does the context hold `role` covering `siteId` (site grant or tenant-wide grant)? */

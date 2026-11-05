@@ -6,6 +6,7 @@ import { UtcInstantSchema, type IncidentState } from '@uptimebuyer/contracts';
 import { dbNow, readableSites, tenantCommand, type Db, type TenantContext, type Tx } from '@uptimebuyer/data';
 import { z } from 'zod';
 import { canRead, isoOf, isoOrNull, loadIncident, ms, parseInput, type IncidentRow } from './internal.js';
+import { loadProcedure, toRule, type ProcedureRevisionRecord, type RuleRevisionRecord } from './config.js';
 
 export interface AssignmentView {
   assignmentId: string;
@@ -435,5 +436,25 @@ export async function getIncidentTimeline(pool: Db, ctx: TenantContext, incident
         recordedAt: isoOf(r.recorded_at),
       })),
     };
+  });
+}
+
+/**
+ * The incident's pinned operating procedure and incident-rule revisions (M12 operator surface, additive). These are
+ * the revisions pinned at opening; a later publication never changes what this returns (UI-SPEC §8.0).
+ */
+export async function getIncidentPins(
+  pool: Db,
+  ctx: TenantContext,
+  incidentId: string,
+): Promise<{ procedure: ProcedureRevisionRecord; rule: RuleRevisionRecord }> {
+  const meta = { action: 'incident.read', resourceType: 'incident', resourceId: incidentId };
+  return tenantCommand(pool, ctx, meta, async (c) => {
+    const row = await loadIncident(c, ctx, meta, incidentId, { action: null, lock: null });
+    const rule = await c.query(`SELECT * FROM incident_rule_revisions WHERE tenant_id = $1 AND id = $2`, [
+      ctx.tenantId,
+      row.rule_revision_id,
+    ]);
+    return { procedure: await loadProcedure(c, ctx.tenantId, row.procedure_revision_id), rule: toRule(rule.rows[0]!) };
   });
 }

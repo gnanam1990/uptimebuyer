@@ -445,3 +445,66 @@ export { loadView as loadAuthorityViewInTx };
 export const isUniqueViolation = (e: unknown) => pgCode(e) === UNIQUE_VIOLATION;
 export type { UtcInstant };
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/**
+ * Every execution authority issued for an incident (M12 operator surface, additive), oldest first, plus the plan-action
+ * approvals recorded for its approval requests. Authorized with commerce.read at the incident's own site; an
+ * out-of-scope or missing incident is the same audited RESOURCE_UNAVAILABLE.
+ */
+export async function listIncidentCommerce(
+  pool: Db,
+  ctx: TenantContext,
+  incidentId: string,
+): Promise<{
+  authorities: ExecutionAuthorityView[];
+  approvals: {
+    approvalId: string;
+    approvalRequestId: string;
+    planId: string;
+    planActionId: string;
+    candidateActionId: string;
+    executionAuthorityId: string | null;
+    approvedAt: string;
+  }[];
+}> {
+  const meta = { action: 'commerce.read', resourceType: 'incident', resourceId: String(incidentId).slice(0, 128) };
+  return tenantCommand(pool, ctx, meta, async (c) => {
+    if (!/^inc_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/.test(String(incidentId))) throw unavailable(meta, null);
+    const inc = (
+      await c.query(`SELECT site_id FROM incidents WHERE tenant_id = $1 AND id = $2`, [ctx.tenantId, incidentId])
+    ).rows[0];
+    if (!inc) throw unavailable(meta);
+    requireAuthorized(ctx, { action: 'commerce.read', siteId: inc.site_id }, undefined, {
+      type: 'incident',
+      id: incidentId,
+    });
+    const ids = await c.query<{ id: string }>(
+      `SELECT id FROM execution_authorities WHERE tenant_id = $1 AND incident_id = $2 ORDER BY issued_at, id LIMIT 100`,
+      [ctx.tenantId, incidentId],
+    );
+    const authorities: ExecutionAuthorityView[] = [];
+    for (const r of ids.rows) authorities.push((await loadView(c, ctx.tenantId, r.id))!);
+    const approvals = await c.query(
+      `SELECT b.approval_id, b.approval_request_id, b.plan_id, b.plan_action_id, b.created_at, x.id AS authority_id,
+              pa.candidate_action_id
+         FROM plan_approval_bindings b
+         JOIN plan_approval_requests q ON q.tenant_id = b.tenant_id AND q.id = b.approval_request_id
+         JOIN plan_actions pa ON pa.tenant_id = b.tenant_id AND pa.id = b.plan_action_id
+         LEFT JOIN execution_authorities x ON x.tenant_id = b.tenant_id AND x.approval_id = b.approval_id
+        WHERE b.tenant_id = $1 AND q.incident_id = $2 ORDER BY b.created_at, b.id LIMIT 200`,
+      [ctx.tenantId, incidentId],
+    );
+    return {
+      authorities,
+      approvals: approvals.rows.map((r) => ({
+        approvalId: r.approval_id,
+        approvalRequestId: r.approval_request_id,
+        planId: r.plan_id,
+        planActionId: r.plan_action_id,
+        candidateActionId: r.candidate_action_id,
+        executionAuthorityId: r.authority_id ?? null,
+        approvedAt: (r.created_at as Date).toISOString(),
+      })),
+    };
+  });
+}
