@@ -14,3 +14,6 @@ spikes/f0/.secrets/
 tmp-t004-*/
 test-results/
 playwright-report/
+
+# The committed requirement/test coverage report (M13) is not a coverage tool output directory.
+!docs/coverage/
