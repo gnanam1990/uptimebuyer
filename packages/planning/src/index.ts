@@ -21,7 +21,13 @@ export {
   type PlanActionView,
   type RecoveryPlanView,
 } from './plans.js';
-export { STALE_INPUTS, type InvalidationResult, type StaleInput } from './lifecycle.js';
+export {
+  STALE_INPUTS,
+  completeExecutingPlanInTx,
+  invalidatePlanForExecutionChange,
+  type InvalidationResult,
+  type StaleInput,
+} from './lifecycle.js';
 export {
   MAX_APPROVAL_REQUEST_TTL_MS,
   getApprovalRequest,
