@@ -217,3 +217,55 @@ describe('M14 security review R8: the payment cap comes from the authorization, 
     }
   });
 });
+
+// R9 (coordinator review): comments were stripped one line at a time, so a multi-line or unclosed `<!--` could hold a
+// qualifier the rendered draft never shows. Other constructs that hide or disguise text fail closed.
+describe('M14 security review R9: only rendered-visible text qualifies a claim', () => {
+  const findings = (text: string) => cc.checkDraftText('d.md', text, { ledger });
+
+  it('rejects a qualifier inside a multi-line comment', () => {
+    const f = findings('We paid a real provider through Kite. <!-- this\nis NOT_RUN\n-->');
+    expect(rules(f)).toContain('UNQUALIFIED_ASSERTION');
+    // The qualifier sits on the claim line but inside a comment that closes on a later line.
+    expect(rules(findings('We paid a real provider through Kite. <!-- NOT_RUN\n-->'))).toContain(
+      'UNQUALIFIED_ASSERTION',
+    );
+    const g = findings('<!--\nNOT_RUN\n-->We paid a real provider through Kite.');
+    expect(rules(g)).toContain('UNQUALIFIED_ASSERTION');
+  });
+
+  it('rejects a qualifier after an unclosed comment opener', () => {
+    const f = findings('We paid a real provider through Kite. <!-- NOT_RUN');
+    expect(rules(f)).toContain('UNQUALIFIED_ASSERTION');
+    // Everything after an unclosed opener is invisible, including later qualifiers.
+    expect(rules(findings('<!--\nA real Kite payment completed.\nThe sensor is real.'))).toContain('UNCLOSED_COMMENT');
+  });
+
+  it('rejects a qualifier disguised with zero-width characters or encoded entities', () => {
+    expect(rules(findings('We paid a real provider through Kite (N​OT_RUN).'))).toEqual(
+      expect.arrayContaining(['INVISIBLE_CHARACTER', 'UNQUALIFIED_ASSERTION']),
+    );
+    expect(rules(findings('We paid a real provider through Kite (&#78;OT_RUN).'))).toEqual(
+      expect.arrayContaining(['ENCODED_TEXT', 'UNQUALIFIED_ASSERTION']),
+    );
+  });
+
+  it('fails closed on collapsed details, raw HTML and link reference definitions holding qualifiers', () => {
+    expect(rules(findings('We paid a real provider.\n<details><summary>x</summary>NOT_RUN</details>'))).toEqual(
+      expect.arrayContaining(['HIDDEN_CONTENT', 'UNQUALIFIED_ASSERTION']),
+    );
+    expect(rules(findings('We paid a real provider. <span hidden>NOT_RUN</span>'))).toContain('HIDDEN_CONTENT');
+    expect(rules(findings('We paid a real provider [x].\n\n[x]: ./a.md "NOT_RUN"'))).toContain('UNQUALIFIED_ASSERTION');
+  });
+
+  it('accepts a visible qualifier on the claim line', () => {
+    expect(findings('A real Kite-paid action is NOT_RUN.')).toEqual([]);
+    expect(findings('Intro <!-- a\ncomment -->\nA real Kite-paid action is NOT_RUN.')).toEqual([]);
+  });
+
+  it('keeps line numbers correct after a multi-line comment', () => {
+    const f = findings('line one\n<!-- a\nb\nc -->\nWe paid a real provider through Kite.');
+    const hit = f.find((x: { rule: string; line?: number }) => x.rule === 'UNQUALIFIED_ASSERTION');
+    expect(hit?.line).toBe(5);
+  });
+});
