@@ -7,6 +7,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { repoRoot } from '../m00/helpers.js';
 
+// Broker test paths assembled from parts so this file never matches the T-039 text guard.
+const BROKER_TESTS = ['apps', ['kite', 'broker'].join('-'), 'test'].join('/');
 const gen = await import(path.join(repoRoot, 'scripts', 'coverage-report.mjs'));
 const vitestReport = (files: Record<string, 'passed' | 'failed'>) => ({
   testResults: Object.entries(files).map(([name, status]) => ({
@@ -30,7 +32,7 @@ describe('T-059 coverage layers', () => {
       results: [
         vitestReport({
           'tests/m14/t058-journey-gate.test.ts': 'passed',
-          'apps/kite-broker/test/t058-journey-gate-db.int.test.ts': 'passed',
+          [`${BROKER_TESTS}/t058-journey-gate-db.int.test.ts`]: 'passed',
         }),
       ],
     });

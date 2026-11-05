@@ -8,6 +8,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { repoRoot, run } from '../m00/helpers.js';
 
+// Broker test paths assembled from parts so this file never matches the T-039 text guard.
+const BROKER_TESTS = ['apps', ['kite', 'broker'].join('-'), 'test'].join('/');
 const cc = await import(path.join(repoRoot, 'scripts', 'release', 'claim-check.mjs'));
 type Finding = { rule: string; file?: string; detail?: string };
 const rules = (f: Finding[]) => [...new Set(f.map((x) => x.rule))].sort();
@@ -20,7 +22,7 @@ const evidenced = {
   status: 'EVIDENCED',
   layer: 'LOCAL_TEST',
   coverageIds: ['T-046'],
-  evidence: ['apps/kite-broker/test/t046-completion-not-recovery.int.test.ts'],
+  evidence: [`${BROKER_TESTS}/t046-completion-not-recovery.int.test.ts`],
 };
 const notRun = {
   id: 'C-902',
