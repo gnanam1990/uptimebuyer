@@ -32,10 +32,7 @@ describe('M13 security review S8: quarantine is terminal and replays never reope
   it('a replayed quarantined delivery stays quarantined: no job, no re-evaluation', async () => {
     const order = await view(w, orderId);
     // A verified event for a client operation this account never issued: quarantined (TARGET_NOT_FOUND).
-    const body = eventBody(
-      { ...order, clientOperationId: `op_${randomUUID()}` } as never,
-      'shipped',
-    );
+    const body = eventBody({ ...order, clientOperationId: `op_${randomUUID()}` } as never, 'shipped');
     const first = await ingest(body);
     expect(first).toMatchObject({ status: 'QUARANTINED', reasonCode: 'TARGET_NOT_FOUND' });
     const deliveryId = (first as { deliveryId: string }).deliveryId;
