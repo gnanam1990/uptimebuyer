@@ -479,6 +479,50 @@ BEGIN
             OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
                         WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id)))
      ORDER BY ci.id FOR SHARE;
+    -- Attesters behind the decision: share-lock their role assignments and memberships (role revocation and membership
+    -- suspension UPDATE exactly these rows, so they serialize with this decision), then require for each
+    -- authorized-operator row an unrevoked assignment of the stored role at the site (or tenant-wide), an ACTIVE
+    -- membership and a role the pinned policy names.
+    PERFORM 1 FROM role_assignments ra
+     WHERE ra.tenant_id = NEW.tenant_id AND ra.user_id IN (
+       SELECT e.attester_user_id FROM recovery_evidence e
+        WHERE e.tenant_id = NEW.tenant_id AND e.source_kind = 'AUTHORIZED_OPERATOR'
+          AND (e.id IN (SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                         WHERE g.tenant_id = NEW.tenant_id AND g.evaluation_id = NEW.id)
+            OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
+                        WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id)))
+     ORDER BY ra.id FOR SHARE;
+    PERFORM 1 FROM tenant_memberships tm
+     WHERE tm.tenant_id = NEW.tenant_id AND tm.user_id IN (
+       SELECT e.attester_user_id FROM recovery_evidence e
+        WHERE e.tenant_id = NEW.tenant_id AND e.source_kind = 'AUTHORIZED_OPERATOR'
+          AND (e.id IN (SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                         WHERE g.tenant_id = NEW.tenant_id AND g.evaluation_id = NEW.id)
+            OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
+                        WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id)))
+     ORDER BY tm.id FOR SHARE;
+    IF EXISTS (
+      SELECT 1 FROM recovery_evidence e
+       WHERE e.tenant_id = NEW.tenant_id AND e.source_kind = 'AUTHORIZED_OPERATOR'
+         AND (e.id IN (SELECT g.evidence_id FROM recovery_evaluation_signoffs g
+                        WHERE g.tenant_id = NEW.tenant_id AND g.evaluation_id = NEW.id)
+           OR e.id = (SELECT m.source_evidence_id FROM intervention_milestones m
+                       WHERE m.tenant_id = NEW.tenant_id AND m.id = NEW.milestone_id))
+         AND coalesce(
+               EXISTS (SELECT 1 FROM recovery_policy_revisions rp
+                        WHERE rp.tenant_id = NEW.tenant_id AND rp.id = NEW.recovery_policy_revision_id
+                          AND e.attester_role = ANY (rp.attestation_roles))
+               AND EXISTS (
+                 SELECT 1 FROM role_assignments ra
+                   JOIN tenant_memberships tm ON tm.tenant_id = ra.tenant_id AND tm.user_id = ra.user_id
+                  WHERE ra.tenant_id = e.tenant_id AND ra.user_id = e.attester_user_id AND ra.role = e.attester_role
+                    AND ra.revoked_at IS NULL AND (ra.site_id IS NULL OR ra.site_id = NEW.site_id)
+                    AND tm.status = 'ACTIVE'),
+               false) IS NOT TRUE
+    ) THEN
+      RAISE EXCEPTION 'a PASSED recovery evaluation cannot rest on an attester without the policy role'
+        USING ERRCODE = 'UB201';
+    END IF;
     IF EXISTS (
       SELECT 1 FROM recovery_evidence e
        WHERE e.tenant_id = NEW.tenant_id
