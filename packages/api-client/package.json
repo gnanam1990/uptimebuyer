@@ -1,0 +1,14 @@
+{
+  "name": "@uptimebuyer/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed client of the operator HTTP API (M12), built on the shared @uptimebuyer/contracts API schemas: strict request encoding, response decoding with closed state enums, Idempotency-Key/If-Match handling. Holds no credential; the caller supplies the in-memory access token per request.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@uptimebuyer/contracts": "workspace:*",
+    "zod": "4.6.7"
+  }
+}
