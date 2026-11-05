@@ -8,7 +8,9 @@
 //   UNSUPPORTED reserved for capabilities proven unavailable (none are claimed here).
 // A requirement or invariant takes the worst status of the tests of every module that owns it. `externalEvidence`
 // is NOT_RUN wherever the claim needs real-world proof (real sensor, provider, payment, IdP, deployment, physical
-// recovery): local tests never upgrade that. Inputs are vitest/Playwright JSON reports; nothing leaves the machine.
+// recovery): local tests never upgrade that. M14 adds `localStatus`, the status earned at the local layer: a test whose
+// canonical proof needs external evidence (T-057..T-060) reads `status` = the worse of its local result and NOT_RUN,
+// so local runs alone never make it PASS, while a local failure still surfaces as FAIL. Inputs are vitest/Playwright JSON reports; nothing leaves the machine.
 //   node scripts/coverage-report.mjs --results unit.json --results integration.json --results e2e.json
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -138,14 +140,15 @@ export function buildCoverage({ root = repo, results = [], commit }) {
 
   const testEntry = (t) => {
     const files = tests.filter((x) => x.ids.includes(t.id)).map((x) => x.file);
-    let status;
-    if (files.length === 0) status = 'NOT_RUN';
+    let localStatus;
+    if (files.length === 0) localStatus = 'NOT_RUN';
     else {
       const o = files.map((f) => outcomes.get(f));
-      if (o.some((x) => x && x.failed > 0)) status = 'FAIL';
-      else if (o.every((x) => x && x.passed > 0)) status = 'PASS';
-      else status = 'UNKNOWN';
+      if (o.some((x) => x && x.failed > 0)) localStatus = 'FAIL';
+      else if (o.every((x) => x && x.passed > 0)) localStatus = 'PASS';
+      else localStatus = 'UNKNOWN';
     }
+    const status = REAL_WORLD.has(t.id) ? worst([localStatus, 'NOT_RUN']) : localStatus;
     const passed = files.reduce((n, f) => n + (outcomes.get(f)?.passed ?? 0), 0);
     const failed = files.reduce((n, f) => n + (outcomes.get(f)?.failed ?? 0), 0);
     return {
@@ -154,6 +157,7 @@ export function buildCoverage({ root = repo, results = [], commit }) {
       title: t.title,
       module: ownerOf.get(t.id) ?? null,
       status,
+      localStatus,
       externalEvidence: REAL_WORLD.has(t.id) ? 'NOT_RUN' : 'NOT_APPLICABLE',
       testRefs: files,
       codeRefs: [],
@@ -167,12 +171,16 @@ export function buildCoverage({ root = repo, results = [], commit }) {
     const owners = modulesOwning(d.id);
     const ownedTests = registry.modules.filter((m) => owners.includes(m.id)).flatMap((m) => m.tests);
     const status = ownedTests.length ? worst(ownedTests.map((t) => byTest.get(t)?.status ?? 'NOT_RUN')) : 'UNKNOWN';
+    const localStatus = ownedTests.length
+      ? worst(ownedTests.map((t) => byTest.get(t)?.localStatus ?? 'NOT_RUN'))
+      : 'UNKNOWN';
     return {
       id: d.id,
       kind,
       title: d.title,
       modules: owners,
       status,
+      localStatus,
       externalEvidence: REAL_WORLD.has(d.id) ? 'NOT_RUN' : 'NOT_APPLICABLE',
       codeRefs: sources
         .filter((s) => idRe(d.id).test(s.text))
@@ -214,8 +222,8 @@ export function renderMarkdown(report) {
     '',
     `Statuses: ${report.statusVocabulary.map((s) => `${s} ${report.counts[s]}`).join(', ')}.`,
     '',
-    '| ID | Kind | Title | Owner | Status | External evidence | Tests | Code |',
-    '|---|---|---|---|---|---|---|---|',
+    '| ID | Kind | Title | Owner | Status | Local status | External evidence | Tests | Code |',
+    '|---|---|---|---|---|---|---|---|---|',
   ];
   for (const e of report.entries) {
     const owner = e.kind === 'TEST' ? (e.module ?? '-') : e.modules.join(', ') || '-';
@@ -224,7 +232,7 @@ export function renderMarkdown(report) {
         ? `${e.testRefs.length} files (${e.results.passed} passed, ${e.results.failed} failed)`
         : `${e.testRefs.length} files; governed by ${e.governingTests.join(', ') || '-'}`;
     lines.push(
-      `| ${e.id} | ${e.kind} | ${esc(e.title)} | ${owner} | ${e.status} | ${e.externalEvidence} | ${esc(testsCol)} | ${e.codeRefs.length} files |`,
+      `| ${e.id} | ${e.kind} | ${esc(e.title)} | ${owner} | ${e.status} | ${e.localStatus} | ${e.externalEvidence} | ${esc(testsCol)} | ${e.codeRefs.length} files |`,
     );
   }
   return `${lines.join('\n')}\n`;

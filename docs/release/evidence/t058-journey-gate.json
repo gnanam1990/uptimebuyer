@@ -1,0 +1,64 @@
+{
+  "schema": "journey-gate-result.v1",
+  "journeyId": null,
+  "sourceSha": null,
+  "result": "NOT_RUN",
+  "parts": [
+    {
+      "part": "sensor",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "document",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "reasoning",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "payment",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "fulfillment",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "recovery",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "duplicate",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "timeout",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    }
+  ]
+}

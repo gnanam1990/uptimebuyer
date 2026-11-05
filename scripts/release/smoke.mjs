@@ -342,7 +342,9 @@ function defaultSteps(plan, deps, state) {
         await compose(['up', '-d', '--wait', '--wait-timeout', '240']);
       } catch (e) {
         const logs = await compose(['logs', '--no-color', '--tail', '15']).catch(() => ({ stdout: '' }));
-        throw new Error(`${String(e.message).slice(-600)}\n--- logs ---\n${String(logs.stdout).slice(-3_000)}`, { cause: e });
+        throw new Error(`${String(e.message).slice(-600)}\n--- logs ---\n${String(logs.stdout).slice(-3_000)}`, {
+          cause: e,
+        });
       }
       const ps = (await compose(['ps', '--format', 'json'])).stdout;
       const rows = ps.trim().startsWith('[')
@@ -474,7 +476,13 @@ function defaultSteps(plan, deps, state) {
       if (back.apiImage !== prevImages.api) throw new Error('rollback did not switch the api image');
       const forward = await switchTo('candidate');
       if (forward.apiImage !== state.build.imageIds.api) throw new Error('roll-forward did not restore the candidate');
-      return { previousRef: plan.previousRef, previousSha: prevSha, rolledBack: back, rolledForward: forward };
+      return {
+        previousRef: plan.previousRef,
+        previousSha: prevSha,
+        distinctFromCandidate: prevImages.api !== state.build.imageIds.api,
+        rolledBack: back,
+        rolledForward: forward,
+      };
     },
     teardown: async () => {
       await compose(['down', '-v', '--remove-orphans']).catch(() => {});
