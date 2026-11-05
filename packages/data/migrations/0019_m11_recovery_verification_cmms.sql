@@ -120,7 +120,9 @@ CREATE TABLE recovery_evidence (
   source_ref text CHECK (source_ref IS NULL OR source_ref ~ '^[\x21-\x7E]{1,128}$'),
   body jsonb NOT NULL CHECK (jsonb_typeof(body) = 'object'),
   body_digest text NOT NULL CHECK (body_digest ~ '^sha256:[0-9a-f]{64}$'),
-  signature_digest text NOT NULL CHECK (signature_digest ~ '^(hmac-sha256|cmms-hmac-sha256):[0-9a-f]{64}$'),
+  -- Authority-capable rows (CMMS, authorized operator) carry an HMAC seal from the recovery keyring; other rows carry a
+  -- plain integrity digest and can never verify as a seal.
+  signature_digest text NOT NULL CHECK (signature_digest ~ '^(hmac-sha256|sha256):[0-9a-f]{64}$'),
   signature_key_id text NOT NULL CHECK (length(signature_key_id) BETWEEN 1 AND 128),
   PRIMARY KEY (tenant_id, id),
   UNIQUE (tenant_id, id, incident_id),
@@ -154,7 +156,9 @@ CREATE TABLE recovery_evidence (
     AND kind = 'MODEL_ASSERTION')),
   CHECK (kind NOT IN ('PROVIDER_COMPLETION', 'RECEIPT') OR source_kind = 'PROVIDER'),
   CHECK (kind <> 'MODEL_ASSERTION' OR source_kind = 'MODEL'),
-  CHECK (kind <> 'OPERATOR_NOTE' OR source_kind = 'OPERATOR')
+  CHECK (kind <> 'OPERATOR_NOTE' OR source_kind = 'OPERATOR'),
+  CHECK ((source_kind IN ('CMMS', 'AUTHORIZED_OPERATOR')) = (signature_digest LIKE 'hmac-sha256:%')),
+  CHECK ((signature_digest LIKE 'sha256:%') = (signature_key_id = 'unsealed'))
 );
 CREATE INDEX recovery_evidence_incident_ix ON recovery_evidence (tenant_id, incident_id, kind, occurred_at);
 SELECT ub_make_append_only('recovery_evidence');
