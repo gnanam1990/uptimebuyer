@@ -97,6 +97,25 @@ export async function dualApprovalRequired(q: Queryable, tenantId: TenantId, pol
   return rows[0]?.required === true;
 }
 
+/**
+ * M13 security review S2: enabling dual approval must not be pre-empted by a revision queued before it. When an
+ * AUTHORITY body names dual-approval keys, refuse while any unreviewed (no proposal) future-dated revision of
+ * AUTHORITY or a named key is queued: it would take effect later and could silently undo the control.
+ */
+async function assertNoQueuedBypass(c: Tx, tenantId: TenantId, policyKey: PolicyKey, wire: Record<string, unknown>) {
+  if (policyKey !== 'AUTHORITY') return;
+  const sod = wire.separationOfDuties as { dualApprovalPolicyKeys?: unknown } | undefined;
+  const keys = Array.isArray(sod?.dualApprovalPolicyKeys) ? (sod.dualApprovalPolicyKeys as string[]) : [];
+  if (keys.length === 0) return;
+  const { rowCount } = await c.query(
+    `SELECT 1 FROM policy_revisions r JOIN policies p ON p.tenant_id = r.tenant_id AND p.id = r.policy_id
+      WHERE r.tenant_id = $1 AND p.policy_key = ANY($2) AND r.effective_at > clock_timestamp() AND r.proposal_id IS NULL
+      LIMIT 1`,
+    [tenantId, [...new Set(['AUTHORITY', ...keys])]],
+  );
+  if ((rowCount ?? 0) > 0) throw holdErr('PENDING_UNREVIEWED_FUTURE_REVISION');
+}
+
 async function insertRevision(
   c: Tx,
   ctx: TenantContext,
@@ -168,6 +187,7 @@ export async function publishPolicyRevision(
     // Serialize with other policy changes so a concurrent AUTHORITY change cannot slip dual approval in or out.
     await lockKey(c, `policy-governance:${ctx.tenantId}`);
     if (await dualApprovalRequired(c, ctx.tenantId, input.policyKey)) throw holdErr('DUAL_APPROVAL_REQUIRED');
+    await assertNoQueuedBypass(c, ctx.tenantId, input.policyKey, wire);
     const r = await insertRevision(
       c,
       ctx,
@@ -269,6 +289,7 @@ export async function approvePolicyProposal(
     } catch {
       throw validation('INVALID_POLICY_BODY');
     }
+    await assertNoQueuedBypass(c, ctx.tenantId, policyKey, p.body);
     const r = await insertRevision(
       c,
       ctx,
