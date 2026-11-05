@@ -10,6 +10,9 @@ export const DROPPED = '[DROPPED]';
 
 const MAX_DEPTH = 8;
 const MAX_STRING = 1_024;
+// Patterns run over at most this many characters (M13 S4): the kept prefix plus a margin so a secret that straddles
+// the cut is still matched; work is bounded whatever the input size.
+const SCAN_WINDOW = MAX_STRING + 512;
 const MAX_KEYS = 200;
 const MIN_SECRET_LENGTH = 8;
 
@@ -59,14 +62,15 @@ const VALUE_PATTERNS: RegExp[] = [
   /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi,
   /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}/g,
   /\bsecretref:[^\s"'<>]+/g,
-  /\b[a-z][a-z0-9+.-]{1,20}:\/\/[^\s/:@"']+:[^\s/@"']+@/gi,
+  // Any non-empty userinfo in a URL authority (token-only, user:pass or :pass) is sensitive (M13 S3).
+  /\b[a-z][a-z0-9+.-]{1,20}:\/\/[^\s/?#@"'<>]{1,256}@/gi,
   /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g,
   /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g,
   /\bxox[abpors]-[A-Za-z0-9-]{10,}\b/g,
   /\b(sk|rk|pk)[-_](live|test|proj|ant)[-_][A-Za-z0-9_-]{8,}/g,
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/g,
+  /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}\b/g,
   // Phone numbers: international or (area) groups with at least 9 digits.
-  /(?<![\w-])\+\d[\d\s().-]{7,}\d(?![\w-])/g,
+  /(?<![\w-])\+\d[\d\s().-]{7,24}\d(?![\w-])/g,
   /(?<![\w-])\(\d{3}\)\s?\d{3}[\s.-]\d{4}(?![\w-])/g,
 ];
 
@@ -79,14 +83,20 @@ function redactCards(s: string): string {
 
 /** Replace secret-shaped substrings and every registered secret value. Never throws. */
 export function redactString(input: string, secrets: readonly string[] = []): string {
-  let s = String(input);
-  for (const v of secrets) if (v.length >= MIN_SECRET_LENGTH && s.includes(v)) s = s.split(v).join(REDACTED);
+  let full = String(input);
+  // Registered secrets are matched over the whole input (linear substring search, no backtracking) so one that
+  // straddles the scan window can never leave its prefix behind; the regex patterns run over the window only.
+  for (const v of secrets) if (v.length >= MIN_SECRET_LENGTH && full.includes(v)) full = full.split(v).join(REDACTED);
+  const truncated = full.length > MAX_STRING;
+  let s = full.length > SCAN_WINDOW ? full.slice(0, SCAN_WINDOW) : full;
   for (const re of VALUE_PATTERNS) {
     re.lastIndex = 0;
     s = s.replace(re, REDACTED);
   }
   s = redactCards(s);
-  return s.length > MAX_STRING ? `${s.slice(0, MAX_STRING)}…[TRUNCATED]` : s;
+  if (!truncated && s.length <= MAX_STRING) return s;
+  // Cut after redaction; a REDACTED marker split by the cut still leaves no secret characters behind.
+  return `${s.slice(0, MAX_STRING)}…[TRUNCATED]`;
 }
 
 export interface RedactionOptions {
