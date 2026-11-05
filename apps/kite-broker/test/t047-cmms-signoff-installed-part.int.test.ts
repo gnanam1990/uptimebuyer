@@ -118,6 +118,7 @@ describe('T-047 CMMS records: authenticity, replay and site authority', () => {
             ctx,
             { signature: 't=1,v1=00', rawBody: new Uint8Array(2) },
             { credentials: w.creds },
+            w.recoverySigning,
           ),
         ),
       ).toMatchObject({ code: 'FORBIDDEN' });

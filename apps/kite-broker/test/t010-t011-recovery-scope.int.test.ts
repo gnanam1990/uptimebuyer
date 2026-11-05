@@ -148,14 +148,14 @@ describe('T-010/T-011 recovery tenant, site and role scope', () => {
           recordInterventionMilestone(
             w.db.pool,
             foreignWorker,
-            { incidentId: open.incidentId, evidenceId: openEvidenceId, idempotencyKey: 'f-m-1' },
+            { incidentId: open.incidentId, evidenceId: openEvidenceId, idempotencyKey: 'foreign-milestone-1' },
             w.recoverySigning,
           ),
         () =>
           recordInterventionMilestone(
             w.db.pool,
             foreignWorker,
-            { incidentId: missingInc, evidenceId: missingEv, idempotencyKey: 'f-m-2' },
+            { incidentId: missingInc, evidenceId: missingEv, idempotencyKey: 'foreign-milestone-2' },
             w.recoverySigning,
           ),
       ],
@@ -166,7 +166,7 @@ describe('T-010/T-011 recovery tenant, site and role scope', () => {
             foreignWorker,
             {
               incidentId: open.incidentId,
-              idempotencyKey: 'f-e-1',
+              idempotencyKey: 'foreign-evidence-1',
               kind: 'PROVIDER_COMPLETION',
               occurredAt: iso(Date.now()),
               sourceRef: open.orderId,
@@ -179,7 +179,7 @@ describe('T-010/T-011 recovery tenant, site and role scope', () => {
             foreignWorker,
             {
               incidentId: missingInc,
-              idempotencyKey: 'f-e-2',
+              idempotencyKey: 'foreign-evidence-2',
               kind: 'PROVIDER_COMPLETION',
               occurredAt: iso(Date.now()),
               sourceRef: open.orderId,
@@ -192,13 +192,13 @@ describe('T-010/T-011 recovery tenant, site and role scope', () => {
           disputeRecoveryEvidence(w.db.pool, foreign.admin, {
             evidenceId: openEvidenceId,
             reasonCode: 'X',
-            idempotencyKey: 'f-d-1',
+            idempotencyKey: 'foreign-dispute-1',
           }),
         () =>
           disputeRecoveryEvidence(w.db.pool, foreign.admin, {
             evidenceId: missingEv,
             reasonCode: 'X',
-            idempotencyKey: 'f-d-2',
+            idempotencyKey: 'foreign-dispute-2',
           }),
       ],
       [

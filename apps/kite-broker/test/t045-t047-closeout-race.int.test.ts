@@ -64,11 +64,11 @@ describe('T-045/T-047 closeout race, restart and idempotency', () => {
     expect(passed).toEqual([{ id: closeouts[0].evaluation_id }]);
     const pinnedSignoffs = (
       await rows(
-        `SELECT DISTINCT evidence_id FROM recovery_evaluation_signoffs WHERE tenant_id = $1 AND evaluation_id = $2 ORDER BY evidence_id`,
+        `SELECT DISTINCT evidence_id FROM recovery_evaluation_signoffs WHERE tenant_id = $1 AND evaluation_id = $2`,
         [t(), closeouts[0].evaluation_id],
       )
-    ).map((r) => r.evidence_id);
-    expect([...closeouts[0].manifest.signoffEvidenceIds].sort()).toEqual(pinnedSignoffs);
+    ).map((r) => r.evidence_id as string);
+    expect([...closeouts[0].manifest.signoffEvidenceIds].sort()).toEqual(pinnedSignoffs.sort());
     const pinnedSamples = (
       await rows(
         `SELECT sample_id FROM recovery_evaluation_samples WHERE tenant_id = $1 AND evaluation_id = $2 ORDER BY ordinal`,

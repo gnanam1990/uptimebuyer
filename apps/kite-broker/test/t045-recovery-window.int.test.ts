@@ -126,8 +126,10 @@ describe('T-045 stable sensor recovery window (integration)', () => {
          AND (aggregate_id = $2 OR aggregate_id = $3 OR aggregate_id = $4) ORDER BY seq`,
       [w.tenant.tenantId, ev.id, inc.incidentId, m.milestoneId],
     );
+    // Opening the evaluation (PENDING -> OBSERVING) and passing it (OBSERVING -> PASSED) are both assessed events.
     expect(events.map((e) => e.event_type)).toEqual([
       'intervention.milestone_recorded.v1',
+      'recovery.assessed.v1',
       'recovery.assessed.v1',
       'incident.recovered.v1',
     ]);

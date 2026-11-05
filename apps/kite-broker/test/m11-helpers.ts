@@ -152,15 +152,30 @@ export interface VerifyingIncident {
 /** Deliver a fulfillment status script for an order through signed webhooks and apply it. */
 export async function fulfil(w: OrdersWorld, orderId: string, statuses: string[]) {
   const v = await view(w, orderId);
-  for (const status of statuses) {
+  // Provider observation times increasing from now (after the broker's acceptance), so a later operator verification
+  // is never stale relative to them.
+  const last = await w.db.pool.query(
+    `SELECT last_observed_at FROM purchase_orders WHERE tenant_id = $1 AND id = $2
+     UNION ALL SELECT last_observed_at FROM service_jobs WHERE tenant_id = $1 AND id = $2`,
+    [w.tenant.tenantId, orderId],
+  );
+  const lastAt = (last.rows[0]?.last_observed_at as Date | null)?.getTime() ?? 0;
+  const base = Math.max(Date.now(), lastAt + 1);
+  for (const [i, status] of statuses.entries()) {
     const r = await ingestFulfillmentWebhook(
       w.db.pool,
-      webhook(w.account.binding, w.account.verifierKey, eventBody(v, status)),
+      webhook(
+        w.account.binding,
+        w.account.verifierKey,
+        eventBody(v, status, { observedAt: new Date(base + i).toISOString() }),
+      ),
       { credentials: w.creds },
     );
     if (r.status !== 'ACCEPTED') throw new Error(`webhook not accepted: ${JSON.stringify(r)}`);
+    // Apply each observation before the next (queued jobs are not ordered among themselves).
+    await runFulfillmentObservationJobs(w.db.pool, { workerId: 'm11-fixture' });
   }
-  await runFulfillmentObservationJobs(w.db.pool, { workerId: 'm11-fixture' });
+  await new Promise((r) => setTimeout(r, Math.max(5, base + statuses.length - Date.now() + 5)));
 }
 
 export async function dbNowMs(w: OrdersWorld): Promise<number> {
@@ -275,6 +290,7 @@ export async function sendCmms(
     binding.ctx,
     { signature: opts.signature ?? signCmmsRecord(opts.key ?? binding.verifierKey, ts, raw), rawBody: raw },
     { credentials: w.creds },
+    w.recoverySigning,
   );
 }
 
