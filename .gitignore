@@ -12,3 +12,5 @@ tmp/
 evidence/raw/
 spikes/f0/.secrets/
 tmp-t004-*/
+test-results/
+playwright-report/

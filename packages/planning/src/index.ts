@@ -31,6 +31,7 @@ export {
 export {
   MAX_APPROVAL_REQUEST_TTL_MS,
   getApprovalRequest,
+  listPlanApprovalRequests,
   prepareApprovalRequest,
   type ApprovalRequestView,
   type PrepareApprovalRequestInput,

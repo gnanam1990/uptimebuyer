@@ -96,6 +96,27 @@
     },
     {
       "path": "./edge/sensor-agent/test"
+    },
+    {
+      "path": "./packages/api-client"
+    },
+    {
+      "path": "./packages/api-client/test"
+    },
+    {
+      "path": "./apps/api"
+    },
+    {
+      "path": "./apps/api/test"
+    },
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/web/test"
+    },
+    {
+      "path": "./apps/web/e2e"
     }
   ]
 }

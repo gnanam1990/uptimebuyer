@@ -3,7 +3,17 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['tmp-t004-*/**', '**/dist/**', '**/coverage/**', 'docs/spec/**', '**/node_modules/**'] },
+  {
+    ignores: [
+      'tmp-t004-*/**',
+      '**/dist/**',
+      '**/coverage/**',
+      'docs/spec/**',
+      '**/node_modules/**',
+      '**/test-results/**',
+      '**/playwright-report/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -74,5 +84,10 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  // The operator web app runs in the browser (M12); it reaches the API only through @uptimebuyer/api-client.
+  {
+    files: ['apps/web/src/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.browser } },
   },
 );

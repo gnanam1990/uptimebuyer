@@ -520,3 +520,25 @@ export async function getEvidenceRevision(
     };
   });
 }
+
+/**
+ * The newest committed evidence revision of an incident (M12 operator surface, additive), or null when none has been
+ * committed. Authorized with evidence.read at the incident's own site; out of scope looks like missing.
+ */
+export async function getCurrentIncidentEvidenceRevision(
+  pool: Db,
+  ctx: TenantContext,
+  incidentId: IncidentId | string,
+): Promise<{ evidenceRevisionId: EvidenceRevisionId; revision: number } | null> {
+  const meta = { action: 'evidence_revision.current', resourceType: 'incident', resourceId: incidentId };
+  return tenantCommand(pool, ctx, meta, async (c) => {
+    const incident = await loadIncident(c, ctx, meta, incidentId);
+    requireEvidenceRead(ctx, incident.site_id, meta, incident.id);
+    const { rows } = await c.query<{ id: EvidenceRevisionId; revision: number }>(
+      `SELECT id, revision FROM evidence_revisions WHERE tenant_id = $1 AND incident_id = $2
+        ORDER BY revision DESC LIMIT 1`,
+      [ctx.tenantId, incident.id],
+    );
+    return rows[0] ? { evidenceRevisionId: rows[0].id, revision: rows[0].revision } : null;
+  });
+}

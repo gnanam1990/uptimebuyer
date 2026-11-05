@@ -32,5 +32,9 @@ jobs:
         with:
           node-version-file: .node-version
       - run: corepack enable
+      - name: Install dependencies for the browser toolchain
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium (M12 browser tests T-049..T-052)
+        run: pnpm --filter @uptimebuyer/web exec playwright install --with-deps chromium
       - name: Clean-checkout bootstrap (T-001)
         run: pnpm bootstrap

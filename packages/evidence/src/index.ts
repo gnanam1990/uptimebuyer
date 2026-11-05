@@ -35,6 +35,7 @@ export {
 } from './documents.js';
 export {
   commitIncidentEvidence,
+  getCurrentIncidentEvidenceRevision,
   getEvidenceRevision,
   refreshEvidenceForAsset,
   type AssetSnapshot,

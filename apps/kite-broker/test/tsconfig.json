@@ -54,6 +54,9 @@
     },
     {
       "path": "../../sensor-gateway"
+    },
+    {
+      "path": "../../api"
     }
   ]
 }

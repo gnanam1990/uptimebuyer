@@ -318,7 +318,11 @@ describe('T-013 authenticated telemetry acceptance', () => {
   it('rejects unknown or foreign channels identically, a channel revision missing at source time, and a unit mismatch', async () => {
     const d = await provisionDevice(w, { siteId: w.siteId, assetId: w.assetId, channels: [] });
     await sleep(30);
-    const gapStart = Date.now();
+    // Anchor the gap at the later of the host and database clocks: the assignment and the channel revision are stamped
+    // by the database clock, and a container clock running ahead of the host would otherwise put the gap sample
+    // before the assignment (BINDING_MISSING) instead of between the assignment and the revision.
+    const dbNow = await w.db.admin(`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS t`);
+    const gapStart = Math.ceil(Math.max(Date.now(), Number(dbNow.rows[0].t)));
     await sleep(30);
     const { createSensorChannel } = await import('@uptimebuyer/data');
     const ch = await createSensorChannel(w.db.pool, w.admin, {

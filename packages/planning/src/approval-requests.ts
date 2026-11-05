@@ -294,3 +294,28 @@ export async function getApprovalRequest(
     return toView(rows[0]);
   });
 }
+
+/**
+ * Approval requests prepared for one plan (M12 operator surface, additive), oldest first. Authorized with
+ * planning.read at the plan's own site; a missing or out-of-scope plan is the same audited RESOURCE_UNAVAILABLE.
+ */
+export async function listPlanApprovalRequests(
+  pool: Db,
+  ctx: TenantContext,
+  planId: string,
+): Promise<ApprovalRequestView[]> {
+  const meta = { action: 'planning.read', resourceType: 'plan', resourceId: String(planId).slice(0, 128) };
+  return tenantCommand(pool, ctx, meta, async (c) => {
+    if (!refOk('pln', planId)) throw unavailable(meta, null);
+    const plan = (
+      await c.query(`SELECT site_id FROM recovery_plans WHERE tenant_id = $1 AND id = $2`, [ctx.tenantId, planId])
+    ).rows[0];
+    if (!plan) throw unavailable(meta);
+    requireAuthorized(ctx, { action: 'planning.read', siteId: plan.site_id }, undefined, { type: 'plan', id: planId });
+    const { rows } = await c.query(
+      `SELECT * FROM plan_approval_requests WHERE tenant_id = $1 AND plan_id = $2 ORDER BY created_at, id LIMIT 100`,
+      [ctx.tenantId, planId],
+    );
+    return rows.map(toView);
+  });
+}

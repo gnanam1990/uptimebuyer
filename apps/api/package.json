@@ -1,0 +1,33 @@
+{
+  "name": "@uptimebuyer/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Authenticated operator HTTP API (M12): Fastify routes over the module packages with OIDC bearer authentication, server-derived tenant context, strict contract parsing, security headers and same-origin hosting of the operator web app. Never imports the Kite broker.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@uptimebuyer/commerce": "workspace:*",
+    "@uptimebuyer/compatibility": "workspace:*",
+    "@uptimebuyer/contracts": "workspace:*",
+    "@uptimebuyer/data": "workspace:*",
+    "@uptimebuyer/evidence": "workspace:*",
+    "@uptimebuyer/incidents": "workspace:*",
+    "@uptimebuyer/orders": "workspace:*",
+    "@uptimebuyer/planning": "workspace:*",
+    "@uptimebuyer/providers": "workspace:*",
+    "@uptimebuyer/recovery": "workspace:*",
+    "@uptimebuyer/telemetry": "workspace:*",
+    "fastify": "5.12.7",
+    "jose": "6.2.12",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
+    "@uptimebuyer/api": "workspace:*",
     "@uptimebuyer/evidence": "workspace:*",
     "@uptimebuyer/incidents": "workspace:*",
     "@uptimebuyer/orders": "workspace:*",
@@ -29,6 +30,8 @@
     "@uptimebuyer/providers": "workspace:*",
     "@uptimebuyer/recovery": "workspace:*",
     "@uptimebuyer/sensor-gateway": "workspace:*",
-    "@uptimebuyer/telemetry": "workspace:*"
+    "@uptimebuyer/telemetry": "workspace:*",
+    "fastify": "5.12.7",
+    "jose": "6.2.12"
   }
 }
