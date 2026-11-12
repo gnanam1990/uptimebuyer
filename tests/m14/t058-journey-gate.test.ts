@@ -38,7 +38,10 @@ const realManifest = () => ({
   parts: {
     sensor: { ...realPart('sensor'), facts: { authenticated: true } },
     document: realPart('document'),
-    reasoning: { ...realPart('reasoning'), facts: { runId: 'serv-run-1' } },
+    reasoning: {
+      ...realPart('reasoning'),
+      facts: { runId: 'serv-run-1', runStatus: 'COMPLETED', proposalId: 'prp-1' },
+    },
     payment: {
       ...realPart('payment'),
       authorizationId: 'auth-payment-1',
@@ -64,6 +67,19 @@ const statusOf = (r: { parts: { part: string; status: string }[] }) =>
   Object.fromEntries(r.parts.map((p) => [p.part, p.status]));
 
 describe('T-058 journey gate classification', () => {
+  it('a SERV run counts as reasoning evidence only when it completed with a stored proposal', () => {
+    const withFacts = (facts: Record<string, unknown>) => {
+      const m = realManifest();
+      (m.parts.reasoning as { facts: unknown }).facts = facts;
+      return statusOf(gate.evaluateJourney(m, opts())).reasoning;
+    };
+    expect(withFacts({ runId: 'serv-run-1', runStatus: 'COMPLETED', proposalId: 'prp-1' })).toBe('PASS');
+    expect(withFacts({ runId: 'serv-run-1', runStatus: 'REJECTED', proposalId: 'prp-1' })).toBe('FAIL');
+    expect(withFacts({ runId: 'serv-run-1', runStatus: 'FAILED' })).toBe('FAIL');
+    expect(withFacts({ runId: 'serv-run-1', runStatus: 'COMPLETED' })).toBe('FAIL');
+    expect(withFacts({ runId: 'serv-run-1' })).toBe('FAIL');
+  });
+
   it('names the eight journey parts', () => {
     expect([...gate.JOURNEY_PARTS]).toEqual([
       'sensor',
