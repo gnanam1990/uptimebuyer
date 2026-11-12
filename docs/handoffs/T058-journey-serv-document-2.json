@@ -105,5 +105,24 @@
     "Kite-paid action, fulfillment, recovery evidence, duplicate and timeout parts",
     "A complete real-input journey (T-058)",
     "Physical proof of any kind"
-  ]
+  ],
+  "prReviewFollowUp": {
+    "pr": 20,
+    "commits": [
+      "11acd1c test(m05): PR #20 review findings on re-derivation and font decoding (red)",
+      "9686ce5 fix(m05): simple fonts without /Encoding use their built-in encoding; /Contents arrays are one stream",
+      "c248f08 fix(m05): serialize re-derivation with withdrawal on the document lineage; facts and replacement",
+      "docs(m05): ADR 0002 and ADR 0006 for the document lineage lock and the review fixes (this note)"
+    ],
+    "findings": [
+      "1 withdrawal vs re-derivation race: per-lineage advisory lock (leaf, ADR 0006); withdrawal and replacement withdraw every derivation of the bytes; recheck before activation fails with DOCUMENT_WITHDRAWN_DURING_REDERIVATION.",
+      "2 reuse ignored facts: reuse needs identical spans and facts; facts follow the recorded parser version (v1 has no certification facts).",
+      "3 replacement plus re-derivation: both relationships persisted (rederived_from_document_id, migration 0025); supersedes_document_id means explicit replacement only. 0024 not edited: the migration lint refuses to re-lock an edited migration.",
+      "4 default encoding: nonsymbolic simple fonts without /Encoding use StandardEncoding (full upper half), not WinAnsi.",
+      "5 /Contents arrays: interpreted as one concatenated stream in v3 (font, q/Q and operand state carry across); legacy v1/v2 unchanged."
+    ],
+    "sqlInjectionFlag": "False positive: every value in documents.ts statements is a bound parameter; the only interpolation is the module constant DOCUMENT_SELECT (no caller input).",
+    "manualV3Output": "Byte-identical before and after fixes 4 and 5 (single content stream per page, every simple font names WinAnsiEncoding); parser version stays uptimebuyer-parser.v3; the 12 v3 span digests of journey j-2026-11-12-serv-document-2 are pinned in T-021.",
+    "recordedEvidence": "Unchanged for both journeys."
+  }
 }

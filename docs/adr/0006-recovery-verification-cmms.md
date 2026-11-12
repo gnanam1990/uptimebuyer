@@ -80,6 +80,11 @@ PASSED guard) → CMMS integrations, attester role assignments and memberships (
 take incident → open evaluation before inserting the dispute (whose FK key-share on the evidence row conflicts with
 the PASSED guard's lock). Revocation of a CMMS integration, a role or a membership updates the share-locked row.
 M11 never locks planning, authority, intent or order rows. CMMS writer leases use `SKIP LOCKED` and wait on nothing.
+The M05 evidence-document lineage advisory lock (`evidence-document-lineage:<tenant>:<sha256>:<role>:<applicability>`,
+ADR 0002) comes after every lock above: an evidence commit takes it after the evidence-revision lock and the asset
+`FOR SHARE` when it stores registry snapshots, and M07 excerpt promotion after its own locks. It is held to commit, and
+no path takes any lock listed here after it; while it is held, only row locks on rows that same ingest, withdrawal or
+commit inserts or updates follow. A replacement takes its two lineage locks in key order.
 
 ## Consequences
 

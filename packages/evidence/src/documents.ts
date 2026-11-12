@@ -246,9 +246,10 @@ const applicabilityDigestOf = (input: Pick<StoreDocumentInput, 'applicability' |
 
 /**
  * A document lineage is one blob (by content digest) under one role and applicability: every parser derivation of it.
- * Its advisory lock serializes re-derivation with withdrawal and replacement of any derivation of the same bytes. It is
- * a leaf lock (ADR 0006 lock order): taken after every other lock a caller holds (incident, evidence revision, M07
- * excerpt promotion), and nothing else is acquired while it is held. Two lineages are locked in key order.
+ * Its advisory lock serializes re-derivation with withdrawal and replacement of any derivation of the same bytes. It
+ * comes after every other lock a caller holds (ADR 0006 lock order: evidence revision, asset, M07 excerpt promotion),
+ * is held to commit, and is followed only by row locks on rows the same transaction writes. Two lineages are locked in
+ * key order.
  */
 const lineageKey = (tenantId: string, sha256: string, role: string, applicabilityDigest: string) =>
   `evidence-document-lineage:${tenantId}:${sha256}:${role}:${applicabilityDigest}`;
