@@ -3,6 +3,8 @@
 // value), the redaction check over exported artifacts and the journey manifest (only document and reasoning parts,
 // every other part left out so the gate reports it NOT_RUN). No test here calls SERV: model turns come from the
 // contract-fake reasoner or an injected fetch.
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { repoRoot } from '../m00/helpers.js';
@@ -236,5 +238,46 @@ describe('T-058 journey evidence: manifest', () => {
       ),
     ).toThrow(/proposalId/);
     expect(bad((m) => (m.endedAt = '2026-11-12T09:00:00.000Z'))).toThrow(/precedes/);
+  });
+});
+
+describe('T-058 journey evidence: a failed redaction check stops the run and removes the evidence', () => {
+  const tmp = () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'ub-m14-redaction-'));
+    writeFileSync(path.join(dir, 'reasoning.json'), '{"leaked":true}');
+    return dir;
+  };
+
+  it('a PASS check removes nothing and lets the run continue', () => {
+    const dir = tmp();
+    try {
+      expect(() => ev.enforceRedaction({ result: 'PASS' }, [dir], 'exported')).not.toThrow();
+      expect(existsSync(path.join(dir, 'reasoning.json'))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('a FAIL check removes every listed path and throws, naming the check but no finding contents', () => {
+    const dir = tmp();
+    const gateFile = path.join(dir, '..', `${path.basename(dir)}.gate.json`);
+    writeFileSync(gateFile, '{}');
+    const check = {
+      result: 'FAIL',
+      findings: [{ path: 'reasoning.json', rule: 'SECRET_VALUE', secret: 'SERV_API_KEY' }],
+    };
+    expect(() => ev.enforceRedaction(check, [dir, gateFile], 'gate artifacts')).toThrow(
+      /^redaction check failed \(gate artifacts\): evidence removed; nothing was recorded$/,
+    );
+    expect(existsSync(dir)).toBe(false);
+    expect(existsSync(gateFile)).toBe(false);
+  });
+
+  it('anything other than an explicit PASS counts as a failure', () => {
+    for (const check of [{}, { result: 'pass' }, null]) {
+      const dir = tmp();
+      expect(() => ev.enforceRedaction(check, [dir], 'exported')).toThrow(/redaction check failed/);
+      expect(existsSync(dir)).toBe(false);
+    }
   });
 });
