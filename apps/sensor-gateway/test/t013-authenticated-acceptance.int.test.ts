@@ -323,7 +323,12 @@ describe('T-013 authenticated telemetry acceptance', () => {
     // before the assignment (BINDING_MISSING) instead of between the assignment and the revision.
     const dbNow = await w.db.admin(`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS t`);
     const gapStart = Math.ceil(Math.max(Date.now(), Number(dbNow.rows[0].t)));
+    // A database clock running BEHIND the host would stamp the channel revision before gapStart; wait until the
+    // database clock itself is past the gap sample before creating the revision.
+    const dbClock = async () =>
+      Number((await w.db.admin(`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS t`)).rows[0].t);
     await sleep(30);
+    while ((await dbClock()) < gapStart + 30) await sleep(5);
     const { createSensorChannel } = await import('@uptimebuyer/data');
     const ch = await createSensorChannel(w.db.pool, w.admin, {
       deviceId: d.deviceId,
