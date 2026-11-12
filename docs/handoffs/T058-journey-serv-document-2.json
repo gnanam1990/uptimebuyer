@@ -14,8 +14,10 @@
     "82b883a test(m05): security review of the font decoder: prototype-key encodings, shared oversized font objects (red)",
     "1e62c90 fix(m05): security review of the font decoder: Map-only encoding names, bounded font objects",
     "28d05f0 feat(m14): journey runner records the parser version and withheld text (the run was made here)",
-    "docs(m14): record journey j-2026-11-12-serv-document-2 (this note, the evidence, the test and the docs)",
-    "docs(m14): regenerate the coverage report"
+    "0b156c6 docs(m14): record journey j-2026-11-12-serv-document-2 (accepted SERV proposal after the PDF font fix)",
+    "ef3ffb0 test(m14): T-059 coverage layers know the second recorded journey",
+    "e85aaf2 docs(m14): regenerate the coverage report (parser v3 and journey 2)",
+    "docs(m14): handoff commit list for journey j-2026-11-12-serv-document-2 (this commit)"
   ],
   "userAuthorization": "Exactly one more real SERV Reasoning run on serv-mini with a hard cap of $1.00 (user-approved), budget maxCostMicros 250000 and the existing token limit, SERV_REASONING_EFFORT unset. A 4xx refusal before any generation could be fixed and resent; after any accepted, billed request, no further runs. Nothing else: no Kite or kpass command, no payment, no other paid API, no push, PR, merge or deployment.",
   "diagnosis": {
