@@ -154,6 +154,7 @@ describe('T-058 journey evidence: redaction check', () => {
         .findings.map((f: { rule: string }) => f.rule);
     expect(rules('{"Authorization": "x"}')).toContain('AUTHORIZATION_HEADER');
     expect(rules(`Bearer ${'a'.repeat(30)}`)).toContain('BEARER_TOKEN');
+    expect(rules(`{"content":"bearer ${'A'.repeat(16)}"}`)).toContain('BEARER_TOKEN');
     expect(rules('postgres://u:pw@localhost:5432/db')).toContain('CREDENTIALED_URL');
     expect(rules('SERV_API_KEY=abcdef')).toContain('ENV_DUMP');
     expect(rules('{"DATABASE_URL": "x"}')).toContain('ENV_DUMP');
@@ -224,6 +225,16 @@ describe('T-058 journey evidence: manifest', () => {
     expect(
       bad((m) => ((m.parts.reasoning as { facts?: unknown }).facts = { runId: 'rsn_test-1', runStatus: 'REJECTED' })),
     ).toThrow(/COMPLETED/);
+    expect(
+      bad(
+        (m) =>
+          ((m.parts.reasoning as { facts?: unknown }).facts = {
+            runId: 'rsn_test-1',
+            runStatus: 'COMPLETED',
+            proposalId: '  ',
+          }),
+      ),
+    ).toThrow(/proposalId/);
     expect(bad((m) => (m.endedAt = '2026-11-12T09:00:00.000Z'))).toThrow(/precedes/);
   });
 });

@@ -24,6 +24,14 @@ const artifact = (name: string, body = `artifact ${name} ${Math.random()}`) => {
   return { path: rel, sha256: sha256(body) };
 };
 const at = '2026-11-10T10:30:00.000Z';
+const reasoningRecord = (over: Record<string, unknown> = {}) =>
+  JSON.stringify({
+    adapter: 'SERV_REASONING',
+    reasoningRunId: 'serv-run-1',
+    status: 'COMPLETED',
+    proposal: { proposalId: 'prp-1' },
+    ...over,
+  });
 const realPart = (part: string) => ({
   origin: gate.REAL_ORIGINS[part],
   capturedAt: at,
@@ -40,6 +48,7 @@ const realManifest = () => ({
     document: realPart('document'),
     reasoning: {
       ...realPart('reasoning'),
+      artifacts: [artifact('reasoning.json', reasoningRecord())],
       facts: { runId: 'serv-run-1', runStatus: 'COMPLETED', proposalId: 'prp-1' },
     },
     payment: {
@@ -67,6 +76,21 @@ const statusOf = (r: { parts: { part: string; status: string }[] }) =>
   Object.fromEntries(r.parts.map((p) => [p.part, p.status]));
 
 describe('T-058 journey gate classification', () => {
+  it('reasoning facts must agree with the recorded reasoning artifact, not only its hash', () => {
+    const withRecord = (body: string) => {
+      const m = realManifest();
+      (m.parts.reasoning as { artifacts: unknown }).artifacts = [artifact('reasoning.json', body)];
+      return statusOf(gate.evaluateJourney(m, opts())).reasoning;
+    };
+    expect(withRecord(reasoningRecord())).toBe('PASS');
+    // The recorded rejected run, presented with COMPLETED facts and a proposal id, must not pass.
+    expect(withRecord(reasoningRecord({ status: 'REJECTED', proposal: null }))).toBe('FAIL');
+    expect(withRecord(reasoningRecord({ reasoningRunId: 'serv-run-other' }))).toBe('FAIL');
+    expect(withRecord(reasoningRecord({ proposal: { proposalId: 'prp-other' } }))).toBe('FAIL');
+    expect(withRecord(reasoningRecord({ adapter: 'CONTRACT_FAKE' }))).toBe('FAIL');
+    expect(withRecord(JSON.stringify({ unrelated: true }))).toBe('FAIL');
+  });
+
   it('a SERV run counts as reasoning evidence only when it completed with a stored proposal', () => {
     const withFacts = (facts: Record<string, unknown>) => {
       const m = realManifest();
@@ -238,24 +262,37 @@ describe('T-058 repository state: the real-input journey is NOT_RUN', () => {
 });
 
 describe('T-058 journey gate database cross-check for reasoning', () => {
-  // A fake pool answering by query shape: one SERV run for the incident, completed-with-proposal count as given.
+  // A fake pool answering by query shape. The incident holds one completed SERV run rsn-1 with stored proposal rpr-1;
+  // the completed-run query counts it only when the query is bound to exactly those ids.
   const pool = (completedWithProposal: number) => ({
-    query: async (sql: string) => {
+    query: async (sql: string, params: unknown[] = []) => {
       if (sql.includes('FROM incidents')) return { rows: [{ trigger_input_origin: 'PHYSICAL_SENSOR' }] };
       if (sql.includes('SELECT DISTINCT adapter FROM reasoning_runs')) return { rows: [{ adapter: 'SERV_REASONING' }] };
-      if (sql.includes('JOIN reasoning_proposals')) return { rows: [{ n: completedWithProposal }] };
+      if (sql.includes('JOIN reasoning_proposals')) {
+        const bound =
+          params.includes('rsn-1') && params.includes('rpr-1') && /r\.id = \$\d/.test(sql) && /p\.id = \$\d/.test(sql);
+        return { rows: [{ n: bound ? completedWithProposal : 0 }] };
+      }
       if (sql.includes('count(*)')) return { rows: [{ n: 0 }] };
       return { rows: [] };
     },
   });
+  const ids = { tenantId: 't', incidentId: 'i', reasoningRunId: 'rsn-1', proposalId: 'rpr-1' };
 
   it('refuses a SERV run that never completed with a stored proposal', async () => {
-    const facts = await gate.collectDatabaseFacts(pool(0), { tenantId: 't', incidentId: 'i' });
+    const facts = await gate.collectDatabaseFacts(pool(0), ids);
     expect(facts.reasoning).toEqual({ origin: 'SERV_REASONING_NOT_COMPLETED', real: false });
   });
 
-  it('accepts a completed SERV run with a stored proposal', async () => {
-    const facts = await gate.collectDatabaseFacts(pool(1), { tenantId: 't', incidentId: 'i' });
+  it('accepts the reported completed SERV run with its stored proposal', async () => {
+    const facts = await gate.collectDatabaseFacts(pool(1), ids);
     expect(facts.reasoning).toEqual({ origin: 'SERV_REASONING', real: true });
+  });
+
+  it('binds the completed-run check to the reported run and proposal ids', async () => {
+    for (const over of [{ reasoningRunId: 'rsn-other' }, { proposalId: 'rpr-other' }, { reasoningRunId: undefined }]) {
+      const facts = await gate.collectDatabaseFacts(pool(1), { ...ids, ...over });
+      expect(facts.reasoning.real).toBe(false);
+    }
   });
 });
