@@ -257,6 +257,13 @@ async function lockLineages(c: Tx, keys: string[]): Promise<void> {
   for (const k of [...new Set(keys)].sort()) await lockKey(c, k);
 }
 
+/**
+ * Per-consent advisory lock: serializes consent withdrawal with ingestion and re-derivation of documents carrying that
+ * consent reference. Ingestion takes it after the lineage lock; consent withdrawal takes only consent locks (in key
+ * order) after its caller's own locks (M07 lockConsent), so the order is M07 consent lock -> lineage -> consent ref.
+ */
+const consentKey = (tenantId: string, consentRef: string) => `evidence-consent:${tenantId}:${consentRef}`;
+
 /** Withdraw every derivation of a lineage not yet withdrawn (append-only events). Returns the ids withdrawn now. */
 async function withdrawLineageTx(
   c: Tx,
@@ -292,8 +299,10 @@ export async function storeDocumentTx(
   const sha256 = sha256DigestOf(input.bytes);
   const objectKey = objectKeyFor(ctx.tenantId, 'evidence', sha256);
   const applicabilityDigest = applicabilityDigestOf(input);
-  // Serialize with withdrawal and replacement of any derivation of these bytes (re-entrant if the caller holds it).
+  // Serialize with withdrawal and replacement of any derivation of these bytes (re-entrant if the caller holds it), and
+  // with withdrawal of the document's consent.
   await lockLineages(c, [lineageKey(ctx.tenantId, sha256, input.role, applicabilityDigest)]);
+  if (input.consentRef !== null) await lockKey(c, consentKey(ctx.tenantId, input.consentRef));
   await store.put(objectKey, input.bytes);
   await c.query(
     `INSERT INTO evidence_blobs (tenant_id, id, object_key, sha256, media_type, size_bytes, trust_level)
@@ -424,6 +433,14 @@ export async function storeDocumentTx(
     rederivedFrom = latest.id;
   }
 
+  // Under the consent lock: a withdrawn consent never gets a new active document (fresh ingest or re-derivation).
+  if (input.consentRef !== null) {
+    const gone = await c.query(
+      `SELECT 1 FROM evidence_consent_withdrawals WHERE tenant_id = $1 AND consent_ref = $2`,
+      [ctx.tenantId, input.consentRef],
+    );
+    if (gone.rows.length > 0) throw rejected('CONSENT_WITHDRAWN', 'The consent for this communication was withdrawn.');
+  }
   const documentId = newEvidenceId('document') as DocumentId;
   const actor = actorOf(ctx);
   const ins = await c.query(
@@ -562,18 +579,21 @@ async function ingestParsedTx(
       serial: input.applicability.serial ?? null,
       assetId,
     };
+    const ownLineage = lineageKey(
+      ctx.tenantId,
+      sha256DigestOf(input.bytes),
+      input.role,
+      applicabilityDigestOf({ applicability, documentRevision: input.documentRevision, sourceKind: input.sourceKind }),
+    );
+    const replacedLineage = supersedes
+      ? lineageKey(ctx.tenantId, supersedes.sha256, supersedes.role, supersedes.applicability_digest)
+      : null;
+    // Decision (PR #20): a replacement must name another document. Naming a derivation of these same bytes is not a
+    // replacement (a re-ingest without supersedesDocumentId is the re-derivation), so it is refused.
+    if (replacedLineage === ownLineage)
+      throw rejected('SUPERSEDED_DOCUMENT_SAME_LINEAGE', 'A document cannot replace a derivation of its own bytes.');
     // Both lineages (these bytes, and the replaced document's) are locked up front, in key order.
-    await lockLineages(c, [
-      lineageKey(
-        ctx.tenantId,
-        sha256DigestOf(input.bytes),
-        input.role,
-        applicabilityDigestOf({ applicability, documentRevision: input.documentRevision, sourceKind: input.sourceKind }),
-      ),
-      ...(supersedes
-        ? [lineageKey(ctx.tenantId, supersedes.sha256, supersedes.role, supersedes.applicability_digest)]
-        : []),
-    ]);
+    await lockLineages(c, [ownLineage, ...(replacedLineage ? [replacedLineage] : [])]);
     const result = await storeDocumentTx(
       c,
       ctx,
@@ -595,8 +615,21 @@ async function ingestParsedTx(
       },
       parsed,
     );
-    // A replacement withdraws every derivation of the replaced bytes, not only the row named.
-    if (supersedes && !result.existing)
+    if (supersedes && result.existing) {
+      // These bytes were already recorded. Success means the requested replacement is the recorded one (an idempotent
+      // retry); a stored row cannot gain a link later, so any other request is refused rather than reported done.
+      const link = await c.query<{ supersedes_document_id: string | null }>(
+        `SELECT supersedes_document_id FROM evidence_documents WHERE tenant_id = $1 AND id = $2`,
+        [ctx.tenantId, result.documentId],
+      );
+      if (link.rows[0]?.supersedes_document_id !== supersedes.id)
+        throw rejected(
+          'REPLACEMENT_BYTES_ALREADY_RECORDED',
+          'These bytes are already recorded without this replacement; withdraw the old document explicitly.',
+        );
+    }
+    // A replacement withdraws every derivation of the replaced bytes, not only the row named (idempotent on retry).
+    if (supersedes)
       await withdrawLineageTx(
         c,
         ctx,
@@ -660,6 +693,17 @@ export async function withdrawConsentedCommunicationsInTx(
 ): Promise<number> {
   if (!/^[A-Z][A-Z0-9_]{0,63}$/.test(input.reasonCode)) throw rejected('INVALID_REASON_CODE');
   if (consentRefs.length === 0) return 0;
+  const refs = [...new Set(consentRefs)].sort();
+  // Serialize with ingestion and re-derivation under these consents (they take the same locks), then record the
+  // withdrawal so no later ingest can activate a document under it, then withdraw what exists. The document statement
+  // runs after the locks are granted, so it sees every derivation committed before them.
+  for (const ref of refs) await lockKey(c, consentKey(tenantId, ref));
+  await c.query(
+    `INSERT INTO evidence_consent_withdrawals (tenant_id, id, consent_ref, reason_code, actor_kind, actor_id)
+     SELECT $1, 'dcw_' || gen_random_uuid(), ref, $3, 'WORKER', $4 FROM unnest($2::text[]) AS ref
+     ON CONFLICT (tenant_id, consent_ref) DO NOTHING`,
+    [tenantId, refs, input.reasonCode, input.systemActorId.slice(0, 128)],
+  );
   const r = await c.query(
     `INSERT INTO evidence_document_events (tenant_id, id, document_id, event_type, reason_code, actor_kind, actor_id)
      SELECT d.tenant_id, 'dve_' || gen_random_uuid(), d.id, 'WITHDRAWN', $3, 'WORKER', $4
@@ -667,7 +711,7 @@ export async function withdrawConsentedCommunicationsInTx(
       WHERE d.tenant_id = $1 AND d.source_kind = 'COMMUNICATION' AND d.consent_ref = ANY($2::text[])
         AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
      ON CONFLICT (tenant_id, document_id) DO NOTHING`,
-    [tenantId, [...consentRefs], input.reasonCode, input.systemActorId.slice(0, 128)],
+    [tenantId, refs, input.reasonCode, input.systemActorId.slice(0, 128)],
   );
   return r.rowCount ?? 0;
 }

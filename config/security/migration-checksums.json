@@ -28,6 +28,7 @@
     "0023_m13_adjustment_separation.sql": "24f3bc408ada5d4f69eb1f10b0a619eaf559449a6f7bd3590e09cb8b7e13621a",
     "0024_m05_parser_rederivation.sql": "5436aec8efd5d96818e3b31ff704698114716920fe89910965811bc73095e6f0",
     "0025_m05_rederivation_lineage.sql": "249b2b2a42665b55e294adf2c9b8b0b162fc5bcb797bb2ad5d17db6d02f1fb12",
-    "0026_m05_withheld_unreadable_part.sql": "be4dfe58a2c96148e11f4b73148cd56b4844892531b5672ae6372751212957c3"
+    "0026_m05_withheld_unreadable_part.sql": "be4dfe58a2c96148e11f4b73148cd56b4844892531b5672ae6372751212957c3",
+    "0027_m05_consent_withdrawals.sql": "ae7170f07cf881752b48593c6ba4d7909a6418c154fd4be09c51c41a7e369e6e"
   }
 }

@@ -62,6 +62,7 @@ const M05_REDERIVATION_MIGRATIONS = [
   '0024_m05_parser_rederivation.sql',
   '0025_m05_rederivation_lineage.sql',
   '0026_m05_withheld_unreadable_part.sql',
+  '0027_m05_consent_withdrawals.sql',
 ];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.

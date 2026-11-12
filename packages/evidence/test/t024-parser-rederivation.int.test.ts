@@ -422,6 +422,11 @@ describe('T-024 parser re-derivation: consent and replacement transitions (secon
     const r = await rejection(ingestAs(x, x.librarian, transcript(consentRef, 'late')));
     expect(r.reasonCode).toBe('CONSENT_WITHDRAWN');
     expect(await activeWithConsent(consentRef)).toEqual([]);
+    // The withdrawal record itself is append-only.
+    await expect(x.db.admin(`UPDATE evidence_consent_withdrawals SET reason_code = reason_code`)).rejects.toThrow(
+      /append-only/,
+    );
+    await expect(x.db.admin(`DELETE FROM evidence_consent_withdrawals`)).rejects.toThrow(/append-only/);
   });
 
   const manualOf = (label: string): IngestDocumentInput => {
