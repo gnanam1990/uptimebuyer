@@ -1,6 +1,7 @@
 # ADR 0002: SERV Reasoning adapter and bounded reasoning boundary
 
-Status: accepted (M05, 2026-11-05). Real SERV execution: `NOT_RUN`.
+Status: accepted (M05, 2026-11-05). Real SERV execution: one recorded run (2026-11-12, see "Live run record" below); a
+real run with a validated cited proposal: `NOT_RUN`.
 
 ## Context
 
@@ -71,7 +72,7 @@ the `x-openserv-key` header, and its documentation does not mention SERV Reasoni
 5. **Contract fake.** `ContractFakeReasoner` returns scripted turns. It labels the result origin and the ledger trust
    `CONTRACT_FAKE`, so a fake result is never presented as a SERV run.
 
-## Uncertainty (recorded, not assumed)
+## Uncertainty (recorded, not assumed; written before the live run, see "Live run record")
 
 - **Live access.** The adapter has never called the live service. Whether a key issued at `console.openserv.ai`
   works against this exact body is unverified.
@@ -93,3 +94,25 @@ The adapter's contract tests (`packages/evidence/test/t023-serv-adapter.test.ts`
 the request and response mapping only. Every reasoning result in this repository comes from the contract fake, and
 `openServ` external evidence remains `NOT_RUN`. To run live, set `SERV_API_KEY` and `SERV_REASONING_MODEL` in the SERV
 workload only, then run `runReasoning` with `ServReasoningAdapter.fromEnv()`.
+
+## Live run record (2026-11-12, T-058 journey `j-2026-11-12-serv-document`)
+
+One user-authorized run (model `serv-mini`, hard cap $1.00; the run budget was $0.25 and 120k tokens) went through
+`runReasoning` with `ServReasoningAdapter.fromEnv()` over the published Dixell XR60CX manual. The records are in
+`evidence/journeys/j-2026-11-12-serv-document/`. What the run settled:
+
+- **Live access works.** The key and this request body reach `POST /v1/chat/completions`.
+- **Model field.** SERV echoes the requested id (`serv-mini`), not the upstream model, and sends no `system_fingerprint`.
+  A refusal message showed the upstream model is `gpt-5.4-mini`.
+- **`reasoning_effort` with tools.** `serv-mini` refuses function tools combined with `reasoning_effort` other than
+  `none` (400 before any generation). The run therefore leaves `SERV_REASONING_EFFORT` unset.
+- **Strict schemas are enforced.** `response_format` with `oneOf` is refused (400 before any generation). The wire
+  schema now uses `anyOf` (commit ca59099); the discriminated branches make the two equivalent, and
+  `ReasoningProposalSchema` still validates the output.
+- **Usage.** SERV reports `prompt_tokens`, `completion_tokens` and cached prompt tokens. Reported usage:
+  18,384 prompt + 1,510 completion tokens, computed cost $0.027444 at catalog prices (9,088 prompt tokens were reported cached;
+  the catalog lists no cached price for `serv-mini`, so the recorded figure prices every prompt token at the full rate).
+- **Outcome.** The model called `get_asset_snapshot`, then `submit_candidate_schema`. The product REJECTED the proposal:
+  `CITATION_OUT_OF_RANGE` (for example a manual-page citation re-labelled with a `RECORD` locator for the asset serial) and
+  `CITATION_QUOTE_MISMATCH` (a quote not found in the cited span). The guardrail worked as designed, but a real run with
+  a validated cited proposal remains `NOT_RUN`.

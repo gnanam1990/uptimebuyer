@@ -123,6 +123,29 @@ export function parseResults(root, reports) {
 
 const worst = (statuses) => statuses.reduce((a, b) => (SEVERITY[b] > SEVERITY[a] ? b : a), 'PASS');
 
+/**
+ * Recorded T-058 journey gate results (docs/release/evidence/t058-journey-<journeyId>.gate.json), each evaluated at
+ * its own source commit. They show which journey parts ran for real; they never change T-058's status, which stays
+ * the worse of its local result and NOT_RUN until one source-bound journey passes every part.
+ */
+export function journeyRecords(root = repo) {
+  const dir = path.join(root, 'docs', 'release', 'evidence');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /^t058-journey-[a-z0-9][a-z0-9-]{0,63}\.gate\.json$/.test(f))
+    .sort()
+    .map((f) => {
+      const r = JSON.parse(readFileSync(path.join(dir, f), 'utf8'));
+      return {
+        journeyId: r.journeyId,
+        sourceSha: r.sourceSha,
+        gateRecord: `docs/release/evidence/${f}`,
+        result: r.result,
+        parts: Object.fromEntries((r.parts ?? []).map((p) => [p.part, p.status])),
+      };
+    });
+}
+
 export function buildCoverage({ root = repo, results = [], commit }) {
   const registry = JSON.parse(readFileSync(path.join(root, 'docs', 'spec', 'requirements.json'), 'utf8'));
   const outcomes = parseResults(root, results);
@@ -165,6 +188,8 @@ export function buildCoverage({ root = repo, results = [], commit }) {
     };
   };
   const testEntries = registry.tests.map(testEntry);
+  const t058 = testEntries.find((e) => e.id === 'T-058');
+  if (t058) t058.journeyRecords = journeyRecords(root);
   const byTest = new Map(testEntries.map((e) => [e.id, e]));
   const idRe = (id) => new RegExp(`\\b${id}\\b`);
   const defEntry = (kind) => (d) => {
@@ -234,6 +259,30 @@ export function renderMarkdown(report) {
     lines.push(
       `| ${e.id} | ${e.kind} | ${esc(e.title)} | ${owner} | ${e.status} | ${e.localStatus} | ${e.externalEvidence} | ${esc(testsCol)} | ${e.codeRefs.length} files |`,
     );
+  }
+  const records = report.entries.find((e) => e.id === 'T-058')?.journeyRecords ?? [];
+  if (records.length) {
+    lines.push(
+      '',
+      '## T-058 recorded journey parts',
+      '',
+      "Journey gate results recorded at each journey's own source commit (`scripts/release/journey-gate.mjs`). A part reads PASS only with genuine, artifact-backed, source-bound evidence; T-058 itself stays NOT_RUN until one journey passes every part. A part that ran without producing accepted evidence (for example a SERV run whose proposal the product rejected) is not offered to the gate and reads NOT_RUN here; its outcome is in the journey directory under evidence/journeys/.",
+      '',
+      '| Journey | Source commit | Result | PASS parts | NOT_RUN parts | Other | Gate record |',
+      '|---|---|---|---|---|---|---|',
+    );
+    for (const r of records) {
+      const by = (pred) =>
+        Object.entries(r.parts)
+          .filter(([, st]) => pred(st))
+          .map(([p]) => p);
+      const other = Object.entries(r.parts)
+        .filter(([, st]) => st !== 'PASS' && st !== 'NOT_RUN')
+        .map(([p, st]) => `${p} ${st}`);
+      lines.push(
+        `| ${r.journeyId} | \`${String(r.sourceSha).slice(0, 7)}\` | ${r.result} | ${by((st) => st === 'PASS').join(', ') || '-'} | ${by((st) => st === 'NOT_RUN').join(', ') || '-'} | ${other.join(', ') || '-'} | ${r.gateRecord} |`,
+      );
+    }
   }
   return `${lines.join('\n')}\n`;
 }

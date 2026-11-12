@@ -1,0 +1,45 @@
+{
+  "schema": "real-input-journey.v1",
+  "journeyId": "j-2026-11-12-serv-document",
+  "sourceSha": "ca590994435ba466545e6e2ca46ab0c57737ddb3",
+  "startedAt": "2026-11-12T05:40:32.785Z",
+  "endedAt": "2026-11-12T05:40:45.545Z",
+  "parts": {
+    "document": {
+      "origin": "PUBLISHED_DOCUMENT",
+      "journeyId": "j-2026-11-12-serv-document",
+      "capturedAt": "2026-11-12T05:40:33.612Z",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-12-serv-document/XR60CX-GB.pdf",
+          "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-12-serv-document/document.json",
+          "sha256": "3aad9ba4f3a31a261f483549de5854599d15aa8e10886a61b6662076a3fcbe33"
+        }
+      ],
+      "facts": {
+        "documentId": "doc_94033d14-cc65-4df8-b82a-199c65110ecc",
+        "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+        "sourceUrl": "https://webapps.copeland.com/Dixell/Content/Pages/Manuals/XR-CX/XR60CX/XR60CX-GB.pdf",
+        "pageCount": 5,
+        "extractedSpanCount": 14
+      }
+    }
+  },
+  "notRecorded": [
+    "sensor",
+    "payment",
+    "fulfillment",
+    "recovery",
+    "duplicate",
+    "timeout"
+  ],
+  "context": {
+    "incidentTrigger": "SIMULATED_INPUT (labelled SIMULATOR device in a throwaway database; the sensor part is NOT_RUN)",
+    "tenant": "synthetic tenant in a throwaway database, dropped after the gate ran",
+    "runner": "packages/evidence/test/support/journey-document-reasoning.ts",
+    "reasoningOutcome": "not recorded: SERV_REASONING REJECTED CITATION_OUT_OF_RANGE,CITATION_QUOTE_MISMATCH"
+  }
+}

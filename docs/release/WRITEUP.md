@@ -17,8 +17,10 @@ an authoritative sign-off), never on a provider's say-so.
 SERV Reasoning (OpenServ) is the evidence and proposal layer: it extracts cited facts from the exact document revision
 and proposes recovery candidates. Its output is advisory. Compatibility, safety, authority, budget and closure
 decisions are deterministic code over recorded evidence, and every citation is re-checked against the stored document.
-In this repository every reasoning run uses a contract-fake adapter with synthetic documents; a real OpenServ run is
-NOT_RUN <!-- C-021 -->.
+Local tests use a contract-fake adapter with synthetic documents.
+A real SERV Reasoning run with a validated cited proposal is NOT_RUN <!-- C-021 -->.
+Journey j-2026-11-12-serv-document ingested the published Dixell XR60CX manual (journey gate document part PASS) and made one serv-mini call.
+SERV answered; the product REJECTED the proposal (two citations did not match their spans), so that part is not counted (NOT_RUN).
 
 ## Track
 
@@ -40,13 +42,15 @@ given; every payment in the demo is RECORDED_CONTRACT.
 - A worker that schedules every runner with per-runner locks and graceful shutdown <!-- C-010 -->.
 - A clean clone built, migrated, started and smoke-tested in a local compose stack, with backup, restore and image
   rollback exercised locally <!-- C-011 C-012 -->.
+- The published Dixell XR60CX manual ingested through the product with exact provenance (journey gate document part PASS;
+  the journey overall is NOT_RUN) <!-- C-021 -->.
 - Release gates for every external action, all REFUSED; a real-input journey gate that refuses simulated evidence; a
   claim check over these drafts <!-- C-013 C-014 -->.
 
 ## Limits (NOT_RUN)
 
 - Real authenticated physical sensor: NOT_RUN <!-- C-020 -->.
-- Real SERV Reasoning run on a real document: NOT_RUN <!-- C-021 -->.
+- Real SERV Reasoning run with a validated cited proposal on a real document: NOT_RUN; the one recorded serv-mini run was REJECTED <!-- C-021 -->.
 - Real bounded Kite-paid action with downstream fulfillment: NOT_RUN <!-- C-022 -->.
 - Independent physical recovery evidence: NOT_RUN <!-- C-023 -->.
 - Hosted deployment: NOT_RUN <!-- C-024 -->.

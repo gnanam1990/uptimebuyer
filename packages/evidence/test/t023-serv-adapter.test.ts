@@ -4,6 +4,7 @@
 // an injected fetch: they prove request/response mapping against the documented contract, not a real SERV run.
 import { describe, expect, it, vi } from 'vitest';
 import {
+  PROPOSAL_JSON_SCHEMA,
   REASONING_TOOLS,
   SERV_CHAT_COMPLETIONS_URL,
   ServReasoningAdapter,
@@ -148,5 +149,46 @@ describe('T-023 SERV reasoning adapter capability and egress boundary', () => {
     await expect(slow.complete({ ...request(), timeoutMs: 50 })).rejects.toMatchObject({
       details: { reasonCode: 'MODEL_TIMEOUT' },
     });
+  });
+});
+
+describe('T-023 the response_format schema stays inside the strict structured-output subset', () => {
+  // Found by the T-058 journey run: SERV (serv-mini, upstream gpt-5.4-mini) refused the request with 400
+  // invalid_request_error "'oneOf' is not permitted" at properties.extractedFields.items.properties.citations.items
+  // .properties.locator. Strict mode accepts anyOf (not oneOf/allOf/not/if/then/else), requires
+  // additionalProperties: false and every property required on every object, and a non-anyOf object root.
+  const FORBIDDEN = new Set(['oneOf', 'allOf', 'not', 'if', 'then', 'else', 'dependentRequired', 'dependentSchemas']);
+  const visit = (node: unknown, at: string, out: string[]) => {
+    if (Array.isArray(node)) node.forEach((n, i) => visit(n, `${at}[${i}]`, out));
+    else if (node && typeof node === 'object') {
+      const o = node as Record<string, unknown>;
+      for (const k of Object.keys(o)) if (FORBIDDEN.has(k)) out.push(`${at}.${k}`);
+      if (o.type === 'object') {
+        if (o.additionalProperties !== false) out.push(`${at}: additionalProperties`);
+        const props = Object.keys((o.properties as Record<string, unknown>) ?? {}).sort();
+        if (JSON.stringify([...((o.required as string[]) ?? [])].sort()) !== JSON.stringify(props))
+          out.push(`${at}: required`);
+      }
+      for (const [k, v] of Object.entries(o)) if (k !== 'properties') visit(v, `${at}.${k}`, out);
+      for (const [k, v] of Object.entries((o.properties as Record<string, unknown>) ?? {}))
+        visit(v, `${at}.properties.${k}`, out);
+    }
+  };
+
+  it('uses no oneOf (or other unsupported composition) and keeps every object closed and fully required', () => {
+    const problems: string[] = [];
+    visit(PROPOSAL_JSON_SCHEMA, '$', problems);
+    expect(problems).toEqual([]);
+    expect(PROPOSAL_JSON_SCHEMA).toMatchObject({ type: 'object', additionalProperties: false });
+    expect(PROPOSAL_JSON_SCHEMA).not.toHaveProperty('anyOf');
+  });
+
+  it('the locator union is an anyOf whose branches are mutually exclusive by their kind constant', () => {
+    type Node = { properties: Record<string, Node>; items: Node; oneOf?: unknown; anyOf?: unknown };
+    const root = PROPOSAL_JSON_SCHEMA as unknown as Node;
+    const locator = root.properties.extractedFields!.items.properties.citations!.items.properties.locator!;
+    expect(locator.oneOf).toBeUndefined();
+    const kinds = (locator.anyOf as { properties: { kind: { const: string } } }[]).map((b) => b.properties.kind.const);
+    expect(kinds).toEqual(['PAGE', 'SECTION', 'RECORD', 'TIME_RANGE']);
   });
 });

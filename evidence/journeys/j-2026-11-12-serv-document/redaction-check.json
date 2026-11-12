@@ -1,0 +1,62 @@
+{
+  "schema": "journey-redaction-check.v1",
+  "checkedAt": "2026-11-12T05:40:45.543Z",
+  "rules": [
+    "SECRET_VALUE",
+    "AUTHORIZATION_HEADER",
+    "BEARER_TOKEN",
+    "CREDENTIALED_URL",
+    "ENV_DUMP",
+    "SECRET_PATTERN:aws-access-key",
+    "SECRET_PATTERN:github-token",
+    "SECRET_PATTERN:private-key",
+    "SECRET_PATTERN:slack-token",
+    "SECRET_PATTERN:stripe-live-key",
+    "SECRET_PATTERN:anthropic-key",
+    "SECRET_PATTERN:openai-key",
+    "SECRET_PATTERN:generic-assigned-secret"
+  ],
+  "secretValuesChecked": [
+    "SERV_API_KEY"
+  ],
+  "files": [
+    {
+      "path": "evidence/journeys/j-2026-11-12-serv-document/XR60CX-GB.pdf",
+      "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "bytes": 1022749,
+      "binary": true
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-12-serv-document/document.json",
+      "sha256": "3aad9ba4f3a31a261f483549de5854599d15aa8e10886a61b6662076a3fcbe33",
+      "bytes": 1408,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-12-serv-document/reasoning.json",
+      "sha256": "dd46e11e76c2bdb32d068ef67ffc1d6e6b2770f4d12b9f5586bfb0a89ae3215a",
+      "bytes": 10402,
+      "binary": false
+    }
+  ],
+  "findings": [],
+  "result": "PASS",
+  "productStore": {
+    "result": "PASS",
+    "files": [
+      {
+        "path": "store:reasoning-input",
+        "sha256": "2c1a23e7970b0f3c4fe4a449ebb86cf225352ebfa9f8449aa55586478bab0939",
+        "bytes": 20076,
+        "binary": false
+      },
+      {
+        "path": "store:reasoning-output",
+        "sha256": "4abbb3f5858bb6aa0adbe7d19d18bc4a30421db4e78d66c2bcb6724351ab3590",
+        "bytes": 5772,
+        "binary": false
+      }
+    ],
+    "findings": []
+  }
+}

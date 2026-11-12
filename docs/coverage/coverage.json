@@ -1,9 +1,9 @@
 {
   "schema": "coverage-report.v1",
   "generatedFrom": {
-    "commit": "3c72390",
+    "commit": "cc9d867",
     "resultFiles": 3,
-    "testFilesWithResults": 182
+    "testFilesWithResults": 184
   },
   "statusVocabulary": [
     "PASS",
@@ -719,7 +719,9 @@
       "testRefs": [
         "apps/kite-broker/test/t058-journey-gate-db.int.test.ts",
         "apps/sensor-gateway/test/t016-edge-reconnect-backfill.int.test.ts",
-        "tests/m14/t058-journey-gate.test.ts"
+        "tests/m14/t058-journey-evidence.test.ts",
+        "tests/m14/t058-journey-gate.test.ts",
+        "tests/m14/t058-journey-serv-document.test.ts"
       ],
       "governingTests": [
         "T-013",
@@ -1899,8 +1901,8 @@
         "apps/web/e2e/t049-keyboard-critical-path.spec.ts",
         "apps/web/e2e/t051-honest-states.spec.ts",
         "apps/web/test/t051-axis-honesty.test.ts",
-        "tests/m14/t058-journey-gate.test.ts",
-        "tests/m14/t059-claim-check.test.ts"
+        "tests/m14/t058-journey-evidence.test.ts",
+        "tests/m14/t058-journey-gate.test.ts"
       ],
       "governingTests": [
         "T-029",
@@ -2559,7 +2561,7 @@
       ],
       "codeRefs": [],
       "results": {
-        "passed": 31,
+        "passed": 33,
         "failed": 0
       }
     },
@@ -3217,13 +3219,33 @@
       "externalEvidence": "NOT_RUN",
       "testRefs": [
         "apps/kite-broker/test/t058-journey-gate-db.int.test.ts",
-        "tests/m14/t058-journey-gate.test.ts"
+        "tests/m14/t058-journey-evidence.test.ts",
+        "tests/m14/t058-journey-gate.test.ts",
+        "tests/m14/t058-journey-serv-document.test.ts"
       ],
       "codeRefs": [],
       "results": {
-        "passed": 25,
+        "passed": 40,
         "failed": 0
-      }
+      },
+      "journeyRecords": [
+        {
+          "journeyId": "j-2026-11-12-serv-document",
+          "sourceSha": "ca590994435ba466545e6e2ca46ab0c57737ddb3",
+          "gateRecord": "docs/release/evidence/t058-journey-j-2026-11-12-serv-document.gate.json",
+          "result": "NOT_RUN",
+          "parts": {
+            "sensor": "NOT_RUN",
+            "document": "PASS",
+            "reasoning": "NOT_RUN",
+            "payment": "NOT_RUN",
+            "fulfillment": "NOT_RUN",
+            "recovery": "NOT_RUN",
+            "duplicate": "NOT_RUN",
+            "timeout": "NOT_RUN"
+          }
+        }
+      ]
     },
     {
       "id": "T-059",
@@ -3239,7 +3261,7 @@
       ],
       "codeRefs": [],
       "results": {
-        "passed": 12,
+        "passed": 13,
         "failed": 0
       }
     },
