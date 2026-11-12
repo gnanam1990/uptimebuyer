@@ -33,6 +33,7 @@ describe('T-059 coverage layers', () => {
         vitestReport({
           'tests/m14/t058-journey-gate.test.ts': 'passed',
           'tests/m14/t058-journey-evidence.test.ts': 'passed',
+          'tests/m14/t058-journey-serv-document.test.ts': 'passed',
           [`${BROKER_TESTS}/t058-journey-gate-db.int.test.ts`]: 'passed',
         }),
       ],
@@ -41,6 +42,23 @@ describe('T-059 coverage layers', () => {
     expect(t.localStatus).toBe('PASS');
     expect(t.status).toBe('NOT_RUN');
     expect(t.externalEvidence).toBe('NOT_RUN');
+  });
+
+  it('recorded journey parts are reported on T-058 without changing its NOT_RUN status', () => {
+    const r = gen.buildCoverage({ root: repoRoot, commit: 'abcdef0', results: [] });
+    const t = entry(r, 'T-058') as unknown as {
+      status: string;
+      externalEvidence: string;
+      journeyRecords: { journeyId: string; result: string; parts: Record<string, string> }[];
+    };
+    const rec = t.journeyRecords.find((j) => j.journeyId === 'j-2026-11-12-serv-document');
+    expect(rec?.parts.document).toBe('PASS');
+    expect(rec?.result).toBe('NOT_RUN');
+    for (const p of ['sensor', 'payment', 'fulfillment', 'recovery', 'duplicate', 'timeout'])
+      expect(rec?.parts[p], p).toBe('NOT_RUN');
+    expect(['NOT_RUN', 'UNKNOWN']).toContain(t.status);
+    expect(t.externalEvidence).toBe('NOT_RUN');
+    expect(gen.renderMarkdown(r)).toMatch(/## T-058 recorded journey parts/);
   });
 
   it('a failing local test still surfaces as FAIL', () => {

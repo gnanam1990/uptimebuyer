@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "journey-note",
+  "project": "UptimeBuyer",
+  "ids": ["T-058", "FR-22", "INV-12", "T-023", "NFR-11"],
+  "journeyId": "j-2026-11-12-serv-document",
+  "branch": "feat/journey-serv-document",
+  "startingCommit": "64c9641",
+  "runnerCommit": "ca590994435ba466545e6e2ca46ab0c57737ddb3",
+  "localCommits": [
+    "32d3cfa feat(m14): document + reasoning journey runner for the real-input journey",
+    "ca59099 fix(m05): send oneOf-free proposal schema to SERV strict structured outputs",
+    "test(m03): anchor the T-013 channel-revision gap on the database clock (after the run; the local database clock ran 35-50 ms behind the host and made T-013 fail without any change in this branch)",
+    "docs(m14): record the document + reasoning journey (this note, the evidence and the docs)"
+  ],
+  "userAuthorization": "One real SERV Reasoning run on serv-mini with a hard cost cap of $1.00 (user-approved). Nothing else: no Kite or kpass command, no payment, no other paid API, no push, PR, merge or deployment.",
+  "result": {
+    "document": "PASS at the journey gate (published Dixell XR60CX manual, SHA-256 5b6f5829...095f, 5 pages, 14 extracted spans, ingested through ingestDocument as OEM_PUBLICATION and committed into the incident evidence revision).",
+    "reasoning": "FAIL (not offered to the gate, which therefore reports NOT_RUN for it). One real serv-mini run reached SERV and returned a proposal (2 turns: get_asset_snapshot, then submit_candidate_schema); the product REJECTED it with CITATION_OUT_OF_RANGE and CITATION_QUOTE_MISMATCH, so no proposal was recorded. Not retried.",
+    "sensor": "NOT_RUN. The incident was opened by a labelled SIMULATOR device (trigger origin SIMULATED_INPUT) in a throwaway database.",
+    "payment, fulfillment, recovery, duplicate, timeout": "NOT_RUN",
+    "journeyOverall": "NOT_RUN",
+    "T-058": "NOT_RUN (coverage status unchanged; docs/coverage now lists the recorded journey parts)"
+  },
+  "servRun": {
+    "reasoningRunId": "rsn_409a231a-e9bf-48e3-a279-c84d68cf5dce",
+    "modelRequested": "serv-mini",
+    "modelEchoed": "serv-mini",
+    "upstreamModelNamedBySERV": "gpt-5.4-mini (from a 400 error message, not from the response)",
+    "responseIds": ["chatcmpl-EjHpyeef4JZsAIMOpV7k0eI94daMz", "chatcmpl-EjHq1PkoixNRKuVTctIGn1HL6uUFI"],
+    "usage": { "promptTokens": 18384, "completionTokens": 1510, "cachedPromptTokensReported": 9088 },
+    "computedCostUsd": "0.027444 (catalog $1.00 / $6.00 per million; every prompt token priced at the full rate)",
+    "budget": "maxCostMicros 250000 ($0.25), maxRunTokens 120000; authorized cap $1.00",
+    "status": "REJECTED",
+    "rejectionReasons": ["CITATION_OUT_OF_RANGE", "CITATION_QUOTE_MISMATCH"]
+  },
+  "refusedRequests": "Two earlier runner executions were refused by SERV with 400 invalid_request_error before any generation (no response id, no usage). 1: reasoning_effort=low with function tools is not supported for the upstream model (fixed by leaving SERV_REASONING_EFFORT unset). 2: response_format schema used oneOf, which strict structured outputs refuse (fixed in ca59099). Recorded in evidence/journeys/j-2026-11-12-serv-document/refused-requests.json. The authorization counts a 4xx schema refusal before generation as nothing sent.",
+  "evidence": [
+    "evidence/journeys/j-2026-11-12-serv-document/manifest.journey.json",
+    "evidence/journeys/j-2026-11-12-serv-document/XR60CX-GB.pdf",
+    "evidence/journeys/j-2026-11-12-serv-document/document.json",
+    "evidence/journeys/j-2026-11-12-serv-document/reasoning.json",
+    "evidence/journeys/j-2026-11-12-serv-document/redaction-check.json",
+    "evidence/journeys/j-2026-11-12-serv-document/refused-requests.json",
+    "docs/release/evidence/t058-journey-j-2026-11-12-serv-document.gate.json",
+    "docs/release/evidence/t058-journey-j-2026-11-12-serv-document.gate-database.json",
+    "tests/m14/t058-journey-serv-document.test.ts"
+  ],
+  "decisions": [
+    "Evidence lives in evidence/journeys/<journeyId>/ (repository root), not docs/release/evidence/journeys/: scripts/release/journey-gate.mjs binds every artifact to <repo>/evidence/journeys/<journeyId>/ and refuses anything else.",
+    "The manifest is inside the journey directory (manifest.journey.json), not at evidence/journeys/*.journey.json: the gate CLI auto-discovers top-level manifests as the release journey, and this partial journey is bound to ca59099, so `pnpm release:journey` keeps reporting the release journey (none: every part NOT_RUN). docs/release/evidence/t058-journey-gate.json (all NOT_RUN) is unchanged and still describes that default.",
+    "sourceSha is the runner commit ca59099: the runner refuses a dirty tree and the gate binds sourceSha to HEAD, so the run was made at ca59099 and evaluated (file-only and --database against the throwaway database, via JOURNEY_DATABASE_URL) before the evidence was committed. At any later HEAD the same manifest FAILS with SOURCE_SHA_MISMATCH; the gate was not changed and has no expected-SHA flag. tests/m14/t058-journey-serv-document.test.ts re-evaluates the committed manifest at its sourceSha on every verify.",
+    "A run whose proposal the product rejects is not offered to the gate as a reasoning part. The gate checks origin, artifacts, window and facts.runId only, so it would have read PASS for a rejected run.",
+    "The run budget was set to $0.25 (not $1.00) so that even one further worst-case turn after the budget check stays under the authorized cap.",
+    "The manual was re-fetched from the publisher URL because the copy named in the brief was missing from the scratchpad; its SHA-256 and size matched the brief before use."
+  ],
+  "reEvaluate": [
+    "git worktree add --detach \"$HOME/ub-j058-check\" ca590994435ba466545e6e2ca46ab0c57737ddb3",
+    "mkdir -p \"$HOME/ub-j058-check/evidence/journeys\"",
+    "cp -R evidence/journeys/j-2026-11-12-serv-document \"$HOME/ub-j058-check/evidence/journeys/\"",
+    "node \"$HOME/ub-j058-check/scripts/release/journey-gate.mjs\" --manifest \"$HOME/ub-j058-check/evidence/journeys/j-2026-11-12-serv-document/manifest.journey.json\" --json",
+    "git worktree remove --force \"$HOME/ub-j058-check\""
+  ],
+  "runCommand": "SERV_API_KEY=<from the SERV key file, environment only> SERV_REASONING_MODEL=serv-mini DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev node --experimental-transform-types --no-warnings --import ./packages/domain/test/support/ts-register.mjs packages/evidence/test/support/journey-document-reasoning.ts --journey-id j-2026-11-12-serv-document --manual <path to XR60CX-GB.pdf>",
+  "findings": [
+    "The journey gate PASSes a reasoning part for any SERV_REASONING origin with a runId, whatever the run's status; requiring facts.status COMPLETED (and a proposal digest) would close that. Not changed here.",
+    "The PDF parser's bounded subset extracts text in custom-encoded fonts as shifted glyph codes; parts of the XR60CX manual are unreadable to the model and to quote checks.",
+    "The model cited asset-snapshot data (the synthetic serial) with a manual citation id and an invented RECORD locator; the asset snapshot tool returns no citation, so such facts cannot be cited today.",
+    "The sourceSha ca59099 must stay reachable from main: merge with a merge commit, not squash or rebase."
+  ],
+  "secrets": "The SERV key was passed only through the runner's environment. It is absent from every artifact, the product's stored model input/output, the gate outputs and the git diff (checked against the key file inside a script, never printed); the gate child process received no SERV key.",
+  "notRun": [
+    "Real authenticated physical sensor",
+    "Real SERV Reasoning run returning a validated cited proposal",
+    "Kite-paid action, fulfillment, recovery evidence, duplicate and timeout parts",
+    "Physical proof of any kind"
+  ]
+}

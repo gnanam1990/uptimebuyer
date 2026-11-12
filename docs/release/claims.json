@@ -136,11 +136,15 @@
     },
     {
       "id": "C-021",
-      "text": "A real SERV Reasoning (OpenServ) run on a real document: NOT_RUN (no OpenServ account or key here; the reasoning adapter in every run is a contract fake).",
+      "text": "A real SERV Reasoning (OpenServ) run returning a validated cited proposal on a real document: NOT_RUN. Journey j-2026-11-12-serv-document ingested the published Dixell XR60CX manual (journey gate document part PASS at source commit ca59099) and made one real serv-mini run; the product REJECTED its proposal (CITATION_OUT_OF_RANGE, CITATION_QUOTE_MISMATCH), so the reasoning part is FAIL and not counted. Local tests still use a contract-fake adapter.",
       "status": "NOT_RUN",
       "layer": "REAL_WORLD",
       "coverageIds": ["T-058", "FR-22"],
-      "evidence": []
+      "evidence": [
+        "evidence/journeys/j-2026-11-12-serv-document/manifest.journey.json",
+        "evidence/journeys/j-2026-11-12-serv-document/reasoning.json",
+        "docs/release/evidence/t058-journey-j-2026-11-12-serv-document.gate.json"
+      ]
     },
     {
       "id": "C-022",

@@ -1,0 +1,167 @@
+{
+  "schema": "journey-reasoning-record.v1",
+  "journeyId": "j-2026-11-12-serv-document",
+  "origin": "SERV_REASONING",
+  "adapter": "SERV_REASONING",
+  "resultOrigin": "SERV_REASONING",
+  "endpoint": "https://inference-api.openserv.ai/v1/chat/completions",
+  "modelRequested": "serv-mini",
+  "reasoningEffort": null,
+  "modelEchoed": "serv-mini",
+  "modelVersion": null,
+  "reasoningRunId": "rsn_409a231a-e9bf-48e3-a279-c84d68cf5dce",
+  "status": "REJECTED",
+  "disposition": "REJECTED",
+  "capability": {
+    "kind": "ELIGIBLE"
+  },
+  "failureReason": null,
+  "rejectionReasons": [
+    "CITATION_OUT_OF_RANGE",
+    "CITATION_QUOTE_MISMATCH"
+  ],
+  "injectionFlags": [],
+  "turns": 2,
+  "toolCalls": 2,
+  "latencyMs": 11898,
+  "startedAt": "2026-11-12T05:40:33.626Z",
+  "completedAt": "2026-11-12T05:40:45.467Z",
+  "usage": {
+    "promptTokens": 18384,
+    "completionTokens": 1510
+  },
+  "pricing": {
+    "source": "SERV catalog GET /v1/models on 2026-11-12 (US cents per million tokens)",
+    "cents": {
+      "input": 100,
+      "output": 600
+    },
+    "promptMicrosPerMillion": "1000000",
+    "completionMicrosPerMillion": "6000000"
+  },
+  "costMicros": "27444",
+  "costUsd": "0.027444",
+  "budget": {
+    "maxCostMicros": "250000",
+    "maxCostUsd": "0.250000",
+    "maxRunTokens": 120000,
+    "authorizedCapUsd": "1.000000"
+  },
+  "digests": {
+    "inputDigest": "reasoning-input.v1:sha256:71f71fac15bed330020d08f9361709e538e931c622d405c6792209a010acc932",
+    "outputDigest": "sha256:4abbb3f5858bb6aa0adbe7d19d18bc4a30421db4e78d66c2bcb6724351ab3590",
+    "configDigest": "reasoning-config.v1:sha256:971b2cc30afa2f297f24cd8300770f3e6cc4ebd2d952dbde0d61f4b675d5b9c0",
+    "promptTemplateDigest": "reasoning-prompt.v1:sha256:7664289643c557f8448fd4c3265de64f8a4da7bea18855d4c08629eac6218267"
+  },
+  "exchanges": [
+    {
+      "seq": 1,
+      "url": "https://inference-api.openserv.ai/v1/chat/completions",
+      "method": "POST",
+      "requestHeaderNames": [
+        "accept",
+        "authorization",
+        "content-type"
+      ],
+      "requestSha256": "af7b1c13f2bdd6dafd2cc5613bcfb57aabf7b28a7654f57cec844ed71678bb09",
+      "requestBytes": 31688,
+      "sentAt": "2026-11-12T05:40:33.648Z",
+      "endedAt": "2026-11-12T05:40:35.215Z",
+      "status": 200,
+      "transportError": null,
+      "responseSha256": "6cabd2457cd089c81eb5b03b9347fb4afc021826f9805a4088d9a18f2f033e58",
+      "responseBytes": 666,
+      "response": {
+        "parsed": true,
+        "id": "chatcmpl-EjHpyeef4JZsAIMOpV7k0eI94daMz",
+        "model": "serv-mini",
+        "systemFingerprint": null,
+        "created": 1794462034,
+        "finishReason": "tool_calls",
+        "usage": {
+          "prompt_tokens": 9141,
+          "completion_tokens": 14,
+          "total_tokens": 9155,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "content": null,
+        "refusal": null,
+        "toolCalls": [
+          {
+            "id": "call_cPZAxjxnH4AGzgPJmB10GafO",
+            "name": "get_asset_snapshot",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "errorBody": null
+    },
+    {
+      "seq": 2,
+      "url": "https://inference-api.openserv.ai/v1/chat/completions",
+      "method": "POST",
+      "requestHeaderNames": [
+        "accept",
+        "authorization",
+        "content-type"
+      ],
+      "requestSha256": "bc830fa8a62e62cfb6114a15389f3b30ad7f11a85c6297bd8880d5027cce93fb",
+      "requestBytes": 32159,
+      "sentAt": "2026-11-12T05:40:35.217Z",
+      "endedAt": "2026-11-12T05:40:45.467Z",
+      "status": 200,
+      "transportError": null,
+      "responseSha256": "c12557e879db4b4b2948b36ecb15026ee27248c8b5cc6c2cb5db13ca005a9d47",
+      "responseBytes": 5839,
+      "response": {
+        "parsed": true,
+        "id": "chatcmpl-EjHq1PkoixNRKuVTctIGn1HL6uUFI",
+        "model": "serv-mini",
+        "systemFingerprint": null,
+        "created": 1794462037,
+        "finishReason": "tool_calls",
+        "usage": {
+          "prompt_tokens": 9243,
+          "completion_tokens": 1496,
+          "total_tokens": 10739,
+          "prompt_tokens_details": {
+            "cached_tokens": 9088,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "content": null,
+        "refusal": null,
+        "toolCalls": [
+          {
+            "id": "call_wu2lhg1mW9nUuCD3MsOriisa",
+            "name": "submit_candidate_schema",
+            "arguments": "{\"proposal\":{\"schemaVersion\":1,\"incidentId\":\"inc_94312a2b-58d5-4e42-9a6c-768b5dbb6dfc\",\"evidenceRevisionId\":\"evr_29f92efa-4d51-4b28-8cbb-439157541211\",\"inputDigest\":\"reasoning-input.v1:sha256:71f71fac15bed330020d08f9361709e538e931c622d405c6792209a010acc932\",\"faultHypotheses\":[{\"code\":\"SENSOR_FAULT\",\"rationale\":\"The manual shows temperature regulation depends on the thermostat probe, and if the thermostat probe fails the compressor start/stop is timed by parameters COn and COF. That makes a probe issue plausible for a high-temperature alarm, but no telemetry or alarm record is provided here.\",\"citationIds\":[\"cit_5761113c-eed6-4f2f-ad0c-4ea5dca36ea5\",\"cit_80a87609-cc10-4645-8585-dc02fe407968\"]},{\"code\":\"COMPRESSOR_FAILURE\",\"rationale\":\"The controller manual states refrigeration is controlled by the thermostat probe and compressor logic; however, the packet contains no compressor runtime, current draw, or alarm history, so this remains only a candidate cause of elevated temperature.\",\"citationIds\":[\"cit_5761113c-eed6-4f2f-ad0c-4ea5dca36ea5\"]},{\"code\":\"DEFROST_FAILURE\",\"rationale\":\"The controller is a digital controller with defrost management, and defrost-related faults can contribute to temperature rise, but no defrost parameters, logs, or observed frost condition are included.\",\"citationIds\":[\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\"]},{\"code\":\"DOOR_SEAL_FAILURE\",\"rationale\":\"A door-open condition in the manual restarts compressor and fans, indicating door events can affect cabinet temperature, but there is no door-status evidence in the packet.\",\"citationIds\":[\"cit_2746ae30-a353-4440-baa8-e7988d94f068\"]},{\"code\":\"CONTROLLER_FAILURE\",\"rationale\":\"The asset is a Dixell XR60CX controller and the evidence is limited to the manual; without telemetry, wiring, or alarm record, a controller-side fault cannot be excluded.\",\"citationIds\":[\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\"]}],\"extractedFields\":[{\"field\":\"MANUFACTURER\",\"component\":\"controller\",\"value\":\"Dixell\",\"citations\":[{\"citationId\":\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":1,\"pageEnd\":null},\"quote\":\"XR60CX\"},{\"citationId\":\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":1,\"pageEnd\":null},\"quote\":\"Dixell\"}]},{\"field\":\"MODEL\",\"component\":\"controller\",\"value\":\"XR60CX\",\"citations\":[{\"citationId\":\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":1,\"pageEnd\":null},\"quote\":\"XR60CX\"}]},{\"field\":\"SERIAL\",\"component\":\"controller\",\"value\":\"SIMULATED-J058-8fa596\",\"citations\":[{\"citationId\":\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"RECORD\",\"recordKey\":\"asset.serial\"},\"quote\":\"SIMULATED-J058-8fa596\"}]},{\"field\":\"SYMPTOM\",\"component\":\"controller\",\"value\":\"High-temperature alarm context; packet fault family hypothesis is refrigeration temperature high.\",\"citations\":[{\"citationId\":\"cit_2746ae30-a353-4440-baa8-e7988d94f068\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":4,\"pageEnd\":null},\"quote\":\"Maximum temperature alarm\"}]}],\"candidateActions\":[{\"kind\":\"DIAGNOSTIC\",\"component\":\"temperature control loop\",\"partNumber\":null,\"manufacturer\":null,\"evidenceFor\":[\"cit_5761113c-eed6-4f2f-ad0c-4ea5dca36ea5\",\"cit_80a87609-cc10-4645-8585-dc02fe407968\"],\"evidenceAgainst\":[],\"missingFields\":[\"SERIAL\",\"MODEL\",\"RATED_VOLTAGE\",\"REFRIGERANT\",\"DIMENSIONS\",\"CERTIFICATION\",\"WARRANTY_STATUS\",\"APPROVED_VENDOR\"],\"compatibilityClaim\":\"CANDIDATE_ONLY\"},{\"kind\":\"SERVICE_VISIT\",\"component\":\"refrigeration system inspection\",\"partNumber\":null,\"manufacturer\":null,\"evidenceFor\":[\"cit_ac7ad516-f743-408b-a2b4-2d37e63e63c7\"],\"evidenceAgainst\":[],\"missingFields\":[\"SERIAL\",\"MODEL\",\"RATED_VOLTAGE\",\"REFRIGERANT\",\"DIMENSIONS\",\"CERTIFICATION\",\"WARRANTY_STATUS\",\"APPROVED_VENDOR\"],\"compatibilityClaim\":\"CANDIDATE_ONLY\"}],\"conflicts\":[],\"uncertainty\":[\"INSUFFICIENT_EVIDENCE\"],\"providerQueries\":[{\"kind\":\"TECHNICIAN\",\"component\":\"XR60CX temperature control loop\",\"partNumber\":null}],\"confidencePpm\":220000,\"summary\":\"The packet identifies a Dixell XR60CX controller and indicates a refrigeration temperature-high triage, but provides no telemetry, alarm history, or measured temperatures. The manual supports several plausible causes, especially probe-related control issues, compressor/defrost/door effects, and a generic controller fault, but evidence is insufficient to rank a single root cause confidently.\"}}"
+          }
+        ]
+      },
+      "errorBody": null
+    }
+  ],
+  "responseIds": [
+    "chatcmpl-EjHpyeef4JZsAIMOpV7k0eI94daMz",
+    "chatcmpl-EjHq1PkoixNRKuVTctIGn1HL6uUFI"
+  ],
+  "proposal": null,
+  "citations": [],
+  "note": "Request bodies are not exported (digests only); they are the product packet built from this manual and the synthetic incident."
+}

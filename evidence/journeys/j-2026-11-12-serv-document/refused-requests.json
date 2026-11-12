@@ -1,0 +1,71 @@
+{
+  "schema": "journey-refused-requests.v1",
+  "journeyId": "j-2026-11-12-serv-document",
+  "note": "Two earlier runner executions reached SERV and were refused with 400 invalid_request_error before any generation (no response id, no usage, no tokens billed). Each used its own throwaway database, dropped afterwards. Their evidence directories were not kept as journey evidence; this file records what was sent and what came back. They are not artifacts of the journey manifest.",
+  "attempts": [
+    {
+      "attempt": 1,
+      "runnerCommit": "32d3cfa10be132efd920ab8a1c8946df8d97b0c0",
+      "model": "serv-mini",
+      "reasoningEffort": "low",
+      "reasoningRunId": "rsn_e9998491-4903-425a-aeca-e3694479cad9",
+      "status": "FAILED",
+      "failureReason": "SERV_BAD_REQUEST",
+      "usage": {
+        "promptTokens": null,
+        "completionTokens": null
+      },
+      "costUsd": null,
+      "exchange": {
+        "url": "https://inference-api.openserv.ai/v1/chat/completions",
+        "method": "POST",
+        "requestHeaderNames": [
+          "accept",
+          "authorization",
+          "content-type"
+        ],
+        "requestSha256": "7d3966eba4d80c7a0788c4f49619757d03a79194c9986d966762d454f42cc05c",
+        "requestBytes": 31713,
+        "sentAt": "2026-11-12T05:36:56.698Z",
+        "endedAt": "2026-11-12T05:37:07.019Z",
+        "status": 400,
+        "responseSha256": "2fb5a8aafebfd931390feddeb8532a0acba8fcaf3afc39535cd7e0d786e05dee",
+        "responseBytes": 266,
+        "errorBody": "{\"error\":{\"message\":\"Function tools with reasoning_effort are not supported for gpt-5.4-mini in /v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'.\",\"type\":\"invalid_request_error\",\"param\":\"reasoning_effort\",\"code\":null}}"
+      },
+      "causeFixed": "Unset SERV_REASONING_EFFORT so the adapter omits reasoning_effort (configuration only, no code change)."
+    },
+    {
+      "attempt": 2,
+      "runnerCommit": "32d3cfa10be132efd920ab8a1c8946df8d97b0c0",
+      "model": "serv-mini",
+      "reasoningEffort": null,
+      "reasoningRunId": "rsn_1711fbfa-3b42-4c22-a7e4-c6d3ffc7d2c5",
+      "status": "FAILED",
+      "failureReason": "SERV_BAD_REQUEST",
+      "usage": {
+        "promptTokens": null,
+        "completionTokens": null
+      },
+      "costUsd": null,
+      "exchange": {
+        "url": "https://inference-api.openserv.ai/v1/chat/completions",
+        "method": "POST",
+        "requestHeaderNames": [
+          "accept",
+          "authorization",
+          "content-type"
+        ],
+        "requestSha256": "c3ecf40258887333a55689814344fa16b782423955d70b40b0e379ad8c1f9650",
+        "requestBytes": 31688,
+        "sentAt": "2026-11-12T05:37:47.506Z",
+        "endedAt": "2026-11-12T05:37:48.649Z",
+        "status": 400,
+        "responseSha256": "0b900b26fc1e2b9fbeff10a725fae426b1daf7207638bb2ecdafeeff0a814ab2",
+        "responseBytes": 306,
+        "errorBody": "{\"error\":{\"message\":\"Invalid schema for response_format 'uptimebuyer_reasoning_proposal_v1': In context=('properties', 'extractedFields', 'items', 'properties', 'citations', 'items', 'properties', 'locator'), 'oneOf' is not permitted.\",\"type\":\"invalid_request_error\",\"param\":\"response_format\",\"code\":null}}"
+      },
+      "causeFixed": "Commit ca59099: the wire schema uses anyOf instead of oneOf (packages/evidence/src/reasoning/schema.ts)."
+    }
+  ]
+}

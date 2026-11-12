@@ -13,18 +13,22 @@ All evidence in this repository is local: unit and integration tests against a t
 tests, and a production-like compose bring-up on one machine. Every local run uses SIMULATOR sensors (SIMULATED_INPUT),
 a recorded-contract broker, contract-fake reasoning and CMMS, synthetic data and a local test identity provider.
 
-| Claim                                                                                                                | Status                                                         |
-| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Incident engine, evidence, compatibility, planning, bounded spending, reconciliation, recovery verification, console | local tests PASS <!-- C-001 C-004 C-005 C-007 C-008 C-009 -->  |
-| Worker schedules every runner; clean clone builds, migrates, starts and passes smoke checks in local compose         | local layer PASS <!-- C-010 C-011 -->                          |
-| Backup, restore and image rollback exercised locally                                                                 | local layer PASS <!-- C-012 -->                                |
-| Real authenticated physical sensor                                                                                   | **NOT_RUN** <!-- C-020 -->                                     |
-| Real SERV Reasoning (OpenServ) run on a real document                                                                | **NOT_RUN** <!-- C-021 -->                                     |
-| Real bounded Kite-paid action with downstream fulfillment                                                            | **NOT_RUN** <!-- C-022 -->                                     |
-| Independent physical recovery evidence                                                                               | **NOT_RUN** <!-- C-023 -->                                     |
-| Hosted deployment                                                                                                    | **NOT_RUN** <!-- C-024 -->                                     |
-| Public repository, video, X post, hackathon submission                                                               | **NOT_RUN** (each needs explicit authorization) <!-- C-025 --> |
-| Production load, SLOs, edge/WAF, enforced network policy, penetration test, SBOM                                     | **NOT_RUN** <!-- C-026 -->                                     |
+One journey record goes beyond the local layer: j-2026-11-12-serv-document ingested the published Dixell XR60CX manual and made one real
+SERV Reasoning call (serv-mini, $0.027444); the product rejected that proposal, so a validated real run is still NOT_RUN.
+Its records are in [evidence/journeys/j-2026-11-12-serv-document](evidence/journeys/j-2026-11-12-serv-document) and [COVERAGE.md](docs/coverage/COVERAGE.md).
+
+| Claim                                                                                                                | Status                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Incident engine, evidence, compatibility, planning, bounded spending, reconciliation, recovery verification, console | local tests PASS <!-- C-001 C-004 C-005 C-007 C-008 C-009 -->                                                   |
+| Worker schedules every runner; clean clone builds, migrates, starts and passes smoke checks in local compose         | local layer PASS <!-- C-010 C-011 -->                                                                           |
+| Backup, restore and image rollback exercised locally                                                                 | local layer PASS <!-- C-012 -->                                                                                 |
+| Real authenticated physical sensor                                                                                   | **NOT_RUN** <!-- C-020 -->                                                                                      |
+| Real SERV Reasoning (OpenServ) run with a validated cited proposal on a real document                                | **NOT_RUN** (one real run on the published XR60CX manual: proposal REJECTED; document part PASS) <!-- C-021 --> |
+| Real bounded Kite-paid action with downstream fulfillment                                                            | **NOT_RUN** <!-- C-022 -->                                                                                      |
+| Independent physical recovery evidence                                                                               | **NOT_RUN** <!-- C-023 -->                                                                                      |
+| Hosted deployment                                                                                                    | **NOT_RUN** <!-- C-024 -->                                                                                      |
+| Public repository, video, X post, hackathon submission                                                               | **NOT_RUN** (each needs explicit authorization) <!-- C-025 -->                                                  |
+| Production load, SLOs, edge/WAF, enforced network policy, penetration test, SBOM                                     | **NOT_RUN** <!-- C-026 -->                                                                                      |
 
 The full status of every requirement, invariant and test is in [docs/coverage/COVERAGE.md](docs/coverage/COVERAGE.md);
 `status` there is the canonical result (external proof required for T-057..T-060), `localStatus` the local layer.

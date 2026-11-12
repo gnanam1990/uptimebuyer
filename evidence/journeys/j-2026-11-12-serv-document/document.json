@@ -1,0 +1,33 @@
+{
+  "schema": "journey-document-record.v1",
+  "journeyId": "j-2026-11-12-serv-document",
+  "origin": "PUBLISHED_DOCUMENT",
+  "source": {
+    "url": "https://webapps.copeland.com/Dixell/Content/Pages/Manuals/XR-CX/XR60CX/XR60CX-GB.pdf",
+    "publisher": "Copeland (owner of Dixell)",
+    "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+    "bytes": 1022749
+  },
+  "documentId": "doc_94033d14-cc65-4df8-b82a-199c65110ecc",
+  "blobId": "blb_3d607a8c-cd21-4e6e-99fa-f43ed48d887d",
+  "sha256": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+  "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+  "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+  "role": "MANUAL",
+  "sourceKind": "OEM_PUBLICATION",
+  "applicability": {
+    "manufacturer": "Dixell",
+    "model": "XR60CX"
+  },
+  "mediaType": "application/pdf",
+  "extractionMethod": "PDF_TEXT",
+  "pageCount": 5,
+  "extractedSpanCount": 14,
+  "factCount": 0,
+  "injectionFlaggedSpanCount": 0,
+  "activeContentRemoved": [],
+  "trustLevel": "OPERATOR_ATTESTED",
+  "evidenceRevisionId": "evr_29f92efa-4d51-4b28-8cbb-439157541211",
+  "ingestedAt": "2026-11-12T05:40:33.612Z",
+  "parserNote": "Bounded PDF text subset (ADR 0002): text set in fonts with custom encodings is extracted as shifted glyph codes and is unreadable in those spans; nothing was OCRed or hand-corrected."
+}
