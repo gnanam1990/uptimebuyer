@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DOCUMENT_LIMITS, PARSER_VERSION, parseDocument } from '../src/index.js';
+import { DOCUMENT_LIMITS, PARSER_VERSION, extractFacts, parseDocument } from '../src/index.js';
 import {
   addHelvetica,
   addType0Font,
@@ -436,5 +436,85 @@ describe('T-021 real manual: Dixell XR60CX (j-2026-11-12-serv-document)', () => 
     expect(
       reason(() => parseDocument(bytes, 'application/pdf', DOCUMENT_LIMITS, { parserVersion: 'uptimebuyer-parser.v9' })),
     ).toBe('PARSER_VERSION_UNSUPPORTED');
+  });
+});
+
+describe('T-021 PDF font encodings: review findings (PR #20)', () => {
+  it('a nonsymbolic simple font without /Encoding uses StandardEncoding, not WinAnsi', () => {
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      const f2 = g.add('<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>');
+      // 0x27 is quoteright and 0xE9 is Oslash in StandardEncoding (WinAnsi: quotesingle and eacute); 0xAE is fl.
+      return [{ fonts: `/F1 ${f1} 0 R /F2 ${f2} 0 R`, content: withAnchor('/F2 9 Tf (It\\047s \\351 \\256ow) Tj') }];
+    });
+    const { doc, text } = pdfText(bytes);
+    expect(text.split('\n')).toEqual(['Anchor line', 'It’s Ø flow']);
+    expect(doc.textWithheld).toEqual([]);
+  });
+
+  it('font and graphics state carry across the streams of a /Contents array (one concatenated stream)', () => {
+    const ids = glyphIds('limit');
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      const f2 = addType0Font(g, { toUnicode: cmapStream(g, ids.bfchar()) });
+      return [
+        {
+          fonts: `/F1 ${f1} 0 R /F2 ${f2} 0 R`,
+          content: '',
+          contents: [
+            'BT /F1 10 Tf (Alarm) Tj ET',
+            'BT (limit) Tj ET q BT /F2 10 Tf',
+            `${ids.hex('limit')} Tj ET`,
+            'Q BT (reached) Tj ET',
+          ],
+        },
+      ];
+    });
+    const { doc, text } = pdfText(bytes);
+    expect(text.split('\n')).toEqual(['Alarm', 'limit', 'limit', 'reached']);
+    expect(doc.textWithheld).toEqual([]);
+  });
+
+  it('v1 re-derivation extracts v1 facts: no certification facts (they arrived in v2)', () => {
+    const text = 'Certification: UL 471, CSA C22.2\nRefrigerant: R-290';
+    const v1 = extractFacts(text, 'MANUAL_ENTRY', 1, 'uptimebuyer-parser.v1');
+    const v3 = extractFacts(text, 'MANUAL_ENTRY', 1);
+    expect(v1.map((f) => f.factKey)).toEqual(['spec:refrigerant']);
+    expect(v3.map((f) => f.factKey)).toEqual([
+      'spec:certification-ul-471',
+      'spec:certification-csa-c22-2',
+      'spec:refrigerant',
+    ]);
+    const doc = parseDocument(Buffer.from(text), 'text/plain', DOCUMENT_LIMITS, { parserVersion: 'uptimebuyer-parser.v1' });
+    expect(doc.parserVersion).toBe('uptimebuyer-parser.v1');
+  });
+
+  it('the manual extracts exactly as in journey j-2026-11-12-serv-document-2 (v3 span digests pinned)', () => {
+    const doc = parseDocument(readFileSync(MANUAL), 'application/pdf');
+    // Produced by uptimebuyer-parser.v3 at the run's source commit 28d05f0; the recorded citations' span lengths match.
+    expect(doc.spans.map((s) => [s.locator.kind === 'PAGE' ? s.locator.page : null, s.textDigest])).toEqual([
+      [1, 'sha256:b2ffd6d335489faee66602c0b5b968677ac1fb34a31775f000becf8f2008fec6'],
+      [1, 'sha256:650bfdb7ff0e31b1c5f5c426cae271f8e4ded00aac37e4e275f9e527db370567'],
+      [1, 'sha256:109a7a5ec90e0cb25aeb4a9dda23c39912e958ff9fc3a191ac6f00773a62e66d'],
+      [2, 'sha256:eec95927d851eeb6a4916fc70ec2f63fdaea97b9a6511e7bddb56de03d1f8a1a'],
+      [2, 'sha256:a0323e4ae417be69f78ab21001a9669f6b4d8de2383af5bcc863d5382b4f58f8'],
+      [2, 'sha256:846ff53550be2b9c32b3154c5dd7686d356eb64be0b37401ab0e4ecd72c82934'],
+      [3, 'sha256:cbc512ef2e93befa25e99a22478d2668d0fe8b07eade699a36cea3634b006886'],
+      [3, 'sha256:156ab5796353ebe213a290cc46bc2091683feef61238d52c9c29858639b930b4'],
+      [3, 'sha256:ca13a2aa6210cfed523f831a1b319333b7fa88081fe6aac635dfb6cc011c4316'],
+      [4, 'sha256:e493ca4d63e53983501f7fa286d7d059acf157ba7af1440e62336aa55f1f3c22'],
+      [4, 'sha256:e94f1a55b08d6b138898895b6bdd5b6a459186a9db56c4dc56e725c7c9ef4596'],
+      [5, 'sha256:f5c2146a1f0a4b11b56a885b000f515a29eccb8f03218b39b3fd308b50eee8ef'],
+    ]);
+    const recorded = JSON.parse(
+      readFileSync(path.join(repo, 'evidence', 'journeys', 'j-2026-11-12-serv-document-2', 'reasoning.json'), 'utf8'),
+    ) as { citations: { locator: { page: number }; spanChars: number; spanText: string }[] };
+    for (const c of recorded.citations) {
+      const prefix = c.spanText.endsWith('…') ? c.spanText.slice(0, -1) : c.spanText;
+      const match = doc.spans.find(
+        (s) => s.locator.kind === 'PAGE' && s.locator.page === c.locator.page && s.text.length === c.spanChars && s.text.startsWith(prefix),
+      );
+      expect(match, `page ${c.locator.page}`).toBeDefined();
+    }
   });
 });

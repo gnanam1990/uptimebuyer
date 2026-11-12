@@ -62,6 +62,8 @@ export class PdfGraph {
 export interface FontPage {
   /** Raw content stream operators. */
   content: string;
+  /** When set, the page's /Contents is an array of these streams (in order) instead of the single `content`. */
+  contents?: string[];
   /** The page's /Font resource dictionary entries, e.g. `/F1 4 0 R /F2 5 0 R`; omit to inherit from the page tree. */
   fonts?: string;
   /** A literal /Resources value instead of `<< /Font << fonts >> >>` (for indirect or cyclic resources). */
@@ -79,7 +81,9 @@ export function buildFontPdf(setup: (g: PdfGraph) => FontPage[], opts: { inherit
   const pages = setup(g);
   const inherited = opts.inheritedFonts ? opts.inheritedFonts(g) : null;
   const kids = pages.map((p) => {
-    const content = g.stream('', p.content);
+    const content = p.contents
+      ? g.add(`[${p.contents.map((c) => `${g.stream('', c)} 0 R`).join(' ')}]`)
+      : g.stream('', p.content);
     const resources = p.resources ?? (p.fonts !== undefined ? `<< /Font << ${p.fonts} >> >>` : null);
     return g.add(
       `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792]${resources ? ` /Resources ${resources}` : ''} /Contents ${content} 0 R >>`,
