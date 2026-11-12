@@ -71,6 +71,7 @@ interface JourneyEvidence {
   JOURNEY_ID: RegExp;
   SERV_CATALOG_PRICES_CENTS: Record<string, { input: number; output: number }>;
   sha256Hex(data: string | Uint8Array): string;
+  enforceRedaction(check: { result?: string } | null, paths: string[], label: string): void;
   pricingMicros(model: string): Pricing;
   servCostMicros(usage: { promptTokens: number | null; completionTokens: number | null }, p: Pricing): bigint | null;
   formatUsd(micros: bigint | null): string | null;
@@ -359,11 +360,8 @@ async function main() {
     writeFileSync(path.join(outDir, 'redaction-check.json'), json(redaction));
     // A failed redaction check stops the run before anything is logged or recorded, and removes the exported evidence;
     // the throwaway database is kept for inspection (keepDatabase stays set) and the process exits non-zero.
-    if (redaction.result !== 'PASS') {
-      rmSync(outDir, { recursive: true, force: true });
-      process.exitCode = 3;
-      throw new Error('redaction check failed: exported evidence removed; nothing was recorded');
-    }
+    if (redaction.result !== 'PASS') process.exitCode = 3;
+    ev.enforceRedaction(redaction, [outDir], 'exported artifacts');
 
     // ---- Manifest: the reasoning part is recorded only for a completed, validated proposal.
     const art = (f: string) => ({ path: rel(f), sha256: ev.sha256Hex(readFileSync(path.join(outDir, f))) });
@@ -429,12 +427,8 @@ async function main() {
       [gateFile, gateDbFile, manifestRel].map((f) => ({ path: f, bytes: readFileSync(path.join(repo, f)) })),
       secrets,
     );
-    if (leak.result !== 'PASS') {
-      for (const f of [gateFile, gateDbFile, manifestRel]) rmSync(path.join(repo, f), { force: true });
-      rmSync(outDir, { recursive: true, force: true });
-      process.exitCode = 3;
-      throw new Error('gate artifact redaction check failed: gate outputs and evidence removed');
-    }
+    if (leak.result !== 'PASS') process.exitCode = 3;
+    ev.enforceRedaction(leak, [...[gateFile, gateDbFile, manifestRel].map((f) => path.join(repo, f)), outDir], 'gate artifacts');
     const statusOf = (r: typeof fileOnly) => Object.fromEntries(r.report.parts.map((p) => [p.part, p.status]));
     console.log(
       json({

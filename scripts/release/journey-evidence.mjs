@@ -1,4 +1,4 @@
-// T-058 real-input journey evidence helpers (pure; no network, no process spawning). Used by the document + reasoning
+// T-058 real-input journey evidence helpers (no network, no process spawning; enforceRedaction only removes files). Used by the document + reasoning
 // journey runner (packages/evidence/test/support/journey-document-reasoning.ts) and its unit tests:
 //   - servCostMicros / formatUsd: the cost of a SERV Reasoning run from the usage the API reported, with the same
 //     round-up-per-component formula as the runtime ModelBudget, so the recorded cost and the enforced cap agree;
@@ -8,6 +8,7 @@
 //   - buildJourneyManifest: a journey-gate manifest with ONLY the parts a run actually produced (document, reasoning).
 // Every other journey part is left out so scripts/release/journey-gate.mjs reports it NOT_RUN.
 import { createHash } from 'node:crypto';
+import { rmSync } from 'node:fs';
 import { PATTERNS } from '../secret-scan.mjs';
 
 export const JOURNEY_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -184,6 +185,16 @@ const iso = (v, name) => {
     throw new Error(`${name} must be an ISO-8601 UTC timestamp`);
   return Date.parse(v);
 };
+
+/**
+ * Stop the journey when a redaction check did not explicitly PASS: remove every listed evidence path (files or
+ * directories) and throw. The error names the check only, never a finding's contents, so nothing sensitive is logged.
+ */
+export function enforceRedaction(check, paths, label) {
+  if (check?.result === 'PASS') return;
+  for (const p of paths) rmSync(p, { recursive: true, force: true });
+  throw new Error(`redaction check failed (${label}): evidence removed; nothing was recorded`);
+}
 
 /** Parts a document + reasoning run may record; anything else stays out of the manifest (NOT_RUN at the gate). */
 export const RECORDED_PARTS = Object.freeze({ document: 'PUBLISHED_DOCUMENT', reasoning: 'SERV_REASONING' });
