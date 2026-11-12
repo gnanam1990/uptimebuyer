@@ -16,12 +16,13 @@ import {
   parseDocument,
   reopenCitation,
   searchEvidence,
+  withdrawConsentedCommunicationsInTx,
   withdrawDocument,
   type IngestDocumentInput,
 } from '../src/index.js';
 import { storeDocumentTx } from '../src/documents.js';
 import { addHelvetica, addType0Font, buildFontPdf, glyphIds, toUnicodeCMap } from './fixtures/font-pdf-builder.js';
-import { BOM_7, createEvidenceWorld, ingestAs, openIncident, type EvidenceWorld } from './helpers.js';
+import { BOM_7, createEvidenceWorld, ingestAs, openIncident, rejection, type EvidenceWorld } from './helpers.js';
 import { MANUFACTURER, MODEL } from './fixtures/content.js';
 
 const LEGACY = 'uptimebuyer-parser.v2';
@@ -50,7 +51,7 @@ const MANUAL = (): IngestDocumentInput => ({
 });
 
 /** Store a document exactly as an older parser recorded it before the upgrade (same table rows, same span digests). */
-async function storeAsLegacy(input: IngestDocumentInput, parserVersion: string = LEGACY) {
+async function storeAsLegacy(input: IngestDocumentInput, parserVersion: string = LEGACY, siteId: string | null = null) {
   const parsed = parseDocument(input.bytes, input.mediaType, DOCUMENT_LIMITS, { parserVersion });
   return tenantCommand(
     w.db.pool,
@@ -74,12 +75,12 @@ async function storeAsLegacy(input: IngestDocumentInput, parserVersion: string =
             serial: input.applicability.serial ?? null,
             assetId: input.applicability.assetId ?? null,
           },
-          siteId: null,
+          siteId: siteId as never,
           sourceKind: input.sourceKind,
           sourceRef: input.sourceRef ?? null,
           trustLevel: 'OPERATOR_ATTESTED',
-          consentRef: null,
-          purposes: [],
+          consentRef: input.communication?.consentRef ?? null,
+          purposes: input.communication?.purposes ?? [],
           supersedesDocumentId: null,
         },
         parsed,
@@ -321,5 +322,155 @@ describe('T-024 parser re-derivation: lineage withdrawal, facts and replacement 
     // The operator replaces the (already superseded) legacy row: its active v3 derivation must go too.
     await ingestAs(x, x.librarian, { ...manualOf('lineage-new'), supersedesDocumentId: oldLegacy.documentId });
     expect((await lineage(oldLegacy.sha256, oldInput.documentRevision)).filter((d) => !d.withdrawn)).toEqual([]);
+  });
+});
+
+// PR #20 second review pass: consent withdrawal against re-derivation, replacement inside one lineage, replacement
+// requested for bytes that are already recorded.
+describe('T-024 parser re-derivation: consent and replacement transitions (second review pass)', () => {
+  let x: EvidenceWorld;
+  beforeAll(async () => {
+    x = await createEvidenceWorld('t024c');
+    w = x;
+  });
+  afterAll(async () => {
+    await x?.close();
+  });
+
+  /** A consented transcript whose v1 and v3 derivations differ (v1 extracted no certification facts). */
+  const transcript = (consentRef: string, label: string): IngestDocumentInput => ({
+    role: 'TRANSCRIPT',
+    mediaType: 'text/plain',
+    bytes: Buffer.from(`Technician ${label}: replacement controller in stock\nCertification: UL 471, CSA C22.2\n`),
+    title: `Call transcript ${label}`,
+    documentRevision: `call-${label}`,
+    applicability: { manufacturer: MANUFACTURER, model: MODEL, bomRevision: null, serial: null, assetId: x.nwr.assetId },
+    sourceKind: 'COMMUNICATION',
+    communication: { consentRef, purposes: ['EVIDENCE_REASONING'] },
+  });
+  const activeWithConsent = async (consentRef: string) =>
+    (
+      await x.db.admin(
+        `SELECT d.id FROM evidence_documents d
+          WHERE d.tenant_id = $1 AND d.consent_ref = $2
+            AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)`,
+        [x.tenant.tenantId, consentRef],
+      )
+    ).rows;
+  const withdrawConsent = async (consentRef: string) => {
+    const c = await x.db.pool.connect();
+    try {
+      await c.query('BEGIN');
+      await withdrawConsentedCommunicationsInTx(c as never, x.tenant.tenantId, [consentRef], {
+        reasonCode: 'PROCESSING_CONSENT_WITHDRAWN',
+        systemActorId: 'test-consent-withdrawal',
+      });
+      await c.query('COMMIT');
+    } catch (e) {
+      await c.query('ROLLBACK');
+      throw e;
+    } finally {
+      c.release();
+    }
+  };
+
+  it('a consent withdrawal racing a re-derivation never leaves an active document with the withdrawn consent', async () => {
+    const consentRef = 'consent-race-0001';
+    const input = transcript(consentRef, 'race');
+    const legacy = await storeAsLegacy(input, 'uptimebuyer-parser.v1', x.siteId);
+    // Hold a SHARE lock on evidence_document_spans: the re-derivation inserts its document row and the prior row's
+    // WITHDRAWN event, then blocks at its first span INSERT, still uncommitted. The consent withdrawal starts there.
+    const blocker = new pg.Client({ connectionString: x.db.url });
+    await blocker.connect();
+    const waiting = async (sql: string) => {
+      for (let i = 0; i < 200; i++) {
+        if ((await x.db.admin(sql)).rows[0].n > 0) return true;
+        await new Promise((res) => setTimeout(res, 25));
+      }
+      return false;
+    };
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('LOCK TABLE evidence_document_spans IN SHARE MODE');
+      const ingest = ingestAs(x, x.librarian, input);
+      expect(
+        await waiting(
+          `SELECT count(*)::int AS n FROM pg_stat_activity
+            WHERE wait_event_type = 'Lock' AND query LIKE '%INSERT INTO evidence_document_spans%'`,
+        ),
+      ).toBe(true);
+      const withdraw = withdrawConsent(consentRef);
+      // Unserialized, the withdrawal waits on the prior row's uncommitted event; serialized, on the consent lock.
+      expect(
+        await waiting(
+          `SELECT count(*)::int AS n FROM pg_stat_activity
+            WHERE wait_event_type = 'Lock' AND (wait_event = 'advisory' OR query LIKE '%consent_ref = ANY%')`,
+        ),
+      ).toBe(true);
+      await blocker.query('COMMIT');
+      const [ingested] = await Promise.all([ingest, withdraw]);
+      expect(ingested.rederivedFromDocumentId).toBe(legacy.documentId);
+    } finally {
+      await blocker.end();
+    }
+    expect(await activeWithConsent(consentRef)).toEqual([]);
+  });
+
+  it('a document cannot be recorded under a consent that was already withdrawn', async () => {
+    const consentRef = 'consent-gone-0002';
+    await withdrawConsent(consentRef);
+    const r = await rejection(ingestAs(x, x.librarian, transcript(consentRef, 'late')));
+    expect(r.reasonCode).toBe('CONSENT_WITHDRAWN');
+    expect(await activeWithConsent(consentRef)).toEqual([]);
+  });
+
+  const manualOf = (label: string): IngestDocumentInput => {
+    const g2 = glyphIds(`Fan ${label} delay`);
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      const f2 = addType0Font(g, { toUnicode: g.stream('', toUnicodeCMap(g2.bfchar())) });
+      return [
+        {
+          fonts: `/F1 ${f1} 0 R /F2 ${f2} 0 R`,
+          content: `BT /F1 10 Tf (Sheet ${label}) Tj 0 -14 Td /F2 10 Tf ${g2.hex(`Fan ${label} delay`)} Tj ET`,
+        },
+      ];
+    });
+    return { ...MANUAL(), bytes, documentRevision: `S-${label}`, title: `Sheet ${label}` };
+  };
+
+  it('a replacement naming a derivation of the same bytes is refused with a clear code', async () => {
+    const input = manualOf('self');
+    const legacy = await storeAsLegacy(input);
+    const r1 = await rejection(ingestAs(x, x.librarian, { ...input, supersedesDocumentId: legacy.documentId }));
+    expect(r1.reasonCode).toBe('SUPERSEDED_DOCUMENT_SAME_LINEAGE');
+    expect((await getDocument(x.db.pool, x.librarian.ctx, legacy.documentId)).withdrawn).toBe(false);
+    // After a plain re-derivation, naming the (now withdrawn) older derivation is refused the same way, and the
+    // active derivation stays active.
+    const derived = await ingestAs(x, x.librarian, input);
+    const r2 = await rejection(ingestAs(x, x.librarian, { ...input, supersedesDocumentId: legacy.documentId }));
+    expect(r2.reasonCode).toBe('SUPERSEDED_DOCUMENT_SAME_LINEAGE');
+    expect((await getDocument(x.db.pool, x.librarian.ctx, derived.documentId)).withdrawn).toBe(false);
+  });
+
+  it('a replacement requested for bytes already recorded is refused, never reported as done without the transition', async () => {
+    const replaced = await ingestAs(x, x.librarian, { ...BOM_7(), documentRevision: 'BOM-7-A', applicability: { ...BOM_7().applicability, bomRevision: 'BOM-7-A' } });
+    const bInput = { ...BOM_7(), bytes: Buffer.from('item,component,oem_part_number\nX1,Door gasket,2G4-0048\n'), documentRevision: 'BOM-7-B', applicability: { ...BOM_7().applicability, bomRevision: 'BOM-7-B' } };
+    // B was stored by v2; v3 extracts identical spans and facts from it, so it would be reused as is.
+    const b = await storeAsLegacy(bInput);
+    const r = await rejection(ingestAs(x, x.librarian, { ...bInput, supersedesDocumentId: replaced.documentId }));
+    expect(r.reasonCode).toBe('REPLACEMENT_BYTES_ALREADY_RECORDED');
+    expect((await getDocument(x.db.pool, x.librarian.ctx, replaced.documentId)).withdrawn).toBe(false);
+    expect((await getDocument(x.db.pool, x.librarian.ctx, b.documentId)).supersedesDocumentId).toBeNull();
+  });
+
+  it('retrying an applied replacement is idempotent (the recorded link is the transition)', async () => {
+    const replaced = await ingestAs(x, x.librarian, manualOf('retry-old'));
+    const input = { ...manualOf('retry-new'), supersedesDocumentId: replaced.documentId };
+    const first = await ingestAs(x, x.librarian, input);
+    expect(first.existing).toBe(false);
+    const again = await ingestAs(x, x.librarian, input);
+    expect(again).toMatchObject({ existing: true, documentId: first.documentId });
+    expect((await getDocument(x.db.pool, x.librarian.ctx, replaced.documentId)).withdrawn).toBe(true);
   });
 });

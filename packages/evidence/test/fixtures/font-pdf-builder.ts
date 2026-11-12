@@ -62,8 +62,11 @@ export class PdfGraph {
 export interface FontPage {
   /** Raw content stream operators. */
   content: string;
-  /** When set, the page's /Contents is an array of these streams (in order) instead of the single `content`. */
-  contents?: string[];
+  /**
+   * When set, the page's /Contents is an array of these streams (in order) instead of the single `content`. An
+   * `{ unsupportedFilter }` part is stored uncompressed under that filter name, which the parser cannot decode.
+   */
+  contents?: (string | { unsupportedFilter: string; data: string })[];
   /** The page's /Font resource dictionary entries, e.g. `/F1 4 0 R /F2 5 0 R`; omit to inherit from the page tree. */
   fonts?: string;
   /** A literal /Resources value instead of `<< /Font << fonts >> >>` (for indirect or cyclic resources). */
@@ -82,7 +85,15 @@ export function buildFontPdf(setup: (g: PdfGraph) => FontPage[], opts: { inherit
   const inherited = opts.inheritedFonts ? opts.inheritedFonts(g) : null;
   const kids = pages.map((p) => {
     const content = p.contents
-      ? g.add(`[${p.contents.map((c) => `${g.stream('', c)} 0 R`).join(' ')}]`)
+      ? g.add(
+          `[${p.contents
+            .map((c) =>
+              typeof c === 'string'
+                ? `${g.stream('', c)} 0 R`
+                : `${g.stream(`/Filter /${c.unsupportedFilter}`, c.data, { compress: false })} 0 R`,
+            )
+            .join(' ')}]`,
+        )
       : g.stream('', p.content);
     const resources = p.resources ?? (p.fonts !== undefined ? `<< /Font << ${p.fonts} >> >>` : null);
     return g.add(

@@ -518,3 +518,44 @@ describe('T-021 PDF font encodings: review findings (PR #20)', () => {
     }
   });
 });
+
+describe('T-021 PDF font encodings: second review pass (PR #20)', () => {
+  it('/MacRomanEncoding decodes its own upper half (PDF 32000 Annex D), not StandardEncoding', () => {
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      const f2 = g.add('<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /MacRomanEncoding >>');
+      // 0xA1 degree, 0x80 Adieresis, 0x8E eacute, 0xD5 quoteright, 0xDE fi, 0xCA nbspace-as-space, 0x27 quotesingle,
+      // 0xAD notequal (not in PDF MacRomanEncoding: withheld).
+      return [
+        {
+          fonts: `/F1 ${f1} 0 R /F2 ${f2} 0 R`,
+          content: withAnchor('/F2 9 Tf (5\\241C \\200\\216 it\\325s \\336ne\\312\\047x\\047 \\255) Tj'),
+        },
+      ];
+    });
+    const { doc, text } = pdfText(bytes);
+    expect(text.split('\n')).toEqual(['Anchor line', `5°C Äé it’s fine 'x' ${W}`]);
+    expect(doc.textWithheld).toEqual(['GLYPH_UNMAPPED']);
+  });
+
+  it('text after an unreadable /Contents part is withheld, never decoded with a guessed font', () => {
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      return [
+        {
+          fonts: `/F1 ${f1} 0 R`,
+          content: '',
+          contents: [
+            'BT /F1 10 Tf (Alarm) Tj ET',
+            { unsupportedFilter: 'LZWDecode', data: 'BT /F2 10 Tf ET q' },
+            'BT (limit) Tj ET',
+          ],
+        },
+      ];
+    });
+    const { doc, text } = pdfText(bytes);
+    expect(text.split('\n')).toEqual(['Alarm', W]);
+    expect(text).not.toContain('limit');
+    expect(doc.textWithheld).toEqual(['CONTENT_STREAM_UNREADABLE']);
+  });
+});
