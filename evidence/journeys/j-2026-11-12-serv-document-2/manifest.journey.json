@@ -1,0 +1,71 @@
+{
+  "schema": "real-input-journey.v1",
+  "journeyId": "j-2026-11-12-serv-document-2",
+  "sourceSha": "28d05f0da52e902f60d363fdf64034ba5c17b517",
+  "startedAt": "2026-11-12T08:35:16.091Z",
+  "endedAt": "2026-11-12T08:35:35.673Z",
+  "parts": {
+    "document": {
+      "origin": "PUBLISHED_DOCUMENT",
+      "journeyId": "j-2026-11-12-serv-document-2",
+      "capturedAt": "2026-11-12T08:35:16.893Z",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-12-serv-document-2/XR60CX-GB.pdf",
+          "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-12-serv-document-2/document.json",
+          "sha256": "01e0e0876ad82e6cacf45198e61d1efe83301e4af5d63d8653ef88d849b31edd"
+        }
+      ],
+      "facts": {
+        "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+        "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+        "sourceUrl": "https://webapps.copeland.com/Dixell/Content/Pages/Manuals/XR-CX/XR60CX/XR60CX-GB.pdf",
+        "pageCount": 5,
+        "extractedSpanCount": 12
+      }
+    },
+    "reasoning": {
+      "origin": "SERV_REASONING",
+      "journeyId": "j-2026-11-12-serv-document-2",
+      "capturedAt": "2026-11-12T08:35:35.441Z",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-12-serv-document-2/reasoning.json",
+          "sha256": "cfe444a7e3714fb7b054c05ecf813f3fb6160cb8799658d295d4cde5282e0d41"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-12-serv-document-2/redaction-check.json",
+          "sha256": "6202d6fb5fe3e6795b30d317a81c436d18519187eac956148611fda86d5a790f"
+        }
+      ],
+      "facts": {
+        "runId": "rsn_49008919-d8fd-4ff1-8b9b-5d33b53e6e5d",
+        "runStatus": "COMPLETED",
+        "proposalId": "rpr_cf7dc581-971e-43d9-9e4b-d7f4f183b55e",
+        "model": "serv-mini",
+        "responseIds": [
+          "chatcmpl-EjKZCWWVY5q9N3VmfUoKKBqz7S5jL",
+          "chatcmpl-EjKZENtYOGjob7knbxOkcKHE5wjlE"
+        ],
+        "costUsd": "0.024365"
+      }
+    }
+  },
+  "notRecorded": [
+    "sensor",
+    "payment",
+    "fulfillment",
+    "recovery",
+    "duplicate",
+    "timeout"
+  ],
+  "context": {
+    "incidentTrigger": "SIMULATED_INPUT (labelled SIMULATOR device in a throwaway database; the sensor part is NOT_RUN)",
+    "tenant": "synthetic tenant in a throwaway database, dropped after the gate ran",
+    "runner": "packages/evidence/test/support/journey-document-reasoning.ts",
+    "reasoningOutcome": "COMPLETED"
+  }
+}

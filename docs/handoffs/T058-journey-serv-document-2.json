@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "journey-note",
+  "project": "UptimeBuyer",
+  "ids": ["T-058", "FR-22", "INV-12", "FR-05", "NFR-04", "INV-03", "INV-10", "T-021", "T-023", "T-024"],
+  "journeyId": "j-2026-11-12-serv-document-2",
+  "branch": "fix/pdf-font-decoding",
+  "startingCommit": "0d44db5",
+  "runnerCommit": "28d05f0da52e902f60d363fdf64034ba5c17b517",
+  "localCommits": [
+    "2383cb4 test(m05): font-encoded PDF text, CMap bounds, parser re-derivation and citation prompt (red)",
+    "5313372 test(m05): correct two font-test defects found on first green run",
+    "95a3ae7 fix(m05): decode PDF text through ToUnicode CMaps and font encodings (parser v3)",
+    "82b883a test(m05): security review of the font decoder: prototype-key encodings, shared oversized font objects (red)",
+    "1e62c90 fix(m05): security review of the font decoder: Map-only encoding names, bounded font objects",
+    "28d05f0 feat(m14): journey runner records the parser version and withheld text (the run was made here)",
+    "docs(m14): record journey j-2026-11-12-serv-document-2 (this note, the evidence, the test and the docs)",
+    "docs(m14): regenerate the coverage report"
+  ],
+  "userAuthorization": "Exactly one more real SERV Reasoning run on serv-mini with a hard cap of $1.00 (user-approved), budget maxCostMicros 250000 and the existing token limit, SERV_REASONING_EFFORT unset. A 4xx refusal before any generation could be fixed and resent; after any accepted, billed request, no further runs. Nothing else: no Kite or kpass command, no payment, no other paid API, no push, PR, merge or deployment.",
+  "diagnosis": {
+    "manual": "evidence/journeys/j-2026-11-12-serv-document/XR60CX-GB.pdf (SHA-256 5b6f5829...095f, 1,022,749 bytes; digest verified before use)",
+    "fonts": "Simple TrueType fonts with /Encoding /WinAnsiEncoding (F1-F5, F8, F10, F12, F13: already decoded by v2) and four Type0 fonts with /Encoding /Identity-H and a ToUnicode CMap: F6 and F11 (Arial Narrow subsets, the body text), F7 (Symbol, mapped into U+F0A3/U+F0B1/U+F0B7/U+F0B8), F9 (a Word-embedded symbol subset mapping only U+F020). The CMaps use codespace <0000> <FFFF>, bfchar, incrementing bfrange and the array bfrange form. No /Differences anywhere. Form XObjects 31, 72, 75 and 76 carry diagram labels in WinAnsi fonts; Do is not followed (unchanged).",
+    "defect": "v2 decoded every string as WinAnsi/PDFDocEncoding or UTF-16BE: Identity-H 2-byte glyph ids came out as letter-spaced shifted characters (for example 'W H P S H U D W X U H' for 'temperature', '³ + $ ´' for the alarm code “HA”)."
+  },
+  "result": {
+    "document": "PASS at the journey gate (file-only and --database): same manual, uptimebuyer-parser.v3, 5 pages, 12 spans, textWithheld [], 0 injection-flagged spans.",
+    "reasoning": "PASS at the journey gate (file-only and --database): one real serv-mini run COMPLETED, disposition PROPOSAL_ONLY; the product's unchanged citation validation accepted the proposal.",
+    "sensor": "NOT_RUN. The incident was opened by a labelled SIMULATOR device (trigger origin SIMULATED_INPUT) in a throwaway database.",
+    "payment, fulfillment, recovery, duplicate, timeout": "NOT_RUN",
+    "journeyOverall": "NOT_RUN",
+    "T-058": "NOT_RUN (coverage status unchanged; docs/coverage lists both recorded journeys' parts)"
+  },
+  "servRun": {
+    "reasoningRunId": "rsn_49008919-d8fd-4ff1-8b9b-5d33b53e6e5d",
+    "modelRequested": "serv-mini",
+    "modelEchoed": "serv-mini",
+    "responseIds": ["chatcmpl-EjKZCWWVY5q9N3VmfUoKKBqz7S5jL", "chatcmpl-EjKZENtYOGjob7knbxOkcKHE5wjlE"],
+    "turns": 2,
+    "toolCalls": ["get_asset_snapshot", "submit_candidate_schema"],
+    "usage": {
+      "promptTokens": 17039,
+      "completionTokens": 1221,
+      "cachedPromptTokensReported": 8320
+    },
+    "computedCostUsd": "0.024365 (catalog $1.00 / $6.00 per million; every prompt token priced at the full rate)",
+    "budget": "maxCostMicros 250000 ($0.25), maxRunTokens 120000; authorized cap $1.00",
+    "status": "COMPLETED",
+    "disposition": "PROPOSAL_ONLY",
+    "proposalId": "rpr_cf7dc581-971e-43d9-9e4b-d7f4f183b55e",
+    "proposalDigest": "reasoning-proposal.v1:sha256:09320d7b6803120b9b9e28e77a8c7dfae3fba17a828a412b8d8cdf14e25f4601",
+    "digests": {
+      "inputDigest": "reasoning-input.v1:sha256:eb78e9a412119460c9bd7cb311ac874191368bffe81aeb4291f62d60cd1c2514",
+      "outputDigest": "sha256:5607bd203dc495bbfd4ec259bc9a7a75a87f4ee48a96210a0a70115cb162a9ce",
+      "configDigest": "reasoning-config.v1:sha256:ce8ff052799e3b43701d94751c5c3a1c0b57ffcb9919654feffea8831a20d623",
+      "promptTemplateDigest": "reasoning-prompt.v1:sha256:f83d9793740d648cf251485da8a96d90957508ea2e96b500fdf4243842083cce"
+    },
+    "proposalSummary": "Two fault hypotheses (REFRIGERATION_TEMPERATURE_HIGH citing the page-3 temperature alarm parameters; SENSOR_FAULT citing the page-4 probe alarm/recovery table and page-1 text), four extracted fields (MANUFACTURER Dixell and MODEL XR60CX both quoting 'XR60CX' on page 1, a page-2 WARNING that loads on normally closed relay contacts stay powered in stand-by, and the page-2 procedure to show the set point), one DIAGNOSTIC candidate action on temperature control and sensing (CANDIDATE_ONLY, no part number, page-2 probe-selection text as evidence against), a TECHNICIAN provider query, confidence 420000 ppm. 7 citations, all manual pages, all re-opened and verified; nothing cites the asset snapshot and no serial is extracted. The MANUFACTURER field's quote is 'XR60CX' rather than 'Dixell': the validator checks that the quote is in the cited span, not that it supports the value.",
+    "authority": "NONE (MODEL PROPOSAL); compatibility, spending and closure stay with deterministic policy and named humans"
+  },
+  "refusedRequests": "None. The single runner execution sent two requests, both HTTP 200. No retry was made and no further run was made after the billed run.",
+  "promptChange": "SYSTEM_PROMPT now states that citation ids come only from packet.excerpts or search_evidence results with their own sourceDigest and locator, that get_asset_snapshot returns no citation, and how U+FFFD (withheld) text is shown. PROMPT_TEMPLATE_DIGEST reasoning-prompt.v1:sha256:7664289643c557f8448fd4c3265de64f8a4da7bea18855d4c08629eac6218267 -> reasoning-prompt.v1:sha256:f83d9793740d648cf251485da8a96d90957508ea2e96b500fdf4243842083cce; the run's configDigest is reasoning-config.v1:sha256:ce8ff052799e3b43701d94751c5c3a1c0b57ffcb9919654feffea8831a20d623 (it also carries parserVersion v3). Tool descriptions are unchanged. The citation validator is unchanged.",
+  "evidence": [
+    "evidence/journeys/j-2026-11-12-serv-document-2/manifest.journey.json",
+    "evidence/journeys/j-2026-11-12-serv-document-2/XR60CX-GB.pdf",
+    "evidence/journeys/j-2026-11-12-serv-document-2/document.json",
+    "evidence/journeys/j-2026-11-12-serv-document-2/reasoning.json",
+    "evidence/journeys/j-2026-11-12-serv-document-2/redaction-check.json",
+    "docs/release/evidence/t058-journey-j-2026-11-12-serv-document-2.gate.json",
+    "docs/release/evidence/t058-journey-j-2026-11-12-serv-document-2.gate-database.json",
+    "tests/m14/t058-journey-serv-document-2.test.ts"
+  ],
+  "decisions": [
+    "Fonts that cannot be decoded fail closed: their text is withheld as U+FFFD with a recorded reason (textWithheld, stored in evidence_documents.text_withheld), never guessed; a font that cannot be resolved at all is withheld too. A page with only withheld text has no text, so a document with nothing decodable is PDF_TEXT_UNAVAILABLE.",
+    "A malformed CMap is refused as a whole (the font's text is withheld) rather than partially trusted; a CMap or font count over a bound rejects the document (CMAP_TOO_LARGE, TOO_MANY_FONTS), consistent with NFR-04: a bound is a typed rejection, never silent truncation.",
+    "Symbol-font private-use code points (U+F020-U+F0FF) are read through the Adobe Symbol encoding for fonts whose BaseFont is Symbol; U+F020 is a space for any font; other private-use code points are withheld.",
+    "Re-derivation semantics follow M05 (spans and documents immutable, replacement is an append-only event): migration 0024 keys a document by parser version; a re-ingest whose extraction changed records a new derived document that supersedes and withdraws the old one (reason REDERIVED_BY_PARSER) and so a new evidence revision; an unchanged extraction is reused; a withdrawn derivation is not resurrected; reopenCitation re-derives with the recorded parser version, and the v1/v2 decoder is kept verbatim (byte-identical span digests for the manual are pinned in T-021).",
+    "Migration 0024 replaces a unique constraint in one step. The migrations README asks for rolling-safe changes; no database outside throwaway test and journey databases exists (T-057 deployment is NOT_RUN), so no running reader of the old shape exists. Recorded in the migration header.",
+    "The layout rule (each Tm/BT fragment starts a new line, so Word-split words such as 'Tempera' / 'ture' stay split) is unchanged: it is not an encoding defect and changing it would need glyph widths; recorded as a finding.",
+    "C-021 stays NOT_RUN in the claim ledger: it maps to T-058, which stays NOT_RUN until one journey passes every part, and the claim check never marks a REAL_WORLD claim EVIDENCED. Its text now states the reasoning part PASS of journey 2. The claim check was not changed.",
+    "Journey 1's evidence, manifest, gate outputs, test and handoff note are untouched; journey 2 sits alongside it.",
+    "A contract-fake dry run (dryrun-fontfix-1, no SERV request, no key) validated the pipeline at the fix before the paid run; its outputs were deleted."
+  ],
+  "reEvaluate": [
+    "git worktree add --detach \"$HOME/ub-j058b-check\" 28d05f0da52e902f60d363fdf64034ba5c17b517",
+    "mkdir -p \"$HOME/ub-j058b-check/evidence/journeys\"",
+    "cp -R evidence/journeys/j-2026-11-12-serv-document-2 \"$HOME/ub-j058b-check/evidence/journeys/\"",
+    "node \"$HOME/ub-j058b-check/scripts/release/journey-gate.mjs\" --manifest \"$HOME/ub-j058b-check/evidence/journeys/j-2026-11-12-serv-document-2/manifest.journey.json\" --json",
+    "git worktree remove --force \"$HOME/ub-j058b-check\""
+  ],
+  "runCommand": "SERV_API_KEY=<from the SERV key file, environment only> SERV_REASONING_MODEL=serv-mini DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev node --experimental-transform-types --no-warnings --import ./packages/domain/test/support/ts-register.mjs packages/evidence/test/support/journey-document-reasoning.ts --journey-id j-2026-11-12-serv-document-2 --manual evidence/journeys/j-2026-11-12-serv-document/XR60CX-GB.pdf (SERV_REASONING_EFFORT and OPENSERV_API_KEY removed from the environment)",
+  "findings": [
+    "Security review of the parser change found two defects, fixed red-first (82b883a, 1e62c90): encoding names equal to Object prototype keys decoded bytes as '[object Undefined]'; many font resources sharing one oversized font object re-scanned it per font (7.1 s for 500 references to 6 MB).",
+    "Accepted after review: composite-font codespace lookup is linear in the 2M-character text budget (79 ms per 200k glyphs at the 256-range worst case).",
+    "Remaining extraction limits: text in Form XObjects (diagram labels) is not extracted; words split by the producer into separately positioned fragments stay split across lines.",
+    "The validator checks that a quote appears in the cited span, not that it supports the extracted value (the MANUFACTURER field quotes 'XR60CX'). The validator was intentionally not changed.",
+    "The integration file apps/kite-broker/test/t047-cmms-signoff-installed-part.int.test.ts failed once in suite setup (a contract validation error while building its world) during a full parallel integration run and passed 10/10 when re-run alone; see the pnpm verify result for the final commit.",
+    "The sourceSha 28d05f0 must stay reachable from main: merge with a merge commit, not squash or rebase."
+  ],
+  "secrets": "The SERV key was passed only through the runner's environment. Its raw, base64, base64url and hex forms and a long fragment are absent from every artifact, the runner's stdout/stderr, the gate outputs and the git diff (compared inside a script against the key file, never printed); the runner's own redaction check over the exported artifacts and the product store PASSed; the gate child process received no SERV key.",
+  "notRun": [
+    "Real authenticated physical sensor",
+    "Kite-paid action, fulfillment, recovery evidence, duplicate and timeout parts",
+    "A complete real-input journey (T-058)",
+    "Physical proof of any kind"
+  ]
+}
