@@ -136,11 +136,14 @@
     },
     {
       "id": "C-021",
-      "text": "A real SERV Reasoning (OpenServ) run returning a validated cited proposal on a real document: NOT_RUN. Journey j-2026-11-12-serv-document ingested the published Dixell XR60CX manual (journey gate document part PASS at source commit ca59099) and made one real serv-mini run; the product REJECTED its proposal (CITATION_OUT_OF_RANGE, CITATION_QUOTE_MISMATCH), so the reasoning part is FAIL and not counted. Local tests still use a contract-fake adapter.",
+      "text": "A real SERV Reasoning (OpenServ) run returning a validated cited proposal on a real document, as part of a complete real-input journey: NOT_RUN (the claim maps to T-058, which stays NOT_RUN until one journey passes every part). Recorded so far: journey j-2026-11-12-serv-document-2 (source commit 28d05f0) ingested the published Dixell XR60CX manual with parser v3 and made one real serv-mini run; the product's citation validation accepted its proposal (COMPLETED, a MODEL PROPOSAL with no authority, 7 citations re-opened and verified, $0.024365), so the journey gate reads document PASS and reasoning PASS. The earlier journey j-2026-11-12-serv-document (ca59099) made one run whose proposal the product REJECTED (CITATION_OUT_OF_RANGE, CITATION_QUOTE_MISMATCH). Sensor, payment, fulfillment, recovery, duplicate and timeout parts are NOT_RUN. Local tests still use a contract-fake adapter.",
       "status": "NOT_RUN",
       "layer": "REAL_WORLD",
       "coverageIds": ["T-058", "FR-22"],
       "evidence": [
+        "evidence/journeys/j-2026-11-12-serv-document-2/manifest.journey.json",
+        "evidence/journeys/j-2026-11-12-serv-document-2/reasoning.json",
+        "docs/release/evidence/t058-journey-j-2026-11-12-serv-document-2.gate.json",
         "evidence/journeys/j-2026-11-12-serv-document/manifest.journey.json",
         "evidence/journeys/j-2026-11-12-serv-document/reasoning.json",
         "docs/release/evidence/t058-journey-j-2026-11-12-serv-document.gate.json"

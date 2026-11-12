@@ -16,7 +16,7 @@ import { canonicalize } from '@uptimebuyer/domain';
 import { tenantCommand, unavailable, type Db, type TenantContext, type Tx } from '@uptimebuyer/data';
 import { rejected } from './errors.js';
 import type { DocumentRole } from './documents.js';
-import { RETRIEVAL_LIMITS } from './limits.js';
+import { DOCUMENT_LIMITS, RETRIEVAL_LIMITS } from './limits.js';
 import { type ObjectStorePort } from './object-store.js';
 import { parseDocument } from './parse.js';
 import {
@@ -303,7 +303,7 @@ export interface ReopenedCitation {
   trustLevel: string;
 }
 
-/** Re-open cited text from the immutable object: digest, re-parse and span digest must all match. */
+/** Re-open cited text from the immutable object: digest, re-parse (recorded parser version) and span digest must all match. */
 export async function reopenCitation(
   pool: Db,
   ctx: TenantContext,
@@ -314,11 +314,11 @@ export async function reopenCitation(
   const row = await tenantCommand(pool, ctx, meta, async (c) => {
     if (!/^cit_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/.test(citationId ?? '')) throw unavailable(meta);
     const { rows } = await c.query<
-      SpanRow & { citation_id: string; evidence_revision_id: string; quoted_digest: string; object_key: string; media_type: string; site_id: string; cited_locator: CitationLocator }
+      SpanRow & { citation_id: string; evidence_revision_id: string; quoted_digest: string; object_key: string; media_type: string; parser_version: string; site_id: string; cited_locator: CitationLocator }
     >(
       `SELECT ct.id AS citation_id, ct.evidence_revision_id, ct.quoted_digest, ct.locator AS cited_locator,
               s.id AS span_id, s.document_id, s.blob_id, s.ordinal, s.locator, s.text, s.text_digest, s.injection_flags,
-              d.role, d.title, d.document_revision, d.trust_level, d.extraction_method, d.media_type,
+              d.role, d.title, d.document_revision, d.trust_level, d.extraction_method, d.media_type, d.parser_version,
               b.sha256, b.object_key, i.site_id
          FROM citations ct
          JOIN evidence_document_spans s ON s.tenant_id = ct.tenant_id AND s.id = ct.span_id
@@ -334,7 +334,8 @@ export async function reopenCitation(
     return rows[0];
   });
   const bytes = await store.get(row.object_key);
-  const parsed = parseDocument(bytes, row.media_type);
+  // Re-derive with the parser version that produced the cited span (a parser upgrade never invalidates a citation).
+  const parsed = parseDocument(bytes, row.media_type, DOCUMENT_LIMITS, { parserVersion: row.parser_version });
   const span = parsed.spans.find((s) => s.ordinal === row.ordinal);
   if (
     !span ||

@@ -10,11 +10,13 @@ import {
   type EvidenceTrust,
   type SiteId,
 } from '@uptimebuyer/contracts';
-import { canonicalDigest } from '@uptimebuyer/domain';
+import { canonicalDigest, canonicalize } from '@uptimebuyer/domain';
 import {
   requireAuthorized,
   Denial,
   actorOf,
+  lockKey,
+  versionConflict,
   notPermitted,
   recordAudit,
   tenantCommand,
@@ -28,6 +30,7 @@ import { rejected } from './errors.js';
 import { newEvidenceId, type DocumentId } from './ids.js';
 import { DOCUMENT_LIMITS } from './limits.js';
 import { objectKeyFor, sha256DigestOf, type ObjectStorePort } from './object-store.js';
+import type { WithheldReason } from './cmap.js';
 import { extractFacts, parseDocument, SUPPORTED_MEDIA_TYPES, type ParsedDocument } from './parse.js';
 import { requireAnyEvidenceRead, requireEvidenceRead, requireEvidenceWrite } from './scope.js';
 import { scanUntrustedText } from './untrusted.js';
@@ -108,6 +111,12 @@ export interface IngestedDocument {
   factCount: number;
   injectionFlaggedSpanCount: number;
   activeContentRemoved: string[];
+  /** Why some PDF text was withheld (shown as U+FFFD) instead of decoded; empty when nothing was withheld. */
+  textWithheld: WithheldReason[];
+  /** The parser version that derived the returned document's spans. */
+  parserVersion: string;
+  /** The older derivation of the same blob this document re-derived (parser upgrade), if any. */
+  rederivedFromDocumentId: DocumentId | null;
   trustLevel: EvidenceTrust;
   existing: boolean;
 }
@@ -131,6 +140,11 @@ export interface DocumentRecord {
   pageCount: number;
   spanCount: number;
   activeContentRemoved: string[];
+  textWithheld: WithheldReason[];
+  /** An explicit replacement: the document this one replaced. */
+  supersedesDocumentId: DocumentId | null;
+  /** A parser re-derivation: the older derivation of the same blob this one replaced. */
+  rederivedFromDocumentId: DocumentId | null;
   withdrawn: boolean;
   createdAt: string;
 }
@@ -158,6 +172,10 @@ export interface DocumentRow {
   page_count: number;
   span_count: number;
   active_content_removed: string[];
+  text_withheld: WithheldReason[];
+  supersedes_document_id: DocumentId | null;
+  rederived_from_document_id: DocumentId | null;
+  applicability_digest: string;
   purposes: string[];
   consent_ref: string | null;
   withdrawn: boolean;
@@ -193,6 +211,9 @@ export const toDocumentRecord = (r: DocumentRow): DocumentRecord => ({
   pageCount: r.page_count,
   spanCount: r.span_count,
   activeContentRemoved: r.active_content_removed,
+  textWithheld: r.text_withheld,
+  supersedesDocumentId: r.supersedes_document_id,
+  rederivedFromDocumentId: r.rederived_from_document_id,
   withdrawn: r.withdrawn,
   createdAt: r.created_at.toISOString(),
 });
@@ -216,6 +237,54 @@ export interface StoreDocumentInput {
   supersedesDocumentId: string | null;
 }
 
+const applicabilityDigestOf = (input: Pick<StoreDocumentInput, 'applicability' | 'documentRevision' | 'sourceKind'>) =>
+  canonicalDigest('evidence-applicability', 1, {
+    ...input.applicability,
+    documentRevision: input.documentRevision,
+    sourceKind: input.sourceKind,
+  });
+
+/**
+ * A document lineage is one blob (by content digest) under one role and applicability: every parser derivation of it.
+ * Its advisory lock serializes re-derivation with withdrawal and replacement of any derivation of the same bytes. It
+ * comes after every other lock a caller holds (ADR 0006 lock order: evidence revision, asset, M07 excerpt promotion),
+ * is held to commit, and is followed only by row locks on rows the same transaction writes. Two lineages are locked in
+ * key order.
+ */
+const lineageKey = (tenantId: string, sha256: string, role: string, applicabilityDigest: string) =>
+  `evidence-document-lineage:${tenantId}:${sha256}:${role}:${applicabilityDigest}`;
+async function lockLineages(c: Tx, keys: string[]): Promise<void> {
+  for (const k of [...new Set(keys)].sort()) await lockKey(c, k);
+}
+
+/**
+ * Per-consent advisory lock: serializes consent withdrawal with ingestion and re-derivation of documents carrying that
+ * consent reference. Ingestion takes it after the lineage lock; consent withdrawal takes only consent locks (in key
+ * order) after its caller's own locks (M07 lockConsent), so the order is M07 consent lock -> lineage -> consent ref.
+ */
+const consentKey = (tenantId: string, consentRef: string) => `evidence-consent:${tenantId}:${consentRef}`;
+
+/** Withdraw every derivation of a lineage not yet withdrawn (append-only events). Returns the ids withdrawn now. */
+async function withdrawLineageTx(
+  c: Tx,
+  ctx: TenantContext,
+  lineage: { blobId: string; role: string; applicabilityDigest: string },
+  reasonCode: string,
+): Promise<string[]> {
+  const actor = actorOf(ctx);
+  const r = await c.query<{ document_id: string }>(
+    `INSERT INTO evidence_document_events (tenant_id, id, document_id, event_type, reason_code, actor_kind, actor_id)
+     SELECT d.tenant_id, 'dve_' || gen_random_uuid(), d.id, 'WITHDRAWN', $5, $6, $7
+       FROM evidence_documents d
+      WHERE d.tenant_id = $1 AND d.blob_id = $2 AND d.role = $3 AND d.applicability_digest = $4
+        AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
+     ON CONFLICT (tenant_id, document_id) DO NOTHING
+     RETURNING document_id`,
+    [ctx.tenantId, lineage.blobId, lineage.role, lineage.applicabilityDigest, reasonCode, actor.kind, actor.id],
+  );
+  return r.rows.map((x) => x.document_id);
+}
+
 /**
  * Parse, store and record one document inside the caller's transaction. Authorization is the caller's job. Returns
  * the existing document when identical bytes were already recorded with the same role and applicability.
@@ -229,11 +298,11 @@ export async function storeDocumentTx(
 ): Promise<IngestedDocument> {
   const sha256 = sha256DigestOf(input.bytes);
   const objectKey = objectKeyFor(ctx.tenantId, 'evidence', sha256);
-  const applicabilityDigest = canonicalDigest('evidence-applicability', 1, {
-    ...input.applicability,
-    documentRevision: input.documentRevision,
-    sourceKind: input.sourceKind,
-  });
+  const applicabilityDigest = applicabilityDigestOf(input);
+  // Serialize with withdrawal and replacement of any derivation of these bytes (re-entrant if the caller holds it), and
+  // with withdrawal of the document's consent.
+  await lockLineages(c, [lineageKey(ctx.tenantId, sha256, input.role, applicabilityDigest)]);
+  if (input.consentRef !== null) await lockKey(c, consentKey(ctx.tenantId, input.consentRef));
   await store.put(objectKey, input.bytes);
   await c.query(
     `INSERT INTO evidence_blobs (tenant_id, id, object_key, sha256, media_type, size_bytes, trust_level)
@@ -246,8 +315,8 @@ export async function storeDocumentTx(
   ]);
   const blobId = blob.rows[0]!.id;
   const spanFlags = parsed.spans.map((s) => scanUntrustedText(s.text));
-  const facts = parsed.spans.flatMap((s) => extractFacts(s.text, parsed.extractionMethod, s.ordinal));
-  const summary = (existing: boolean, documentId: DocumentId, trustLevel: EvidenceTrust): IngestedDocument => ({
+  const facts = parsed.spans.flatMap((s) => extractFacts(s.text, parsed.extractionMethod, s.ordinal, parsed.parserVersion));
+  const fresh = (documentId: DocumentId, rederivedFrom: DocumentId | null): IngestedDocument => ({
     documentId,
     blobId,
     sha256,
@@ -259,30 +328,129 @@ export async function storeDocumentTx(
     factCount: facts.length,
     injectionFlaggedSpanCount: spanFlags.filter((f) => f.length > 0).length,
     activeContentRemoved: parsed.activeContentRemoved,
-    trustLevel,
-    existing,
+    textWithheld: parsed.textWithheld,
+    parserVersion: parsed.parserVersion,
+    rederivedFromDocumentId: rederivedFrom,
+    trustLevel: input.trustLevel,
+    existing: false,
   });
-  const lookup = async () =>
+  // An existing derivation is reported from what was recorded for it, not from this parse.
+  const recorded = async (id: DocumentId): Promise<IngestedDocument> => {
+    const r = await c.query<{
+      media_type: string;
+      extraction_method: ParsedDocument['extractionMethod'];
+      page_count: number;
+      span_count: number;
+      active_content_removed: string[];
+      text_withheld: WithheldReason[];
+      parser_version: string;
+      rederived_from_document_id: DocumentId | null;
+      trust_level: EvidenceTrust;
+      facts: string;
+      flagged: string;
+    }>(
+      `SELECT d.media_type, d.extraction_method, d.page_count, d.span_count, d.active_content_removed, d.text_withheld,
+              d.parser_version, d.rederived_from_document_id, d.trust_level,
+              (SELECT count(*) FROM evidence_document_facts f WHERE f.tenant_id = d.tenant_id AND f.document_id = d.id) AS facts,
+              (SELECT count(*) FROM evidence_document_spans s WHERE s.tenant_id = d.tenant_id AND s.document_id = d.id
+                  AND cardinality(s.injection_flags) > 0) AS flagged
+         FROM evidence_documents d WHERE d.tenant_id = $1 AND d.id = $2`,
+      [ctx.tenantId, id],
+    );
+    const d = r.rows[0]!;
+    return {
+      documentId: id,
+      blobId,
+      sha256,
+      objectKey,
+      mediaType: d.media_type,
+      extractionMethod: d.extraction_method,
+      pageCount: d.page_count,
+      spanCount: d.span_count,
+      factCount: Number(d.facts),
+      injectionFlaggedSpanCount: Number(d.flagged),
+      activeContentRemoved: d.active_content_removed,
+      textWithheld: d.text_withheld,
+      parserVersion: d.parser_version,
+      rederivedFromDocumentId: d.rederived_from_document_id,
+      trustLevel: d.trust_level,
+      existing: true,
+    };
+  };
+  // Every derivation of this blob for this role and applicability, newest first.
+  const derivations = async () =>
     (
-      await c.query<{ id: DocumentId; trust_level: EvidenceTrust }>(
-        `SELECT id, trust_level FROM evidence_documents
-          WHERE tenant_id = $1 AND blob_id = $2 AND role = $3 AND applicability_digest = $4`,
+      await c.query<{ id: DocumentId; parser_version: string; withdrawn: boolean }>(
+        `SELECT d.id, d.parser_version,
+                EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
+                  AS withdrawn
+           FROM evidence_documents d
+          WHERE d.tenant_id = $1 AND d.blob_id = $2 AND d.role = $3 AND d.applicability_digest = $4
+          ORDER BY d.created_at DESC, d.id DESC`,
         [ctx.tenantId, blobId, input.role, applicabilityDigest],
       )
-    ).rows[0];
-  const prior = await lookup();
-  if (prior) return summary(true, prior.id, prior.trust_level);
+    ).rows;
+  const prior = await derivations();
+  const same = prior.find((d) => d.parser_version === parsed.parserVersion);
+  if (same) return recorded(same.id);
+  // Re-derivation semantics (T-024): an older parser's derivation is reused when this parser extracts exactly the same
+  // spans, and is never resurrected when it was withdrawn; otherwise this extraction becomes a new derived document
+  // that supersedes it. Recorded spans are never rewritten.
+  let rederivedFrom: DocumentId | null = null;
+  const latest = prior[0];
+  if (latest) {
+    if (latest.withdrawn) return recorded(latest.id);
+    const spans = await c.query<{ ordinal: number; locator: unknown; text_digest: string }>(
+      `SELECT ordinal, locator, text_digest FROM evidence_document_spans WHERE tenant_id = $1 AND document_id = $2
+        ORDER BY ordinal`,
+      [ctx.tenantId, latest.id],
+    );
+    const spansUnchanged =
+      spans.rows.length === parsed.spans.length &&
+      spans.rows.every(
+        (r, i) =>
+          r.ordinal === parsed.spans[i]!.ordinal &&
+          r.text_digest === parsed.spans[i]!.textDigest &&
+          canonicalize(r.locator) === canonicalize(parsed.spans[i]!.locator),
+      );
+    // Facts are part of the derivation (M06 binds claims to them): a fact difference is a new derivation too.
+    const factSet = (rows: { ordinal: number; key: string; value: string }[]) =>
+      [...new Set(rows.map((f) => JSON.stringify([f.ordinal, f.key, f.value])))].sort();
+    const storedFacts = spansUnchanged
+      ? await c.query<{ ordinal: number; key: string; value: string }>(
+          `SELECT s.ordinal, f.fact_key AS key, f.value
+             FROM evidence_document_facts f
+             JOIN evidence_document_spans s ON s.tenant_id = f.tenant_id AND s.id = f.span_id
+            WHERE f.tenant_id = $1 AND f.document_id = $2`,
+          [ctx.tenantId, latest.id],
+        )
+      : null;
+    const factsUnchanged =
+      storedFacts !== null &&
+      canonicalize(factSet(storedFacts.rows)) ===
+        canonicalize(factSet(facts.map((f) => ({ ordinal: f.spanOrdinal, key: f.factKey, value: f.value }))));
+    if (spansUnchanged && factsUnchanged) return recorded(latest.id);
+    rederivedFrom = latest.id;
+  }
 
+  // Under the consent lock: a withdrawn consent never gets a new active document (fresh ingest or re-derivation).
+  if (input.consentRef !== null) {
+    const gone = await c.query(
+      `SELECT 1 FROM evidence_consent_withdrawals WHERE tenant_id = $1 AND consent_ref = $2`,
+      [ctx.tenantId, input.consentRef],
+    );
+    if (gone.rows.length > 0) throw rejected('CONSENT_WITHDRAWN', 'The consent for this communication was withdrawn.');
+  }
   const documentId = newEvidenceId('document') as DocumentId;
   const actor = actorOf(ctx);
   const ins = await c.query(
     `INSERT INTO evidence_documents (tenant_id, id, blob_id, role, title, document_revision, manufacturer, model,
        bom_revision, serial, site_id, asset_id, source_kind, source_ref, trust_level, media_type, extraction_method,
        parser_version, page_count, span_count, active_content_removed, consent_ref, purposes, applicability_digest,
-       supersedes_document_id, created_by_kind, created_by_id)
+       supersedes_document_id, created_by_kind, created_by_id, text_withheld, rederived_from_document_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-             $24, $25, $26, $27)
-     ON CONFLICT (tenant_id, blob_id, role, applicability_digest) DO NOTHING`,
+             $24, $25, $26, $27, $28, $29)
+     ON CONFLICT (tenant_id, blob_id, role, applicability_digest, parser_version) DO NOTHING`,
     [
       ctx.tenantId,
       documentId,
@@ -311,12 +479,18 @@ export async function storeDocumentTx(
       input.supersedesDocumentId,
       actor.kind,
       actor.id,
+      parsed.textWithheld,
+      rederivedFrom,
     ],
   );
   if (ins.rowCount === 0) {
-    const raced = await lookup();
-    return summary(true, raced!.id, raced!.trust_level);
+    const raced = (await derivations()).find((d) => d.parser_version === parsed.parserVersion);
+    return recorded(raced!.id);
   }
+  // Recheck before activation: under the lineage lock the older derivation is still active; if a path that does not
+  // take the lineage lock (consent withdrawal) withdrew it meanwhile, the new derivation must not become active.
+  if (rederivedFrom && !(await withdrawTx(c, ctx, rederivedFrom, 'REDERIVED_BY_PARSER')))
+    throw versionConflict('DOCUMENT_WITHDRAWN_DURING_REDERIVATION');
   const spanIds: string[] = [];
   for (const [i, s] of parsed.spans.entries()) {
     const spanId = newEvidenceId('span');
@@ -334,7 +508,7 @@ export async function storeDocumentTx(
        VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`,
       [ctx.tenantId, newEvidenceId('fact'), documentId, spanIds[f.spanOrdinal - 1], f.factKey, f.value],
     );
-  return summary(false, documentId, input.trustLevel);
+  return fresh(documentId, rederivedFrom);
 }
 
 async function loadDocument(c: Tx, ctx: TenantContext, meta: { action: string; resourceType: string }, id: string) {
@@ -390,14 +564,36 @@ async function ingestParsedTx(
         type: 'evidence_document',
         id: null,
       });
-    let supersedes: string | null = null;
+    let supersedes: DocumentRow | null = null;
     if (input.supersedesDocumentId) {
       const old = await loadDocument(c, ctx, meta, input.supersedesDocumentId);
       if (old.role !== input.role || old.source_kind === 'REGISTRY_SNAPSHOT')
         throw rejected('SUPERSEDED_DOCUMENT_MISMATCH');
       if ((old.site_id ?? null) !== siteId) throw rejected('SUPERSEDED_DOCUMENT_MISMATCH');
-      supersedes = old.id;
+      supersedes = old;
     }
+    const applicability = {
+      manufacturer: input.applicability.manufacturer,
+      model: input.applicability.model,
+      bomRevision: input.applicability.bomRevision ?? null,
+      serial: input.applicability.serial ?? null,
+      assetId,
+    };
+    const ownLineage = lineageKey(
+      ctx.tenantId,
+      sha256DigestOf(input.bytes),
+      input.role,
+      applicabilityDigestOf({ applicability, documentRevision: input.documentRevision, sourceKind: input.sourceKind }),
+    );
+    const replacedLineage = supersedes
+      ? lineageKey(ctx.tenantId, supersedes.sha256, supersedes.role, supersedes.applicability_digest)
+      : null;
+    // Decision (PR #20): a replacement must name another document. Naming a derivation of these same bytes is not a
+    // replacement (a re-ingest without supersedesDocumentId is the re-derivation), so it is refused.
+    if (replacedLineage === ownLineage)
+      throw rejected('SUPERSEDED_DOCUMENT_SAME_LINEAGE', 'A document cannot replace a derivation of its own bytes.');
+    // Both lineages (these bytes, and the replaced document's) are locked up front, in key order.
+    await lockLineages(c, [ownLineage, ...(replacedLineage ? [replacedLineage] : [])]);
     const result = await storeDocumentTx(
       c,
       ctx,
@@ -408,24 +604,38 @@ async function ingestParsedTx(
         bytes: input.bytes,
         title: input.title,
         documentRevision: input.documentRevision,
-        applicability: {
-          manufacturer: input.applicability.manufacturer,
-          model: input.applicability.model,
-          bomRevision: input.applicability.bomRevision ?? null,
-          serial: input.applicability.serial ?? null,
-          assetId,
-        },
+        applicability,
         siteId,
         sourceKind: input.sourceKind,
         sourceRef: input.sourceRef ?? null,
         trustLevel: trustFor(ctx),
         consentRef: input.communication?.consentRef ?? null,
         purposes: input.communication?.purposes ?? [],
-        supersedesDocumentId: supersedes,
+        supersedesDocumentId: supersedes?.id ?? null,
       },
       parsed,
     );
-    if (supersedes && !result.existing) await withdrawTx(c, ctx, supersedes, 'SUPERSEDED_BY_REPLACEMENT');
+    if (supersedes && result.existing) {
+      // These bytes were already recorded. Success means the requested replacement is the recorded one (an idempotent
+      // retry); a stored row cannot gain a link later, so any other request is refused rather than reported done.
+      const link = await c.query<{ supersedes_document_id: string | null }>(
+        `SELECT supersedes_document_id FROM evidence_documents WHERE tenant_id = $1 AND id = $2`,
+        [ctx.tenantId, result.documentId],
+      );
+      if (link.rows[0]?.supersedes_document_id !== supersedes.id)
+        throw rejected(
+          'REPLACEMENT_BYTES_ALREADY_RECORDED',
+          'These bytes are already recorded without this replacement; withdraw the old document explicitly.',
+        );
+    }
+    // A replacement withdraws every derivation of the replaced bytes, not only the row named (idempotent on retry).
+    if (supersedes)
+      await withdrawLineageTx(
+        c,
+        ctx,
+        { blobId: supersedes.blob_id, role: supersedes.role, applicabilityDigest: supersedes.applicability_digest },
+        'SUPERSEDED_BY_REPLACEMENT',
+      );
     await recordAudit(c, ctx, {
       action: meta.action,
       resourceType: 'evidence_document',
@@ -483,6 +693,17 @@ export async function withdrawConsentedCommunicationsInTx(
 ): Promise<number> {
   if (!/^[A-Z][A-Z0-9_]{0,63}$/.test(input.reasonCode)) throw rejected('INVALID_REASON_CODE');
   if (consentRefs.length === 0) return 0;
+  const refs = [...new Set(consentRefs)].sort();
+  // Serialize with ingestion and re-derivation under these consents (they take the same locks), then record the
+  // withdrawal so no later ingest can activate a document under it, then withdraw what exists. The document statement
+  // runs after the locks are granted, so it sees every derivation committed before them.
+  for (const ref of refs) await lockKey(c, consentKey(tenantId, ref));
+  await c.query(
+    `INSERT INTO evidence_consent_withdrawals (tenant_id, id, consent_ref, reason_code, actor_kind, actor_id)
+     SELECT $1, 'dcw_' || gen_random_uuid(), ref, $3, 'WORKER', $4 FROM unnest($2::text[]) AS ref
+     ON CONFLICT (tenant_id, consent_ref) DO NOTHING`,
+    [tenantId, refs, input.reasonCode, input.systemActorId.slice(0, 128)],
+  );
   const r = await c.query(
     `INSERT INTO evidence_document_events (tenant_id, id, document_id, event_type, reason_code, actor_kind, actor_id)
      SELECT d.tenant_id, 'dve_' || gen_random_uuid(), d.id, 'WITHDRAWN', $3, 'WORKER', $4
@@ -490,7 +711,7 @@ export async function withdrawConsentedCommunicationsInTx(
       WHERE d.tenant_id = $1 AND d.source_kind = 'COMMUNICATION' AND d.consent_ref = ANY($2::text[])
         AND NOT EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
      ON CONFLICT (tenant_id, document_id) DO NOTHING`,
-    [tenantId, [...consentRefs], input.reasonCode, input.systemActorId.slice(0, 128)],
+    [tenantId, refs, input.reasonCode, input.systemActorId.slice(0, 128)],
   );
   return r.rowCount ?? 0;
 }
@@ -520,8 +741,21 @@ export async function withdrawDocument(
         ...meta,
         reasonCode: 'SNAPSHOT_NOT_WITHDRAWABLE',
       });
-    const fresh = await withdrawTx(c, ctx, d.id, input.reasonCode);
-    await recordAudit(c, ctx, { ...meta, result: 'SUCCEEDED', metadata: { alreadyWithdrawn: !fresh } });
+    // Withdrawing a document withdraws every derivation of its bytes, serialized with re-derivation (lineage lock), so
+    // no active derivation of withdrawn bytes can remain or appear.
+    await lockLineages(c, [lineageKey(ctx.tenantId, d.sha256, d.role, d.applicability_digest)]);
+    const withdrawn = await withdrawLineageTx(
+      c,
+      ctx,
+      { blobId: d.blob_id, role: d.role, applicabilityDigest: d.applicability_digest },
+      input.reasonCode,
+    );
+    const fresh = withdrawn.includes(d.id);
+    await recordAudit(c, ctx, {
+      ...meta,
+      result: 'SUCCEEDED',
+      metadata: { alreadyWithdrawn: !fresh, derivationsWithdrawn: withdrawn.length },
+    });
     return { documentId: d.id, withdrawn: true as const, alreadyWithdrawn: !fresh };
   });
 }

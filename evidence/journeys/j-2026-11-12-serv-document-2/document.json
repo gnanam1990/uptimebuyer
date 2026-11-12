@@ -1,0 +1,35 @@
+{
+  "schema": "journey-document-record.v1",
+  "journeyId": "j-2026-11-12-serv-document-2",
+  "origin": "PUBLISHED_DOCUMENT",
+  "source": {
+    "url": "https://webapps.copeland.com/Dixell/Content/Pages/Manuals/XR-CX/XR60CX/XR60CX-GB.pdf",
+    "publisher": "Copeland (owner of Dixell)",
+    "sha256": "5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+    "bytes": 1022749
+  },
+  "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+  "blobId": "blb_c20f6ef3-f5f9-4393-811b-4896d3a6d4d3",
+  "sha256": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+  "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+  "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+  "role": "MANUAL",
+  "sourceKind": "OEM_PUBLICATION",
+  "applicability": {
+    "manufacturer": "Dixell",
+    "model": "XR60CX"
+  },
+  "mediaType": "application/pdf",
+  "extractionMethod": "PDF_TEXT",
+  "pageCount": 5,
+  "extractedSpanCount": 12,
+  "factCount": 0,
+  "injectionFlaggedSpanCount": 0,
+  "activeContentRemoved": [],
+  "parserVersion": "uptimebuyer-parser.v3",
+  "textWithheld": [],
+  "trustLevel": "OPERATOR_ATTESTED",
+  "evidenceRevisionId": "evr_1101a15b-12b5-440d-92f6-f52ae1fc17e1",
+  "ingestedAt": "2026-11-12T08:35:16.893Z",
+  "parserNote": "Bounded PDF text subset, uptimebuyer-parser.v3 (ADR 0002): text is decoded through each font's ToUnicode CMap or simple encoding; text that cannot be decoded is withheld as U+FFFD, never guessed (withheld here: none). Form XObject text is not extracted; nothing was OCRed or hand-corrected."
+}

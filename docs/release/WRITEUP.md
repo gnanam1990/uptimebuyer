@@ -18,9 +18,11 @@ SERV Reasoning (OpenServ) is the evidence and proposal layer: it extracts cited 
 and proposes recovery candidates. Its output is advisory. Compatibility, safety, authority, budget and closure
 decisions are deterministic code over recorded evidence, and every citation is re-checked against the stored document.
 Local tests use a contract-fake adapter with synthetic documents.
-A real SERV Reasoning run with a validated cited proposal is NOT_RUN <!-- C-021 -->.
+A real SERV Reasoning run with a validated cited proposal inside a complete real-input journey is NOT_RUN <!-- C-021 -->.
 Journey j-2026-11-12-serv-document ingested the published Dixell XR60CX manual (journey gate document part PASS) and made one serv-mini call.
 SERV answered; the product REJECTED the proposal (two citations did not match their spans), so that part is not counted (NOT_RUN).
+Text in the manual's Identity-H fonts had been extracted as shifted glyph codes; the parser now decodes it through each font's ToUnicode CMap.
+Journey j-2026-11-12-serv-document-2 then made one more serv-mini call over the same manual: the product accepted the cited proposal (reasoning part PASS; the journey overall is NOT_RUN).
 
 ## Track
 
@@ -42,15 +44,16 @@ given; every payment in the demo is RECORDED_CONTRACT.
 - A worker that schedules every runner with per-runner locks and graceful shutdown <!-- C-010 -->.
 - A clean clone built, migrated, started and smoke-tested in a local compose stack, with backup, restore and image
   rollback exercised locally <!-- C-011 C-012 -->.
-- The published Dixell XR60CX manual ingested through the product with exact provenance (journey gate document part PASS;
-  the journey overall is NOT_RUN) <!-- C-021 -->.
+- The published Dixell XR60CX manual ingested through the product with exact provenance, and one SERV Reasoning run over it
+  whose cited proposal the product accepted (journey gate document and reasoning parts PASS; the journey overall is
+  NOT_RUN) <!-- C-021 -->.
 - Release gates for every external action, all REFUSED; a real-input journey gate that refuses simulated evidence; a
   claim check over these drafts <!-- C-013 C-014 -->.
 
 ## Limits (NOT_RUN)
 
 - Real authenticated physical sensor: NOT_RUN <!-- C-020 -->.
-- Real SERV Reasoning run with a validated cited proposal on a real document: NOT_RUN; the one recorded serv-mini run was REJECTED <!-- C-021 -->.
+- Real SERV Reasoning run with a validated cited proposal inside a complete real-input journey: NOT_RUN; journey 2 recorded one accepted serv-mini proposal (reasoning part PASS), journey 1 one REJECTED <!-- C-021 -->.
 - Real bounded Kite-paid action with downstream fulfillment: NOT_RUN <!-- C-022 -->.
 - Independent physical recovery evidence: NOT_RUN <!-- C-023 -->.
 - Hosted deployment: NOT_RUN <!-- C-024 -->.

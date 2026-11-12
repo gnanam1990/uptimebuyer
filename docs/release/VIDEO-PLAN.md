@@ -3,8 +3,8 @@
 > DRAFT. No video has been recorded or uploaded: the video upload is NOT_RUN and needs its own explicit authorization
 > (`RELEASE-GATES.md`). This plan covers the local SIMULATED demo only. A recording of the real-input journey
 > (DEMO-VALIDATION.md) is NOT_RUN: it needs a real sensor, document, OpenServ run, bounded Kite-paid action and
-> recovery evidence in one run. Only the document part has passed (journey j-2026-11-12-serv-document); the one SERV run there
-> was REJECTED and everything else is NOT_RUN <!-- C-020 C-021 C-022 C-023 -->.
+> recovery evidence in one run. Only the document and reasoning parts have passed (journey j-2026-11-12-serv-document-2, after
+> journey j-2026-11-12-serv-document whose SERV run was REJECTED); everything else is NOT_RUN <!-- C-020 C-021 C-022 C-023 -->.
 
 ## Format
 

@@ -6,9 +6,17 @@ import { createHash } from 'node:crypto';
 import type { CitationLocator } from '@uptimebuyer/contracts';
 import { rejected } from './errors.js';
 import { DOCUMENT_LIMITS } from './limits.js';
+import type { WithheldReason } from './cmap.js';
 import { extractPdfText } from './pdf.js';
 
-export const PARSER_VERSION = 'uptimebuyer-parser.v2';
+/**
+ * v3 decodes PDF text through each font's ToUnicode CMap / encoding and withholds what it cannot decode (ADR 0002).
+ * v1 and v2 differ only in fact extraction; both decoded PDF strings without fonts. Spans are re-derived with the
+ * version recorded on their document, so a citation issued under an older version keeps verifying.
+ */
+export const PARSER_VERSION = 'uptimebuyer-parser.v3';
+export const LEGACY_PARSER_VERSIONS = Object.freeze(['uptimebuyer-parser.v1', 'uptimebuyer-parser.v2'] as const);
+export const SUPPORTED_PARSER_VERSIONS = Object.freeze([...LEGACY_PARSER_VERSIONS, PARSER_VERSION]);
 export const SUPPORTED_MEDIA_TYPES = Object.freeze(['application/pdf', 'text/plain', 'text/markdown', 'text/csv'] as const);
 export type SupportedMediaType = (typeof SUPPORTED_MEDIA_TYPES)[number];
 export type ParsedExtractionMethod = 'PDF_TEXT' | 'STRUCTURED_IMPORT' | 'MANUAL_ENTRY';
@@ -27,6 +35,13 @@ export interface ParsedDocument {
   pageCount: number;
   spans: ParsedSpan[];
   activeContentRemoved: string[];
+  /** Why some PDF text was withheld rather than shown (sorted reason codes); empty when nothing was withheld. */
+  textWithheld: WithheldReason[];
+}
+
+export interface ParseOptions {
+  /** Re-derive with a recorded parser version (default: the current one). */
+  parserVersion?: string;
 }
 
 type Limits = typeof DOCUMENT_LIMITS;
@@ -88,6 +103,8 @@ function finish(
   blocks: { locator: CitationLocator; text: string }[],
   activeContentRemoved: string[],
   limits: Limits,
+  parserVersion: string,
+  textWithheld: WithheldReason[] = [],
 ): ParsedDocument {
   const spans: ParsedSpan[] = [];
   let chars = 0;
@@ -106,7 +123,7 @@ function finish(
       mediaType === 'application/pdf' ? 'PDF_TEXT_UNAVAILABLE' : 'DOCUMENT_EMPTY',
       'The document has no extractable text (OCR is not supported).',
     );
-  return { mediaType, extractionMethod, parserVersion: PARSER_VERSION, pageCount, spans, activeContentRemoved };
+  return { mediaType, extractionMethod, parserVersion, pageCount, spans, activeContentRemoved, textWithheld };
 }
 
 const page = (n: number): CitationLocator => ({ kind: 'PAGE', page: n, pageEnd: null });
@@ -205,7 +222,16 @@ function parseCsvDocument(text: string, limits: Limits) {
   return { pageCount: 0, blocks };
 }
 
-export function parseDocument(bytes: Uint8Array, mediaType: string, limits: Limits = DOCUMENT_LIMITS): ParsedDocument {
+export function parseDocument(
+  bytes: Uint8Array,
+  mediaType: string,
+  limits: Limits = DOCUMENT_LIMITS,
+  opts: ParseOptions = {},
+): ParsedDocument {
+  const version = opts.parserVersion ?? PARSER_VERSION;
+  if (!(SUPPORTED_PARSER_VERSIONS as readonly string[]).includes(version))
+    throw rejected('PARSER_VERSION_UNSUPPORTED', 'The recorded parser version cannot be re-derived.');
+  const legacy = version !== PARSER_VERSION;
   if (bytes.length > limits.maxBytes) throw rejected('DOCUMENT_TOO_LARGE', 'The document exceeds the size bound.');
   if (!(SUPPORTED_MEDIA_TYPES as readonly string[]).includes(mediaType))
     throw rejected('UNSUPPORTED_MEDIA_TYPE', 'The media type is not supported.');
@@ -214,7 +240,7 @@ export function parseDocument(bytes: Uint8Array, mediaType: string, limits: Limi
   const type = mediaType as SupportedMediaType;
   if (type === 'application/pdf') {
     if (!isPdf) throw rejected('MEDIA_TYPE_MISMATCH', 'The bytes are not a PDF.');
-    const pdf = extractPdfText(buf, limits);
+    const pdf = extractPdfText(buf, limits, { fonts: !legacy });
     return finish(
       type,
       'PDF_TEXT',
@@ -222,16 +248,18 @@ export function parseDocument(bytes: Uint8Array, mediaType: string, limits: Limi
       pdf.pages.map((t, i) => ({ locator: page(i + 1), text: t })),
       pdf.activeContentRemoved,
       limits,
+      version,
+      pdf.textWithheld,
     );
   }
   if (buf.subarray(0, 5).equals(PDF_MAGIC)) throw rejected('MEDIA_TYPE_MISMATCH', 'PDF bytes declared as text.');
   const text = decodeText(buf);
   if (type === 'text/csv') {
     const r = parseCsvDocument(text, limits);
-    return finish(type, 'STRUCTURED_IMPORT', r.pageCount, r.blocks, [], limits);
+    return finish(type, 'STRUCTURED_IMPORT', r.pageCount, r.blocks, [], limits, version);
   }
   const r = type === 'text/markdown' ? parseMarkdown(text) : parsePlain(text, limits);
-  return finish(type, 'MANUAL_ENTRY', r.pageCount, r.blocks, [], limits);
+  return finish(type, 'MANUAL_ENTRY', r.pageCount, r.blocks, [], limits, version);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -266,7 +294,17 @@ export const normalizeComponent = (s: string) =>
 const normalizePart = (s: string) => s.trim().toUpperCase();
 const normalizeSpec = (s: string) => s.trim().replace(/\s+/g, ' ');
 
-export function extractFacts(text: string, method: ParsedExtractionMethod, spanOrdinal: number): ExtractedFact[] {
+/**
+ * Exact facts of one span, as extracted by `parserVersion` (default: current). v1 had no certification facts (they
+ * arrived with v2, M06 claim binding), so re-deriving a v1 document reproduces its recorded facts.
+ */
+export function extractFacts(
+  text: string,
+  method: ParsedExtractionMethod,
+  spanOrdinal: number,
+  parserVersion: string = PARSER_VERSION,
+): ExtractedFact[] {
+  const certificationFacts = parserVersion !== 'uptimebuyer-parser.v1';
   const facts: ExtractedFact[] = [];
   const add = (factKey: string, value: string) => {
     if (!/^(part|spec):[a-z0-9][a-z0-9-]{0,79}$/.test(factKey) || !value || value.length > 120) return;
@@ -296,7 +334,7 @@ export function extractFacts(text: string, method: ParsedExtractionMethod, spanO
       const label = s[1]!.trim().toLowerCase();
       // v2: a certification line lists exact codes; each becomes its own fact (spec:certification-<code key>), so
       // a longer code, a negation or prose never equals a claimed code (M06 claim binding).
-      if (label === 'certification' || label === 'certifications') {
+      if (certificationFacts && (label === 'certification' || label === 'certifications')) {
         for (const item of s[2]!.split(/[,;]/).map((x) => normalizeSpec(x))) {
           const key = normalizeComponent(item);
           if (CERT_CODE.test(item) && key) add(`spec:certification-${key}`, item);

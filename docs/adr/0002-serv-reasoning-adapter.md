@@ -1,7 +1,8 @@
 # ADR 0002: SERV Reasoning adapter and bounded reasoning boundary
 
-Status: accepted (M05, 2026-11-05). Real SERV execution: one recorded run (2026-11-12, see "Live run record" below); a
-real run with a validated cited proposal: `NOT_RUN`.
+Status: accepted (M05, 2026-11-05). Real SERV execution: two recorded runs (2026-11-12, see "Live run record" below).
+The second returned a cited proposal the product validated (journey gate reasoning part PASS); the real-input journey
+as a whole, and with it T-058, is `NOT_RUN`.
 
 ## Context
 
@@ -95,7 +96,9 @@ the request and response mapping only. Every reasoning result in this repository
 `openServ` external evidence remains `NOT_RUN`. To run live, set `SERV_API_KEY` and `SERV_REASONING_MODEL` in the SERV
 workload only, then run `runReasoning` with `ServReasoningAdapter.fromEnv()`.
 
-## Live run record (2026-11-12, T-058 journey `j-2026-11-12-serv-document`)
+## Live run record (2026-11-12, T-058 journeys `j-2026-11-12-serv-document` and `j-2026-11-12-serv-document-2`)
+
+### Run 1: `j-2026-11-12-serv-document` (source commit `ca59099`)
 
 One user-authorized run (model `serv-mini`, hard cap $1.00; the run budget was $0.25 and 120k tokens) went through
 `runReasoning` with `ServReasoningAdapter.fromEnv()` over the published Dixell XR60CX manual. The records are in
@@ -114,5 +117,70 @@ One user-authorized run (model `serv-mini`, hard cap $1.00; the run budget was $
   the catalog lists no cached price for `serv-mini`, so the recorded figure prices every prompt token at the full rate).
 - **Outcome.** The model called `get_asset_snapshot`, then `submit_candidate_schema`. The product REJECTED the proposal:
   `CITATION_OUT_OF_RANGE` (for example a manual-page citation re-labelled with a `RECORD` locator for the asset serial) and
-  `CITATION_QUOTE_MISMATCH` (a quote not found in the cited span). The guardrail worked as designed, but a real run with
-  a validated cited proposal remains `NOT_RUN`.
+  `CITATION_QUOTE_MISMATCH` (a quote not found in the cited span). The guardrail worked as designed; after run 1 a real run with a
+  validated cited proposal was still `NOT_RUN` (see run 2).
+
+### PDF text extraction: parser v3 (after run 1)
+
+Run 1 showed text in the manual's fonts with custom encodings extracted as shifted glyph codes (for example
+`W H P S H U D W X U H` for "temperature"), so parts of the manual were unreadable to the model and to the quote check.
+The manual's fonts are WinAnsi TrueType fonts (already handled) and four Type0 Identity-H fonts with ToUnicode CMaps
+(`bfchar`, both `bfrange` forms, 2-byte codes); one of them is the Symbol font, mapped into U+F0xx. No `/Differences`.
+
+`uptimebuyer-parser.v3` (`packages/evidence/src/pdf.ts`, `cmap.ts`) decides the supported subset:
+
+- Text is decoded through the current font (`Tf`, kept across `BT` and saved/restored by `q`/`Q`; page resources may be
+  inherited or indirect). The parts of a `/Contents` array are one content stream, so this state carries across them.
+  If a part cannot be read, the state after it is unknown: that part and everything after it are withheld
+  (`CONTENT_STREAM_UNREADABLE`).
+- A ToUnicode CMap is used when present: `codespacerange`, `bfchar` and `bfrange` (incrementing and array forms) with
+  1- and 2-byte codes. A CMap with any malformed entry, `usecmap`, CID operators or wider codes is refused as a whole.
+- Simple fonts decode through the WinAnsi, Standard, MacRoman (Annex D Latin set only) or Symbol encoding they name, or without `/Encoding` through their
+  built-in encoding (StandardEncoding for nonsymbolic fonts, Symbol for Symbol, unknown for other symbolic fonts), and
+  `/Differences` through a standard glyph-name subset (`uniXXXX`, `uXXXX`, suffixes and ligature components included).
+- Type0 Identity-H/V is decoded only with ToUnicode.
+- Anything else is withheld as U+FFFD with a recorded reason (`textWithheld`: `FONT_ENCODING_UNKNOWN`, `CMAP_REFUSED`,
+  `GLYPH_UNMAPPED`, `CODE_POINT_INVALID`) and is never guessed. Lone surrogates, controls, non-characters, private use
+  and bidi controls never reach span text. A page with only withheld text has no text. Form XObject text (`Do`) is not
+  extracted, as before.
+- New bounds (`DOCUMENT_LIMITS`): `maxFonts`, `maxCMapBytes`, `maxCMapMappings` (charged before a range is expanded),
+  `maxCMapMappingsTotal`, `maxRefHops`, `maxFontObjectBytes`. Exceeding one rejects the document (`CMAP_TOO_LARGE`,
+  `TOO_MANY_FONTS`).
+- Spans are immutable. Migration 0024 keys a document by parser version; a document lineage is one blob under one
+  role and applicability, with one row per parser derivation. Re-ingesting a blob whose spans or facts changed records
+  a new derived document (`rederived_from_document_id`, migration 0025), which withdraws the old derivation and
+  produces a new evidence revision. Facts are extracted by the version that derived the spans (v1 has no
+  certification facts). An unchanged extraction is reused and a withdrawn lineage is not resurrected. An explicit
+  replacement stays in `supersedes_document_id`, so a re-ingest that does both records both. A replacement naming a
+  derivation of its own bytes is refused (`SUPERSEDED_DOCUMENT_SAME_LINEAGE`). A replacement requested for bytes that
+  are already recorded succeeds only when it is the recorded link (idempotent retry), otherwise it is refused
+  (`REPLACEMENT_BYTES_ALREADY_RECORDED`); success is never reported without the transition.
+- Consent withdrawal (`withdrawConsentedCommunicationsInTx`) records the withdrawn consent ref
+  (`evidence_consent_withdrawals`, migration 0027) and withdraws its documents under a per-consent advisory lock that
+  ingestion also takes after the lineage lock. Ingestion refuses a withdrawn consent ref (`CONSENT_WITHDRAWN`), so no
+  committed active document carries a withdrawn consent, whichever path records it.
+- Withdrawal, replacement and re-derivation are serialized by a per-lineage advisory lock (a leaf lock, see ADR 0006).
+  Withdrawing or replacing a document withdraws every derivation of its bytes. A re-derivation whose older derivation
+  was withdrawn by a path outside the lock fails with `DOCUMENT_WITHDRAWN_DURING_REDERIVATION` and records nothing.
+- `reopenCitation` re-derives with the parser version recorded on the cited document; the v1/v2 decoder is kept
+  verbatim for that. The Dixell manual's v3 span digests from journey 2 are pinned in T-021.
+- The system prompt now says that citation ids come only from packet excerpts or `search_evidence` results, each with
+  its own digest and locator, that `get_asset_snapshot` has no citation, and how withheld text is shown.
+  `PROMPT_TEMPLATE_DIGEST` moved from `reasoning-prompt.v1:sha256:76642896…8267` to
+  `reasoning-prompt.v1:sha256:f83d9793…9cfb9c`. The config digest also moves, because it includes the parser version.
+  The citation validator is unchanged.
+
+### Run 2: `j-2026-11-12-serv-document-2` (source commit `28d05f0`)
+
+One more user-authorized run (model `serv-mini`, hard cap $1.00, run budget $0.25 and 120k tokens,
+`SERV_REASONING_EFFORT` unset) over the same manual, extracted by parser v3 (12 spans, nothing withheld). The records
+are in `evidence/journeys/j-2026-11-12-serv-document-2/`. No request was refused.
+
+- **Turns.** The model called `get_asset_snapshot`, then `submit_candidate_schema` (2 turns, both HTTP 200).
+- **Usage.** 17,039 prompt + 1,221 completion tokens (8,320 prompt tokens reported cached); computed cost $0.024365
+  with every prompt token priced at the full catalog rate.
+- **Outcome.** `COMPLETED`, disposition `PROPOSAL_ONLY`. The product's citation validation accepted the proposal
+  (`rpr_cf7dc581-…`, authority `NONE`, no review reasons). Every one of its 7 citations names a manual page and
+  re-opened from the stored object and verified. It cites nothing from the asset snapshot and extracts no serial.
+- **Gate.** The journey gate reads document PASS and reasoning PASS, file-only and with the `--database` cross-check.
+  Sensor, payment, fulfillment, recovery, duplicate and timeout are `NOT_RUN`, so the journey and T-058 stay `NOT_RUN`.

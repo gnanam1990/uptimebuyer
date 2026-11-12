@@ -1,0 +1,432 @@
+{
+  "schema": "journey-reasoning-record.v1",
+  "journeyId": "j-2026-11-12-serv-document-2",
+  "origin": "SERV_REASONING",
+  "adapter": "SERV_REASONING",
+  "resultOrigin": "SERV_REASONING",
+  "endpoint": "https://inference-api.openserv.ai/v1/chat/completions",
+  "modelRequested": "serv-mini",
+  "reasoningEffort": null,
+  "modelEchoed": "serv-mini",
+  "modelVersion": null,
+  "reasoningRunId": "rsn_49008919-d8fd-4ff1-8b9b-5d33b53e6e5d",
+  "status": "COMPLETED",
+  "disposition": "PROPOSAL_ONLY",
+  "capability": {
+    "kind": "ELIGIBLE"
+  },
+  "failureReason": null,
+  "rejectionReasons": [],
+  "injectionFlags": [],
+  "turns": 2,
+  "toolCalls": 2,
+  "latencyMs": 18571,
+  "startedAt": "2026-11-12T08:35:16.906Z",
+  "completedAt": "2026-11-12T08:35:35.441Z",
+  "usage": {
+    "promptTokens": 17039,
+    "completionTokens": 1221
+  },
+  "pricing": {
+    "source": "SERV catalog GET /v1/models on 2026-11-12 (US cents per million tokens)",
+    "cents": {
+      "input": 100,
+      "output": 600
+    },
+    "promptMicrosPerMillion": "1000000",
+    "completionMicrosPerMillion": "6000000"
+  },
+  "costMicros": "24365",
+  "costUsd": "0.024365",
+  "budget": {
+    "maxCostMicros": "250000",
+    "maxCostUsd": "0.250000",
+    "maxRunTokens": 120000,
+    "authorizedCapUsd": "1.000000"
+  },
+  "digests": {
+    "inputDigest": "reasoning-input.v1:sha256:eb78e9a412119460c9bd7cb311ac874191368bffe81aeb4291f62d60cd1c2514",
+    "outputDigest": "sha256:5607bd203dc495bbfd4ec259bc9a7a75a87f4ee48a96210a0a70115cb162a9ce",
+    "configDigest": "reasoning-config.v1:sha256:ce8ff052799e3b43701d94751c5c3a1c0b57ffcb9919654feffea8831a20d623",
+    "promptTemplateDigest": "reasoning-prompt.v1:sha256:f83d9793740d648cf251485da8a96d90957508ea2e96b500fdf4243842083cce"
+  },
+  "exchanges": [
+    {
+      "seq": 1,
+      "url": "https://inference-api.openserv.ai/v1/chat/completions",
+      "method": "POST",
+      "requestHeaderNames": [
+        "accept",
+        "authorization",
+        "content-type"
+      ],
+      "requestSha256": "07f4a1075e52b957be0058259b438ccda2bf2288ad383d9fe6b4bcd26fde69a3",
+      "requestBytes": 31378,
+      "sentAt": "2026-11-12T08:35:16.926Z",
+      "endedAt": "2026-11-12T08:35:27.343Z",
+      "status": 200,
+      "transportError": null,
+      "responseSha256": "d90586a69eeb4de2efc5d4fc00d2351a78391de74036850329302b9686b31f8e",
+      "responseBytes": 666,
+      "response": {
+        "parsed": true,
+        "id": "chatcmpl-EjKZCWWVY5q9N3VmfUoKKBqz7S5jL",
+        "model": "serv-mini",
+        "systemFingerprint": null,
+        "created": 1794472526,
+        "finishReason": "tool_calls",
+        "usage": {
+          "prompt_tokens": 8470,
+          "completion_tokens": 14,
+          "total_tokens": 8484,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "content": null,
+        "refusal": null,
+        "toolCalls": [
+          {
+            "id": "call_QAJfMnUOzvsCjQbOjN4wODHO",
+            "name": "get_asset_snapshot",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "errorBody": null
+    },
+    {
+      "seq": 2,
+      "url": "https://inference-api.openserv.ai/v1/chat/completions",
+      "method": "POST",
+      "requestHeaderNames": [
+        "accept",
+        "authorization",
+        "content-type"
+      ],
+      "requestSha256": "23306775c5652a9e668b6a1904a3e3f49a4a49f768538780af0c57d92b15fd5c",
+      "requestBytes": 31849,
+      "sentAt": "2026-11-12T08:35:27.348Z",
+      "endedAt": "2026-11-12T08:35:35.420Z",
+      "status": 200,
+      "transportError": null,
+      "responseSha256": "56fc26806a4d4efa2760979fdb9742bfc425c2842ac42d2c56f45331a9afda48",
+      "responseBytes": 4771,
+      "response": {
+        "parsed": true,
+        "id": "chatcmpl-EjKZENtYOGjob7knbxOkcKHE5wjlE",
+        "model": "serv-mini",
+        "systemFingerprint": null,
+        "created": 1794472528,
+        "finishReason": "tool_calls",
+        "usage": {
+          "prompt_tokens": 8569,
+          "completion_tokens": 1207,
+          "total_tokens": 9776,
+          "prompt_tokens_details": {
+            "cached_tokens": 8320,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "content": null,
+        "refusal": null,
+        "toolCalls": [
+          {
+            "id": "call_Y5RGE8VVWgaiNt9gchdIP56h",
+            "name": "submit_candidate_schema",
+            "arguments": "{\"proposal\":{\"schemaVersion\":1,\"incidentId\":\"inc_3300bcbd-ee22-4f4f-96bb-9a6b647c59bf\",\"evidenceRevisionId\":\"evr_1101a15b-12b5-440d-92f6-f52ae1fc17e1\",\"inputDigest\":\"reasoning-input.v1:sha256:eb78e9a412119460c9bd7cb311ac874191368bffe81aeb4291f62d60cd1c2514\",\"faultHypotheses\":[{\"code\":\"REFRIGERATION_TEMPERATURE_HIGH\",\"rationale\":\"The controller manual states temperature alarm is enabled when temperature exceeds setpoint-based thresholds, and the incident was triggered by a telemetry rule with a high-temperature fault family hypothesis.\",\"citationIds\":[\"cit_3b07578f-c29c-498a-a1ed-8e6786e3bb13\"]},{\"code\":\"SENSOR_FAULT\",\"rationale\":\"The manual says probe alarms start after a related probe fault and stop after normal operation resumes; the controller also has fault-probe timing behavior, so a probe issue remains plausible without telemetry details.\",\"citationIds\":[\"cit_641a4353-25c3-4be3-a572-9508a1fd0d6a\",\"cit_dfc8de61-1152-4d5e-8a16-864860fecea3\"]}],\"extractedFields\":[{\"field\":\"MANUFACTURER\",\"component\":null,\"value\":\"Dixell\",\"citations\":[{\"citationId\":\"cit_49d970fa-2ecc-42ec-9e05-fb9d0702080c\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":1,\"pageEnd\":null},\"quote\":\"XR60CX\"}]},{\"field\":\"MODEL\",\"component\":null,\"value\":\"XR60CX\",\"citations\":[{\"citationId\":\"cit_49d970fa-2ecc-42ec-9e05-fb9d0702080c\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":1,\"pageEnd\":null},\"quote\":\"XR60CX\"}]},{\"field\":\"WARNING\",\"component\":\"Loads connected to normally closed relay contacts\",\"value\":\"Loads connected to the normally closed contacts of the relays are always supplied and under voltage, even if the instrument is in stand by mode.\",\"citations\":[{\"citationId\":\"cit_215aed71-9a49-46f1-a89b-5fc44c7a9c75\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":2,\"pageEnd\":null},\"quote\":\"WARNING: Loads connected to the normally closed contacts of the relays are always\\nsupplied and under voltage, even if the instrument is in stand by mode.\"}]},{\"field\":\"PROCEDURE\",\"component\":\"Setpoint viewing\",\"value\":\"Push and immediately release the SET key to display the Set point value.\",\"citations\":[{\"citationId\":\"cit_9592a233-eda2-4d2d-a42c-d4a14ebc7f32\",\"sourceDigest\":\"sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f\",\"locator\":{\"kind\":\"PAGE\",\"page\":2,\"pageEnd\":null},\"quote\":\"Push and immediately release the SET key: the display will show the Set point value;\"}]}],\"candidateActions\":[{\"kind\":\"DIAGNOSTIC\",\"component\":\"Temperature control and sensing\",\"partNumber\":null,\"manufacturer\":\"Dixell\",\"evidenceFor\":[\"cit_3b07578f-c29c-498a-a1ed-8e6786e3bb13\",\"cit_641a4353-25c3-4be3-a572-9508a1fd0d6a\",\"cit_dfc8de61-1152-4d5e-8a16-864860fecea3\"],\"evidenceAgainst\":[\"cit_5d026798-f469-4f6d-9351-c1c304818abf\"],\"missingFields\":[\"OEM_PART_NUMBER\",\"MODEL\",\"SERIAL\",\"RATED_VOLTAGE\",\"REFRIGERANT\",\"CERTIFICATION\",\"APPROVED_VENDOR\"],\"compatibilityClaim\":\"CANDIDATE_ONLY\"}],\"conflicts\":[{\"factKey\":\"asset_identity_model_serial\",\"citationIds\":[]}],\"uncertainty\":[\"MISSING_PART_NUMBER\",\"MISSING_MODEL\",\"MISSING_SERIAL\",\"INSUFFICIENT_EVIDENCE\"],\"providerQueries\":[{\"kind\":\"TECHNICIAN\",\"component\":\"Temperature control and sensing\",\"partNumber\":null}],\"confidencePpm\":420000,\"summary\":\"Evidence is limited to an operator-attested XR60CX manual and the asset snapshot. The manual supports that high-temperature alarms are possible and that probe faults can affect control behavior, but no telemetry details, setpoint values, wiring status, or actual incident measurements were provided. No replacement part is supported; recommend diagnostic review rather than any compatibility or corrective approval.\"}}"
+          }
+        ]
+      },
+      "errorBody": null
+    }
+  ],
+  "responseIds": [
+    "chatcmpl-EjKZCWWVY5q9N3VmfUoKKBqz7S5jL",
+    "chatcmpl-EjKZENtYOGjob7knbxOkcKHE5wjlE"
+  ],
+  "proposal": {
+    "proposalId": "rpr_cf7dc581-971e-43d9-9e4b-d7f4f183b55e",
+    "proposalDigest": "reasoning-proposal.v1:sha256:09320d7b6803120b9b9e28e77a8c7dfae3fba17a828a412b8d8cdf14e25f4601",
+    "authority": "NONE",
+    "label": "MODEL PROPOSAL",
+    "lifecycle": "CURRENT",
+    "verification": {
+      "proposalDigestMatches": true,
+      "candidateDigestsMatch": true
+    },
+    "reviewReasons": [],
+    "candidates": [
+      {
+        "kind": "DIAGNOSTIC",
+        "index": 0,
+        "component": "Temperature control and sensing",
+        "conflicted": false,
+        "partNumber": null,
+        "candidateDigest": "candidate-action.v1:sha256:5a24395838d49cf13efcf72d3155a357195d5f0139f96ea00ce352c8a0fb2d7f",
+        "compatibilityClaim": "CANDIDATE_ONLY"
+      }
+    ],
+    "body": {
+      "schemaVersion": 1,
+      "incidentId": "inc_3300bcbd-ee22-4f4f-96bb-9a6b647c59bf",
+      "evidenceRevisionId": "evr_1101a15b-12b5-440d-92f6-f52ae1fc17e1",
+      "inputDigest": "reasoning-input.v1:sha256:eb78e9a412119460c9bd7cb311ac874191368bffe81aeb4291f62d60cd1c2514",
+      "faultHypotheses": [
+        {
+          "code": "REFRIGERATION_TEMPERATURE_HIGH",
+          "rationale": "The controller manual states temperature alarm is enabled when temperature exceeds setpoint-based thresholds, and the incident was triggered by a telemetry rule with a high-temperature fault family hypothesis.",
+          "citationIds": [
+            "cit_3b07578f-c29c-498a-a1ed-8e6786e3bb13"
+          ]
+        },
+        {
+          "code": "SENSOR_FAULT",
+          "rationale": "The manual says probe alarms start after a related probe fault and stop after normal operation resumes; the controller also has fault-probe timing behavior, so a probe issue remains plausible without telemetry details.",
+          "citationIds": [
+            "cit_641a4353-25c3-4be3-a572-9508a1fd0d6a",
+            "cit_dfc8de61-1152-4d5e-8a16-864860fecea3"
+          ]
+        }
+      ],
+      "extractedFields": [
+        {
+          "field": "MANUFACTURER",
+          "component": null,
+          "value": "Dixell",
+          "citations": [
+            {
+              "citationId": "cit_49d970fa-2ecc-42ec-9e05-fb9d0702080c",
+              "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+              "locator": {
+                "kind": "PAGE",
+                "page": 1,
+                "pageEnd": null
+              },
+              "quote": "XR60CX"
+            }
+          ]
+        },
+        {
+          "field": "MODEL",
+          "component": null,
+          "value": "XR60CX",
+          "citations": [
+            {
+              "citationId": "cit_49d970fa-2ecc-42ec-9e05-fb9d0702080c",
+              "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+              "locator": {
+                "kind": "PAGE",
+                "page": 1,
+                "pageEnd": null
+              },
+              "quote": "XR60CX"
+            }
+          ]
+        },
+        {
+          "field": "WARNING",
+          "component": "Loads connected to normally closed relay contacts",
+          "value": "Loads connected to the normally closed contacts of the relays are always supplied and under voltage, even if the instrument is in stand by mode.",
+          "citations": [
+            {
+              "citationId": "cit_215aed71-9a49-46f1-a89b-5fc44c7a9c75",
+              "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+              "locator": {
+                "kind": "PAGE",
+                "page": 2,
+                "pageEnd": null
+              },
+              "quote": "WARNING: Loads connected to the normally closed contacts of the relays are always\nsupplied and under voltage, even if the instrument is in stand by mode."
+            }
+          ]
+        },
+        {
+          "field": "PROCEDURE",
+          "component": "Setpoint viewing",
+          "value": "Push and immediately release the SET key to display the Set point value.",
+          "citations": [
+            {
+              "citationId": "cit_9592a233-eda2-4d2d-a42c-d4a14ebc7f32",
+              "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+              "locator": {
+                "kind": "PAGE",
+                "page": 2,
+                "pageEnd": null
+              },
+              "quote": "Push and immediately release the SET key: the display will show the Set point value;"
+            }
+          ]
+        }
+      ],
+      "candidateActions": [
+        {
+          "kind": "DIAGNOSTIC",
+          "component": "Temperature control and sensing",
+          "partNumber": null,
+          "manufacturer": "Dixell",
+          "evidenceFor": [
+            "cit_3b07578f-c29c-498a-a1ed-8e6786e3bb13",
+            "cit_641a4353-25c3-4be3-a572-9508a1fd0d6a",
+            "cit_dfc8de61-1152-4d5e-8a16-864860fecea3"
+          ],
+          "evidenceAgainst": [
+            "cit_5d026798-f469-4f6d-9351-c1c304818abf"
+          ],
+          "missingFields": [
+            "OEM_PART_NUMBER",
+            "MODEL",
+            "SERIAL",
+            "RATED_VOLTAGE",
+            "REFRIGERANT",
+            "CERTIFICATION",
+            "APPROVED_VENDOR"
+          ],
+          "compatibilityClaim": "CANDIDATE_ONLY"
+        }
+      ],
+      "conflicts": [
+        {
+          "factKey": "asset_identity_model_serial",
+          "citationIds": []
+        }
+      ],
+      "uncertainty": [
+        "MISSING_PART_NUMBER",
+        "MISSING_MODEL",
+        "MISSING_SERIAL",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "providerQueries": [
+        {
+          "kind": "TECHNICIAN",
+          "component": "Temperature control and sensing",
+          "partNumber": null
+        }
+      ],
+      "confidencePpm": 420000,
+      "summary": "Evidence is limited to an operator-attested XR60CX manual and the asset snapshot. The manual supports that high-temperature alarms are possible and that probe faults can affect control behavior, but no telemetry details, setpoint values, wiring status, or actual incident measurements were provided. No replacement part is supported; recommend diagnostic review rather than any compatibility or corrective approval."
+    }
+  },
+  "citations": [
+    {
+      "citationId": "cit_3b07578f-c29c-498a-a1ed-8e6786e3bb13",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 3,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": "1592020060 XR60CX GB m&M r1.1 27.04.2015\n XR60C\nX\n 3\n/\n5\n   Ab= absolute temperature: alarm temperature is given by the ALL or ALU values.  rE =\ntemperature alarms are referred to the set point. Temperature alarm is enabled when the\ntemperature exceeds the “SET+ALU” or “SET\n-\nALL” val\nues.\n ALU\n  MAXIMUM temperature alarm\n: (SET÷110°C; SET÷230°F) when this temperature is reached\nthe alarm is enabled, after the “ALd” delay time.\n ALL Minimum temperature alarm\n: (\n-\n50.0 ÷ SET°C;\n-\n58÷230°F when this temperature is reached\nthe alarm is enabled,\n after the “ALd” delay time.\n AFH\nDifferential for …",
+      "spanChars": 3995
+    },
+    {
+      "citationId": "cit_641a4353-25c3-4be3-a572-9508a1fd0d6a",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 4,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": "1592020060 XR60CX GB m&M r1.1 27.04.2015\n XR60C\nX\n 4\n/\n5\n  Message\n Cause\n Outputs\n “P3”\n Third probe  failure\n Outputs unchanged\n “\nP4\n”\n Fourth\n probe  failure\n Outputs unchanged\n “HA”\n Maximum temperature alarm\n Outputs unchanged.\n “LA”\n Minimum\ntemperature alarm\n Outputs unchanged.\n \"HA2\"\n Condenser high temperature\n It depends on the “Ac2” parameter\n \"LA2\"\n Condenser low temperature\n It depends on the “bLL” parameter\n “dA”\n Door open\n Compressor and fans restarts\n “EA”\n External alarm\n Output unchanged\n.\n “CA”\n Serious external alarm (i1F=bAL)\n All outputs OFF.\n “CA”\n Pressure switch alar…",
+      "spanChars": 3999
+    },
+    {
+      "citationId": "cit_dfc8de61-1152-4d5e-8a16-864860fecea3",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 1,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": " monitoring\nunits\n of\nX\n-\nWEB\n family\n. It allows\nto program the controller by means the HOT KEY programming keyboard.\n The instrument is fully configurable through special parameters that ca\nn be easily programmed\nthrough the keyboard.\n 3.\n CONTROLLING LOADS\n 3.1\n COMPRESSOR\n The regulation is performed according\nto the temperature measured by the\nthermostat probe with a positive\ndifferential from the set point: if the\ntemperature increases and reaches se\nt\npoint plus differential the compressor is\nstarted and then turned off when the\ntemperature reaches the set point value\nagain.\n  In case o…",
+      "spanChars": 3999
+    },
+    {
+      "citationId": "cit_49d970fa-2ecc-42ec-9e05-fb9d0702080c",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 1,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": "1592020060 XR60CX GB m&M r1.1 27.04.2015\n XR60C\nX\n 1\n/\n5\n  Digital controller with defrost and fans management\n XR\n60CX\n  CONTENTS\n 1.\n GENERAL WARNING\n ________________________________\n________________________\n 1\n 2.\n GENERAL DESCRIPTION\n ________________________________\n____________________\n 1\n 3.\n CONTROLLING LOADS\n ________________________________\n______________________\n 1\n 4.\n FRONT PAN\nEL COMMANDS\n ________________________________\n__________________\n 1\n 5.\n MAX & MIN TEMPERATUR\nE MEMORIZATION\n ________________________________\n____\n 1\n 6.\n MAIN FUNCTIONS\n ________________________________\n…",
+      "spanChars": 3989
+    },
+    {
+      "citationId": "cit_215aed71-9a49-46f1-a89b-5fc44c7a9c75",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 2,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": "  WARNING: Loads connected to the normally closed contacts of the relays are always\nsupplied and under voltage, even if the instrument is in stand by mode.\n 7.\n PARAMETERS\n REGULATION\n Hy Differential\n: (0,1 ÷ 25,5°C / 1÷255 °F) I\nntervention differential for set point. Compressor Cut IN\nis Set Point\n+\n d\nifferential (Hy). Compressor Cut OUT is when the temperature reaches the set\npoint.\n LS  Minimum set point:\n (\n-\n 50°C÷SET/\n-\n58°F÷SET): Sets the minimum value for the set point.\n US Maximu\nm set point:\n(SET÷110°C/ SET÷230°F). Set the maximum value for set point.\n Ot  Thermostat probe calibra…",
+      "spanChars": 3980
+    },
+    {
+      "citationId": "cit_9592a233-eda2-4d2d-a42c-d4a14ebc7f32",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 2,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": "1592020060 XR60CX GB m&M r1.1 27.04.2015\n XR60C\nX\n 2\n/\n5\n  5.3\n HOW TO RESET THE MAX\n AND MIN TEMPERATURE\nRECORDED\n 1.\n Hold pres\ns the SET key for more than 3s, while the max. or min temperature is displayed. (rSt\nmessage will be displayed)\n 2.\n To confirm the operation the “rSt” message starts blinking and the normal temperature will be\ndisplayed.\n 6.\n MAIN FUNCTIONS\n 6.1\n HOW TO SEE THE SETPO\nINT\n  1.\n Push and immediately release the\nSET\nkey: the display will show the\nSet point value;\n 2.\n Push and immediately release the\nSET\nkey or wait for 5 seconds to\n display the probe value again.\n 6.…",
+      "spanChars": 3939
+    },
+    {
+      "citationId": "cit_5d026798-f469-4f6d-9351-c1c304818abf",
+      "verified": true,
+      "documentId": "doc_d0466659-467d-43c3-94e8-2ba1f48588d7",
+      "title": "Dixell XR60CX Installing and Operating Instructions (GB)",
+      "documentRevision": "1592020060 XR60CX GB r1.1 27.04.2015",
+      "locator": {
+        "kind": "PAGE",
+        "page": 2,
+        "pageEnd": null
+      },
+      "sourceDigest": "sha256:5b6f58295e0bbb4ba547fdd6d3b80509f2d5ccf7e6879ddbcd077d8855fe095f",
+      "spanText": " Probe selection for defrost termination: nP\n = no probe;\nP1\n =thermostat probe;\nP2 =\nevaporator probe;\nP3\n =configurable probe;\nP4\n = Probe on Hot Key plug.\n tdF\n Defrost type\n: EL = electrical heater; in = hot gas\n dt\nE\n Defrost termination temperature\n: (\n-\n50÷50 °C/\n -\n58÷122°F) (Enabled only when EdF=Pb) sets the temperature measured by the evaporator\nprobe, which causes the\n end of defrost.\n IdF\n Interval between defrost cycles\n: (0÷120h) Determines the time interval betwee\nn the\nbeginning of two defrost cycles.\n MdF  (Maximum) length for defrost\n: (0÷255min) When\nP2P = n\n, (not evaporat…",
+      "spanChars": 3130
+    }
+  ],
+  "note": "Request bodies are not exported (digests only); they are the product packet built from this manual and the synthetic incident."
+}

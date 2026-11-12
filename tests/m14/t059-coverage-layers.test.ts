@@ -34,6 +34,7 @@ describe('T-059 coverage layers', () => {
           'tests/m14/t058-journey-gate.test.ts': 'passed',
           'tests/m14/t058-journey-evidence.test.ts': 'passed',
           'tests/m14/t058-journey-serv-document.test.ts': 'passed',
+          'tests/m14/t058-journey-serv-document-2.test.ts': 'passed',
           [`${BROKER_TESTS}/t058-journey-gate-db.int.test.ts`]: 'passed',
         }),
       ],
@@ -56,6 +57,13 @@ describe('T-059 coverage layers', () => {
     expect(rec?.result).toBe('NOT_RUN');
     for (const p of ['sensor', 'payment', 'fulfillment', 'recovery', 'duplicate', 'timeout'])
       expect(rec?.parts[p], p).toBe('NOT_RUN');
+    // Journey 2 (after the PDF font fix): document and reasoning PASS, the journey and T-058 still NOT_RUN.
+    const rec2 = t.journeyRecords.find((j) => j.journeyId === 'j-2026-11-12-serv-document-2');
+    expect(rec2?.parts.document).toBe('PASS');
+    expect(rec2?.parts.reasoning).toBe('PASS');
+    expect(rec2?.result).toBe('NOT_RUN');
+    for (const p of ['sensor', 'payment', 'fulfillment', 'recovery', 'duplicate', 'timeout'])
+      expect(rec2?.parts[p], p).toBe('NOT_RUN');
     expect(['NOT_RUN', 'UNKNOWN']).toContain(t.status);
     expect(t.externalEvidence).toBe('NOT_RUN');
     expect(gen.renderMarkdown(r)).toMatch(/## T-058 recorded journey parts/);
