@@ -11,7 +11,8 @@
 // The SERV key is read from the environment only; it is never printed, logged or written (a redaction check over
 // every exported artifact and the product's stored model input/output proves its absence).
 //
-//   SERV_API_KEY=... SERV_REASONING_MODEL=serv-mini SERV_REASONING_EFFORT=low DATABASE_URL=postgres://... \
+//   SERV_API_KEY=... SERV_REASONING_MODEL=serv-mini DATABASE_URL=postgres://... \
+//   (leave SERV_REASONING_EFFORT unset: serv-mini refuses reasoning_effort together with function tools)
 //     node --experimental-transform-types --no-warnings \
 //       --import ./packages/domain/test/support/ts-register.mjs \
 //       packages/evidence/test/support/journey-document-reasoning.ts \
@@ -356,6 +357,13 @@ async function main() {
       result: exportedCheck.result === 'PASS' && storedCheck.result === 'PASS' ? 'PASS' : 'FAIL',
     };
     writeFileSync(path.join(outDir, 'redaction-check.json'), json(redaction));
+    // A failed redaction check stops the run before anything is logged or recorded, and removes the exported evidence;
+    // the throwaway database is kept for inspection (keepDatabase stays set) and the process exits non-zero.
+    if (redaction.result !== 'PASS') {
+      rmSync(outDir, { recursive: true, force: true });
+      process.exitCode = 3;
+      throw new Error('redaction check failed: exported evidence removed; nothing was recorded');
+    }
 
     // ---- Manifest: the reasoning part is recorded only for a completed, validated proposal.
     const art = (f: string) => ({ path: rel(f), sha256: ev.sha256Hex(readFileSync(path.join(outDir, f))) });
@@ -421,6 +429,12 @@ async function main() {
       [gateFile, gateDbFile, manifestRel].map((f) => ({ path: f, bytes: readFileSync(path.join(repo, f)) })),
       secrets,
     );
+    if (leak.result !== 'PASS') {
+      for (const f of [gateFile, gateDbFile, manifestRel]) rmSync(path.join(repo, f), { force: true });
+      rmSync(outDir, { recursive: true, force: true });
+      process.exitCode = 3;
+      throw new Error('gate artifact redaction check failed: gate outputs and evidence removed');
+    }
     const statusOf = (r: typeof fileOnly) => Object.fromEntries(r.report.parts.map((p) => [p.part, p.status]));
     console.log(
       json({
@@ -435,7 +449,8 @@ async function main() {
         rejectionReasons: run.rejectionReasons,
         modelEchoed: view.modelId,
         responseIds: reasoningRecord.responseIds,
-        exchanges: recorder.exchanges.map((x) => ({ seq: x.seq, status: x.status ?? null, transportError: x.transportError ?? null, errorBody: x.errorBody ?? null })),
+        // Raw SERV error bodies are never printed (they could echo a request); reasoning.json keeps them, redaction-checked.
+        exchanges: recorder.exchanges.map((x) => ({ seq: x.seq, status: x.status ?? null, transportError: x.transportError ?? null, hasErrorBody: Boolean(x.errorBody) })),
         usage,
         costUsd: ev.formatUsd(costMicros),
         redaction: redaction.result,

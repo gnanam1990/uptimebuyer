@@ -28,7 +28,11 @@
     "modelEchoed": "serv-mini",
     "upstreamModelNamedBySERV": "gpt-5.4-mini (from a 400 error message, not from the response)",
     "responseIds": ["chatcmpl-EjHpyeef4JZsAIMOpV7k0eI94daMz", "chatcmpl-EjHq1PkoixNRKuVTctIGn1HL6uUFI"],
-    "usage": { "promptTokens": 18384, "completionTokens": 1510, "cachedPromptTokensReported": 9088 },
+    "usage": {
+      "promptTokens": 18384,
+      "completionTokens": 1510,
+      "cachedPromptTokensReported": 9088
+    },
     "computedCostUsd": "0.027444 (catalog $1.00 / $6.00 per million; every prompt token priced at the full rate)",
     "budget": "maxCostMicros 250000 ($0.25), maxRunTokens 120000; authorized cap $1.00",
     "status": "REJECTED",
@@ -50,7 +54,7 @@
     "Evidence lives in evidence/journeys/<journeyId>/ (repository root), not docs/release/evidence/journeys/: scripts/release/journey-gate.mjs binds every artifact to <repo>/evidence/journeys/<journeyId>/ and refuses anything else.",
     "The manifest is inside the journey directory (manifest.journey.json), not at evidence/journeys/*.journey.json: the gate CLI auto-discovers top-level manifests as the release journey, and this partial journey is bound to ca59099, so `pnpm release:journey` keeps reporting the release journey (none: every part NOT_RUN). docs/release/evidence/t058-journey-gate.json (all NOT_RUN) is unchanged and still describes that default.",
     "sourceSha is the runner commit ca59099: the runner refuses a dirty tree and the gate binds sourceSha to HEAD, so the run was made at ca59099 and evaluated (file-only and --database against the throwaway database, via JOURNEY_DATABASE_URL) before the evidence was committed. At any later HEAD the same manifest FAILS with SOURCE_SHA_MISMATCH; the gate was not changed and has no expected-SHA flag. tests/m14/t058-journey-serv-document.test.ts re-evaluates the committed manifest at its sourceSha on every verify.",
-    "A run whose proposal the product rejects is not offered to the gate as a reasoning part. The gate checks origin, artifacts, window and facts.runId only, so it would have read PASS for a rejected run.",
+    "A run whose proposal the product rejects is not offered to the gate as a reasoning part. At ca59099 (the run's source commit) the gate checked origin, artifacts, window and facts.runId only, so it would have read PASS for a rejected run; that weakness is fixed after the run (see findings).",
     "The run budget was set to $0.25 (not $1.00) so that even one further worst-case turn after the budget check stays under the authorized cap.",
     "The manual was re-fetched from the publisher URL because the copy named in the brief was missing from the scratchpad; its SHA-256 and size matched the brief before use."
   ],
@@ -63,7 +67,7 @@
   ],
   "runCommand": "SERV_API_KEY=<from the SERV key file, environment only> SERV_REASONING_MODEL=serv-mini DATABASE_URL=postgres://uptimebuyer:***@localhost:55432/uptimebuyer_dev node --experimental-transform-types --no-warnings --import ./packages/domain/test/support/ts-register.mjs packages/evidence/test/support/journey-document-reasoning.ts --journey-id j-2026-11-12-serv-document --manual <path to XR60CX-GB.pdf>",
   "findings": [
-    "The journey gate PASSes a reasoning part for any SERV_REASONING origin with a runId, whatever the run's status; requiring facts.status COMPLETED (and a proposal digest) would close that. Not changed here.",
+    "Observed at ca59099: the journey gate PASSed a reasoning part for any SERV_REASONING origin with a runId, whatever the run's status. FIXED after the run on this branch (082a242/f1862b9, then bbf68fe and its fix): the reasoning part now needs facts.runStatus COMPLETED and a non-blank facts.proposalId; those facts must match the recorded reasoning artifact (run id, status, stored proposal id, adapter); and the --database cross-check counts only the reported run and proposal ids, COMPLETED with a stored reasoning_proposals row. The recorded journey is evaluated at ca59099 and is unaffected: its rejected run was never offered as a reasoning part.",
     "The PDF parser's bounded subset extracts text in custom-encoded fonts as shifted glyph codes; parts of the XR60CX manual are unreadable to the model and to quote checks.",
     "The model cited asset-snapshot data (the synthetic serial) with a manual citation id and an invented RECORD locator; the asset snapshot tool returns no citation, so such facts cannot be cited today.",
     "The sourceSha ca59099 must stay reachable from main: merge with a merge commit, not squash or rebase."

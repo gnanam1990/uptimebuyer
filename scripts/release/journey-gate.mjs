@@ -78,7 +78,7 @@ function factReasons(part, p, ctx) {
       // A real call is not reasoning evidence on its own: the run must have COMPLETED and its validated proposal must
       // be stored. A REJECTED or FAILED run is recorded as what it is, never as a pass.
       if (f.runStatus !== 'COMPLETED') r.push(`REASONING_NOT_COMPLETED:${String(f.runStatus ?? 'ABSENT')}`);
-      if (typeof f.proposalId !== 'string' || !f.proposalId) r.push('FACT_MISSING:proposalId');
+      if (typeof f.proposalId !== 'string' || !f.proposalId.trim()) r.push('FACT_MISSING:proposalId');
       break;
     case 'payment': {
       // The cap is the signed authorization's scope (merchant, amount, currency, purpose, environment), checked by the
@@ -140,6 +140,36 @@ function artifactReasons(p, ctx, journeyId) {
   return { fail, unknown };
 }
 
+/**
+ * The reasoning facts must agree with the recorded reasoning artifact itself (M14 review): a valid hash alone cannot turn
+ * a REJECTED run into a pass. One artifact must be a reasoning record whose run id, status, stored proposal and adapter
+ * match the manifest facts.
+ */
+function reasoningRecordReasons(p, ctx, journeyId) {
+  const f = p.facts ?? {};
+  const own = path.join(path.resolve(ctx.artifactRoot), 'evidence', 'journeys', String(journeyId));
+  const records = [];
+  for (const a of Array.isArray(p.artifacts) ? p.artifacts : []) {
+    if (!a || typeof a.path !== 'string' || !a.path.endsWith('.json')) continue;
+    const full = path.resolve(ctx.artifactRoot, a.path);
+    if (!full.startsWith(`${own}${path.sep}`) || !existsSync(full)) continue;
+    try {
+      const doc = JSON.parse(readFileSync(full, 'utf8'));
+      if (doc && typeof doc === 'object' && typeof doc.reasoningRunId === 'string') records.push(doc);
+    } catch {
+      // not a JSON reasoning record
+    }
+  }
+  if (records.length !== 1) return [records.length === 0 ? 'REASONING_RECORD_MISSING' : 'REASONING_RECORD_AMBIGUOUS'];
+  const rec = records[0];
+  const r = [];
+  if (rec.reasoningRunId !== f.runId) r.push('REASONING_RECORD_MISMATCH:runId');
+  if (rec.status !== f.runStatus) r.push('REASONING_RECORD_MISMATCH:status');
+  if ((rec.proposal?.proposalId ?? null) !== (f.proposalId ?? null)) r.push('REASONING_RECORD_MISMATCH:proposalId');
+  if (rec.adapter !== 'SERV_REASONING') r.push('REASONING_RECORD_MISMATCH:adapter');
+  return r;
+}
+
 function classifyPart(part, manifest, ctx) {
   const p = manifest?.parts?.[part];
   if (!p || typeof p !== 'object') return { part, status: 'NOT_RUN', reasons: ['NOT_PROVIDED'] };
@@ -168,6 +198,9 @@ function classifyPart(part, manifest, ctx) {
   fail.push(...art.fail);
   unknown.push(...art.unknown);
   const facts = factReasons(part, p, ctx);
+  // A missing artifact is UNKNOWN (above); the record is compared only once every listed artifact is present.
+  if (part === 'reasoning' && art.unknown.length === 0)
+    facts.push(...reasoningRecordReasons(p, ctx, manifest.journeyId));
   // An ambiguous outcome is UNKNOWN until reconciled; other missing facts fail the part.
   if (part === 'payment' && (p.facts?.state === 'UNKNOWN' || p.facts?.reconciled !== true))
     unknown.push('OUTCOME_UNRECONCILED');
@@ -236,7 +269,7 @@ export function headSha(root = repo) {
  * recovery-window samples, the reasoning runs, the broker attempts and the recovery close-out (with any CMMS write
  * made by a contract-fake adapter). An unknown incident (or one of another tenant) reads as ABSENT for every part.
  */
-export async function collectDatabaseFacts(pool, { tenantId, incidentId }) {
+export async function collectDatabaseFacts(pool, { tenantId, incidentId, reasoningRunId, proposalId }) {
   const q = async (sql, params) => (await pool.query(sql, params)).rows;
   const absent = { origin: 'ABSENT', real: false };
   const inc = (
@@ -262,14 +295,20 @@ export async function collectDatabaseFacts(pool, { tenantId, incidentId }) {
     ])
   ).map((r) => r.adapter);
   // A SERV run counts only when it COMPLETED and its validated proposal is stored; a REJECTED or FAILED run is refused.
-  const completed = (
-    await q(
-      `SELECT count(*)::int AS n FROM reasoning_runs r
-         JOIN reasoning_proposals p ON p.tenant_id = r.tenant_id AND p.reasoning_run_id = r.id
-        WHERE r.tenant_id = $1 AND r.incident_id = $2 AND r.adapter = 'SERV_REASONING' AND r.status = 'COMPLETED'`,
-      [tenantId, incidentId],
-    )
-  )[0]?.n;
+  // Bound to the run and proposal the manifest reports (M14 review): another completed run on the incident cannot vouch
+  // for a fabricated or rejected one. Without both ids nothing is counted.
+  const bound = typeof reasoningRunId === 'string' && reasoningRunId && typeof proposalId === 'string' && proposalId;
+  const completed = bound
+    ? (
+        await q(
+          `SELECT count(*)::int AS n FROM reasoning_runs r
+             JOIN reasoning_proposals p ON p.tenant_id = r.tenant_id AND p.reasoning_run_id = r.id
+            WHERE r.tenant_id = $1 AND r.incident_id = $2 AND r.adapter = 'SERV_REASONING' AND r.status = 'COMPLETED'
+              AND r.id = $3 AND p.id = $4`,
+          [tenantId, incidentId, reasoningRunId, proposalId],
+        )
+      )[0]?.n
+    : 0;
   const reasoning =
     adapters.length === 0
       ? absent
@@ -347,7 +386,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const pg = (await import('pg')).default;
     const pool = new pg.Pool({ connectionString: process.env.JOURNEY_DATABASE_URL, max: 2 });
     try {
-      databaseFacts = await collectDatabaseFacts(pool, { tenantId: val('--tenant'), incidentId: val('--incident') });
+      databaseFacts = await collectDatabaseFacts(pool, {
+        tenantId: val('--tenant'),
+        incidentId: val('--incident'),
+        reasoningRunId: manifest?.parts?.reasoning?.facts?.runId,
+        proposalId: manifest?.parts?.reasoning?.facts?.proposalId,
+      });
     } finally {
       await pool.end();
     }
