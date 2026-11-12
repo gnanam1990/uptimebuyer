@@ -4,15 +4,19 @@
 export * from './ids.js';
 export * from './limits.js';
 export * from './object-store.js';
+export { WITHHELD, WITHHELD_REASONS, type WithheldReason } from './cmap.js';
 export {
+  LEGACY_PARSER_VERSIONS,
   PARSER_VERSION,
   SUPPORTED_MEDIA_TYPES,
+  SUPPORTED_PARSER_VERSIONS,
   extractFacts,
   normalizeComponent,
   parseCsv,
   parseDocument,
   textDigest,
   type ExtractedFact,
+  type ParseOptions,
   type ParsedDocument,
   type ParsedExtractionMethod,
   type ParsedSpan,

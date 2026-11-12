@@ -10,7 +10,7 @@ import {
   type EvidenceTrust,
   type SiteId,
 } from '@uptimebuyer/contracts';
-import { canonicalDigest } from '@uptimebuyer/domain';
+import { canonicalDigest, canonicalize } from '@uptimebuyer/domain';
 import {
   requireAuthorized,
   Denial,
@@ -28,6 +28,7 @@ import { rejected } from './errors.js';
 import { newEvidenceId, type DocumentId } from './ids.js';
 import { DOCUMENT_LIMITS } from './limits.js';
 import { objectKeyFor, sha256DigestOf, type ObjectStorePort } from './object-store.js';
+import type { WithheldReason } from './cmap.js';
 import { extractFacts, parseDocument, SUPPORTED_MEDIA_TYPES, type ParsedDocument } from './parse.js';
 import { requireAnyEvidenceRead, requireEvidenceRead, requireEvidenceWrite } from './scope.js';
 import { scanUntrustedText } from './untrusted.js';
@@ -108,6 +109,12 @@ export interface IngestedDocument {
   factCount: number;
   injectionFlaggedSpanCount: number;
   activeContentRemoved: string[];
+  /** Why some PDF text was withheld (shown as U+FFFD) instead of decoded; empty when nothing was withheld. */
+  textWithheld: WithheldReason[];
+  /** The parser version that derived the returned document's spans. */
+  parserVersion: string;
+  /** The older derivation of the same blob this document superseded (a parser re-derivation), if any. */
+  rederivedFromDocumentId: DocumentId | null;
   trustLevel: EvidenceTrust;
   existing: boolean;
 }
@@ -131,6 +138,8 @@ export interface DocumentRecord {
   pageCount: number;
   spanCount: number;
   activeContentRemoved: string[];
+  textWithheld: WithheldReason[];
+  supersedesDocumentId: DocumentId | null;
   withdrawn: boolean;
   createdAt: string;
 }
@@ -158,6 +167,8 @@ export interface DocumentRow {
   page_count: number;
   span_count: number;
   active_content_removed: string[];
+  text_withheld: WithheldReason[];
+  supersedes_document_id: DocumentId | null;
   purposes: string[];
   consent_ref: string | null;
   withdrawn: boolean;
@@ -193,6 +204,8 @@ export const toDocumentRecord = (r: DocumentRow): DocumentRecord => ({
   pageCount: r.page_count,
   spanCount: r.span_count,
   activeContentRemoved: r.active_content_removed,
+  textWithheld: r.text_withheld,
+  supersedesDocumentId: r.supersedes_document_id,
   withdrawn: r.withdrawn,
   createdAt: r.created_at.toISOString(),
 });
@@ -247,7 +260,7 @@ export async function storeDocumentTx(
   const blobId = blob.rows[0]!.id;
   const spanFlags = parsed.spans.map((s) => scanUntrustedText(s.text));
   const facts = parsed.spans.flatMap((s) => extractFacts(s.text, parsed.extractionMethod, s.ordinal));
-  const summary = (existing: boolean, documentId: DocumentId, trustLevel: EvidenceTrust): IngestedDocument => ({
+  const fresh = (documentId: DocumentId, rederivedFrom: DocumentId | null): IngestedDocument => ({
     documentId,
     blobId,
     sha256,
@@ -259,19 +272,93 @@ export async function storeDocumentTx(
     factCount: facts.length,
     injectionFlaggedSpanCount: spanFlags.filter((f) => f.length > 0).length,
     activeContentRemoved: parsed.activeContentRemoved,
-    trustLevel,
-    existing,
+    textWithheld: parsed.textWithheld,
+    parserVersion: parsed.parserVersion,
+    rederivedFromDocumentId: rederivedFrom,
+    trustLevel: input.trustLevel,
+    existing: false,
   });
-  const lookup = async () =>
+  // An existing derivation is reported from what was recorded for it, not from this parse.
+  const recorded = async (id: DocumentId): Promise<IngestedDocument> => {
+    const r = await c.query<{
+      media_type: string;
+      extraction_method: ParsedDocument['extractionMethod'];
+      page_count: number;
+      span_count: number;
+      active_content_removed: string[];
+      text_withheld: WithheldReason[];
+      parser_version: string;
+      trust_level: EvidenceTrust;
+      facts: string;
+      flagged: string;
+    }>(
+      `SELECT d.media_type, d.extraction_method, d.page_count, d.span_count, d.active_content_removed, d.text_withheld,
+              d.parser_version, d.trust_level,
+              (SELECT count(*) FROM evidence_document_facts f WHERE f.tenant_id = d.tenant_id AND f.document_id = d.id) AS facts,
+              (SELECT count(*) FROM evidence_document_spans s WHERE s.tenant_id = d.tenant_id AND s.document_id = d.id
+                  AND cardinality(s.injection_flags) > 0) AS flagged
+         FROM evidence_documents d WHERE d.tenant_id = $1 AND d.id = $2`,
+      [ctx.tenantId, id],
+    );
+    const d = r.rows[0]!;
+    return {
+      documentId: id,
+      blobId,
+      sha256,
+      objectKey,
+      mediaType: d.media_type,
+      extractionMethod: d.extraction_method,
+      pageCount: d.page_count,
+      spanCount: d.span_count,
+      factCount: Number(d.facts),
+      injectionFlaggedSpanCount: Number(d.flagged),
+      activeContentRemoved: d.active_content_removed,
+      textWithheld: d.text_withheld,
+      parserVersion: d.parser_version,
+      rederivedFromDocumentId: null,
+      trustLevel: d.trust_level,
+      existing: true,
+    };
+  };
+  // Every derivation of this blob for this role and applicability, newest first.
+  const derivations = async () =>
     (
-      await c.query<{ id: DocumentId; trust_level: EvidenceTrust }>(
-        `SELECT id, trust_level FROM evidence_documents
-          WHERE tenant_id = $1 AND blob_id = $2 AND role = $3 AND applicability_digest = $4`,
+      await c.query<{ id: DocumentId; parser_version: string; withdrawn: boolean }>(
+        `SELECT d.id, d.parser_version,
+                EXISTS (SELECT 1 FROM evidence_document_events e WHERE e.tenant_id = d.tenant_id AND e.document_id = d.id)
+                  AS withdrawn
+           FROM evidence_documents d
+          WHERE d.tenant_id = $1 AND d.blob_id = $2 AND d.role = $3 AND d.applicability_digest = $4
+          ORDER BY d.created_at DESC, d.id DESC`,
         [ctx.tenantId, blobId, input.role, applicabilityDigest],
       )
-    ).rows[0];
-  const prior = await lookup();
-  if (prior) return summary(true, prior.id, prior.trust_level);
+    ).rows;
+  const prior = await derivations();
+  const same = prior.find((d) => d.parser_version === parsed.parserVersion);
+  if (same) return recorded(same.id);
+  // Re-derivation semantics (T-024): an older parser's derivation is reused when this parser extracts exactly the same
+  // spans, and is never resurrected when it was withdrawn; otherwise this extraction becomes a new derived document
+  // that supersedes it. Recorded spans are never rewritten.
+  let rederivedFrom: DocumentId | null = null;
+  const latest = prior[0];
+  if (latest) {
+    if (latest.withdrawn) return recorded(latest.id);
+    const spans = await c.query<{ ordinal: number; locator: unknown; text_digest: string }>(
+      `SELECT ordinal, locator, text_digest FROM evidence_document_spans WHERE tenant_id = $1 AND document_id = $2
+        ORDER BY ordinal`,
+      [ctx.tenantId, latest.id],
+    );
+    const unchanged =
+      spans.rows.length === parsed.spans.length &&
+      spans.rows.every(
+        (r, i) =>
+          r.ordinal === parsed.spans[i]!.ordinal &&
+          r.text_digest === parsed.spans[i]!.textDigest &&
+          canonicalize(r.locator) === canonicalize(parsed.spans[i]!.locator),
+      );
+    if (unchanged) return recorded(latest.id);
+    rederivedFrom = latest.id;
+  }
 
   const documentId = newEvidenceId('document') as DocumentId;
   const actor = actorOf(ctx);
@@ -279,10 +366,10 @@ export async function storeDocumentTx(
     `INSERT INTO evidence_documents (tenant_id, id, blob_id, role, title, document_revision, manufacturer, model,
        bom_revision, serial, site_id, asset_id, source_kind, source_ref, trust_level, media_type, extraction_method,
        parser_version, page_count, span_count, active_content_removed, consent_ref, purposes, applicability_digest,
-       supersedes_document_id, created_by_kind, created_by_id)
+       supersedes_document_id, created_by_kind, created_by_id, text_withheld)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-             $24, $25, $26, $27)
-     ON CONFLICT (tenant_id, blob_id, role, applicability_digest) DO NOTHING`,
+             $24, $25, $26, $27, $28)
+     ON CONFLICT (tenant_id, blob_id, role, applicability_digest, parser_version) DO NOTHING`,
     [
       ctx.tenantId,
       documentId,
@@ -308,15 +395,17 @@ export async function storeDocumentTx(
       input.consentRef,
       input.purposes,
       applicabilityDigest,
-      input.supersedesDocumentId,
+      input.supersedesDocumentId ?? rederivedFrom,
       actor.kind,
       actor.id,
+      parsed.textWithheld,
     ],
   );
   if (ins.rowCount === 0) {
-    const raced = await lookup();
-    return summary(true, raced!.id, raced!.trust_level);
+    const raced = (await derivations()).find((d) => d.parser_version === parsed.parserVersion);
+    return recorded(raced!.id);
   }
+  if (rederivedFrom) await withdrawTx(c, ctx, rederivedFrom, 'REDERIVED_BY_PARSER');
   const spanIds: string[] = [];
   for (const [i, s] of parsed.spans.entries()) {
     const spanId = newEvidenceId('span');
@@ -334,7 +423,7 @@ export async function storeDocumentTx(
        VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`,
       [ctx.tenantId, newEvidenceId('fact'), documentId, spanIds[f.spanOrdinal - 1], f.factKey, f.value],
     );
-  return summary(false, documentId, input.trustLevel);
+  return fresh(documentId, rederivedFrom);
 }
 
 async function loadDocument(c: Tx, ctx: TenantContext, meta: { action: string; resourceType: string }, id: string) {

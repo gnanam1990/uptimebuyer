@@ -57,6 +57,8 @@ const M13_MIGRATIONS = [
   '0022_m13_policy_governance.sql',
   '0023_m13_adjustment_separation.sql',
 ];
+// M05 forward change after the release modules: parser re-derivation (uptimebuyer-parser.v3, T-058 journey finding).
+const M05_REDERIVATION_MIGRATIONS = ['0024_m05_parser_rederivation.sql'];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {
@@ -130,6 +132,7 @@ describe('T-009 migration and rollback on seeded tenant', () => {
       ...M10_MIGRATIONS,
       ...M11_MIGRATIONS,
       ...M13_MIGRATIONS,
+      ...M05_REDERIVATION_MIGRATIONS,
     ]);
     expect(await migrate(db.url)).toEqual([]);
     const { rows } = await db.admin(`SELECT extname FROM pg_extension WHERE extname = 'btree_gist'`);

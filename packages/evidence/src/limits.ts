@@ -24,6 +24,16 @@ export const DOCUMENT_LIMITS = Object.freeze({
   maxFieldChars: 2_000,
   /** Page-tree depth. */
   maxTreeDepth: 32,
+  /** Distinct fonts resolved in one PDF (each is decoded once and cached). */
+  maxFonts: 512 as number,
+  /** Decoded size of one ToUnicode CMap program. */
+  maxCMapBytes: (512 * 1024) as number,
+  /** Code mappings defined by one CMap (a full 2-byte code space is 65,536); counted before a range is expanded. */
+  maxCMapMappings: 65_536 as number,
+  /** Code mappings across every CMap of one PDF (bounds memory for documents with many embedded fonts). */
+  maxCMapMappingsTotal: 262_144 as number,
+  /** Indirect-reference hops followed to resolve one font, resource or encoding object (cycles are refused). */
+  maxRefHops: 8 as number,
 });
 
 export const RETRIEVAL_LIMITS = Object.freeze({
