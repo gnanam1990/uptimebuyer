@@ -63,9 +63,20 @@ async function expectManual(intentId: string, adapter: RecordedContractAdapter, 
 describe('T-040 replay preconditions and not-sent refusals', () => {
   it('A1: the M06 decision gate runs before a replay (stale offer -> refused, reserved, manual)', async () => {
     const { adapter, broker, r } = await unknownReplayIntent();
-    const age =
-      Date.now() - Date.parse((await rowOf(w, 'candidate_actions', r.action.candidateActionId)).offer_observed_at);
-    await sleep(Math.max(0, 76_000 - age));
+    // Wait until the offer is past the 75 s freshness limit by the DATABASE clock, the clock the decision gate uses.
+    // (Measuring with Date.now() minus Date.parse(<pg Date>) dropped the timestamp's milliseconds and ignored the
+    // host/database clock gap, so the wait could end with the offer still fresh by the gate's clock.)
+    const dbAgeMs = async () =>
+      Number(
+        (
+          await w.db.pool.query(
+            `SELECT extract(epoch FROM clock_timestamp() - offer_observed_at) * 1000 AS age
+               FROM candidate_actions WHERE tenant_id = $1 AND id = $2`,
+            [w.tenant.tenantId, r.action.candidateActionId],
+          )
+        ).rows[0].age,
+      );
+    for (let age = await dbAgeMs(); age < 76_000; age = await dbAgeMs()) await sleep(Math.min(76_000 - age, 5_000));
     await broker.reconcile(intentRef(w, r.intentId));
     await expectManual(r.intentId, adapter, 'REPLAY_AUTHORITY_NOT_CURRENT');
   });
