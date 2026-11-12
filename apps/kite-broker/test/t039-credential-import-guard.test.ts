@@ -2,7 +2,7 @@
 // secret configuration, the socket server — lives only in apps/kite-broker, exports nothing, and no other workspace
 // package (API, workers, providers, planning, the model/SERV path, edge) imports it or its source files. ESLint
 // enforces the same rule (no-restricted-imports); this test proves it over the repository as it is.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -46,7 +46,12 @@ describe('T-039 credential-bearing broker code is not importable outside apps/ki
     expect(manifest.main).toBeUndefined();
     const requireFromCommerce = createRequire(join(root, 'packages', 'commerce', 'package.json'));
     expect(() => requireFromCommerce.resolve('@uptimebuyer/kite-broker')).toThrow();
-    for (const pkg of readdirSync(join(root, 'packages'))) {
+    // Every workspace package directory is checked; stray files such as macOS .DS_Store are not packages.
+    const pkgs = readdirSync(join(root, 'packages'), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && existsSync(join(root, 'packages', d.name, 'package.json')))
+      .map((d) => d.name);
+    expect(pkgs.length).toBeGreaterThan(10);
+    for (const pkg of pkgs) {
       const m = JSON.parse(readFileSync(join(root, 'packages', pkg, 'package.json'), 'utf8'));
       expect(Object.keys({ ...m.dependencies, ...m.devDependencies }), pkg).not.toContain('@uptimebuyer/kite-broker');
     }
