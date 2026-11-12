@@ -313,6 +313,42 @@ describe('T-021 PDF font encodings: hostile CMaps and fonts (security review)', 
     expect(text.split('\n').slice(1).join('')).toBe('ba'.repeat(20_000));
   });
 
+  it('encoding names that collide with object prototype keys are unknown encodings, never decoded', () => {
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      const names = ['constructor', '__proto__', 'toString', 'hasOwnProperty'];
+      const named = names.map((n) => g.add(`<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEE+X /Encoding /${n} >>`));
+      const based = names.map((n) =>
+        g.add(`<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEE+X /Encoding << /BaseEncoding /${n} >> >>`),
+      );
+      const all = [...named, ...based];
+      const fonts = all.map((id, i) => `/P${i} ${id} 0 R`).join(' ');
+      const ops = all.map((_, i) => `0 -10 Td /P${i} 9 Tf (AB) Tj`).join(' ');
+      return [{ fonts: `/F1 ${f1} 0 R ${fonts}`, content: `BT /F1 9 Tf 72 740 Td (Anchor line) Tj ${ops} ET` }];
+    });
+    const { doc, text } = pdfText(bytes);
+    expect(text.split('\n')).toEqual(['Anchor line', ...Array.from({ length: 8 }, () => W)]);
+    expect(text).not.toContain('[object');
+    expect(doc.textWithheld).toEqual(['FONT_ENCODING_UNKNOWN']);
+  });
+
+  it('an oversized font object shared by many font resources is not re-scanned per font (linear time)', () => {
+    const bytes = buildFontPdf((g) => {
+      const f1 = addHelvetica(g);
+      const big = g.add(
+        `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /Pad [${' 0'.repeat(1_000_000)}] >>`,
+      );
+      const fonts = Array.from({ length: 400 }, (_, i) => `/H${i} ${g.add(`${big} 0 R`)} 0 R`);
+      const ops = Array.from({ length: 400 }, (_, i) => `/H${i} 9 Tf (x) Tj`).join(' ');
+      return [{ fonts: `/F1 ${f1} 0 R ${fonts.join(' ')}`, content: withAnchor(ops) }];
+    });
+    const start = performance.now();
+    const { doc, text } = pdfText(bytes);
+    expect(performance.now() - start).toBeLessThan(1_000);
+    expect(text.split('\n')).toEqual(['Anchor line', W]);
+    expect(doc.textWithheld).toEqual(['FONT_ENCODING_UNKNOWN']);
+  });
+
   it('the PDF parser modules reach no network and load no font programs', () => {
     for (const file of ['pdf.ts', 'cmap.ts']) {
       const src = readFileSync(path.join(repo, 'packages', 'evidence', 'src', file), 'utf8');
