@@ -178,7 +178,7 @@ describe('T-058 journey evidence: manifest', () => {
       reasoning: {
         capturedAt: '2026-11-12T10:05:00.000Z',
         artifacts: [{ path: 'evidence/journeys/j-test-doc/reasoning.json', sha256: digest }],
-        facts: { runId: 'rsn_test-1' },
+        facts: { runId: 'rsn_test-1', runStatus: 'COMPLETED', proposalId: 'rpr_test-1' },
       },
     },
   });
@@ -221,6 +221,9 @@ describe('T-058 journey evidence: manifest', () => {
     expect(bad((m) => (m.journeyId = 'J_Upper'))).toThrow(/journeyId/);
     expect(bad((m) => (m.sourceSha = 'abc'))).toThrow(/sourceSha/);
     expect(bad((m) => ((m.parts.reasoning as { facts?: unknown }).facts = {}))).toThrow(/runId/);
+    expect(
+      bad((m) => ((m.parts.reasoning as { facts?: unknown }).facts = { runId: 'rsn_test-1', runStatus: 'REJECTED' })),
+    ).toThrow(/COMPLETED/);
     expect(bad((m) => (m.endedAt = '2026-11-12T09:00:00.000Z'))).toThrow(/precedes/);
   });
 });

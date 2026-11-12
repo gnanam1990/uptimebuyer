@@ -236,3 +236,26 @@ describe('T-058 repository state: the real-input journey is NOT_RUN', () => {
     for (const a of reg.artifacts as { sha256: string }[]) expect(loaded.has(a.sha256)).toBe(true);
   });
 });
+
+describe('T-058 journey gate database cross-check for reasoning', () => {
+  // A fake pool answering by query shape: one SERV run for the incident, completed-with-proposal count as given.
+  const pool = (completedWithProposal: number) => ({
+    query: async (sql: string) => {
+      if (sql.includes('FROM incidents')) return { rows: [{ trigger_input_origin: 'PHYSICAL_SENSOR' }] };
+      if (sql.includes('SELECT DISTINCT adapter FROM reasoning_runs')) return { rows: [{ adapter: 'SERV_REASONING' }] };
+      if (sql.includes('JOIN reasoning_proposals')) return { rows: [{ n: completedWithProposal }] };
+      if (sql.includes('count(*)')) return { rows: [{ n: 0 }] };
+      return { rows: [] };
+    },
+  });
+
+  it('refuses a SERV run that never completed with a stored proposal', async () => {
+    const facts = await gate.collectDatabaseFacts(pool(0), { tenantId: 't', incidentId: 'i' });
+    expect(facts.reasoning).toEqual({ origin: 'SERV_REASONING_NOT_COMPLETED', real: false });
+  });
+
+  it('accepts a completed SERV run with a stored proposal', async () => {
+    const facts = await gate.collectDatabaseFacts(pool(1), { tenantId: 't', incidentId: 'i' });
+    expect(facts.reasoning).toEqual({ origin: 'SERV_REASONING', real: true });
+  });
+});

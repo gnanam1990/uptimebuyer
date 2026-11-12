@@ -75,6 +75,10 @@ function factReasons(part, p, ctx) {
       break;
     case 'reasoning':
       if (typeof f.runId !== 'string' || !f.runId) r.push('FACT_MISSING:runId');
+      // A real call is not reasoning evidence on its own: the run must have COMPLETED and its validated proposal must
+      // be stored. A REJECTED or FAILED run is recorded as what it is, never as a pass.
+      if (f.runStatus !== 'COMPLETED') r.push(`REASONING_NOT_COMPLETED:${String(f.runStatus ?? 'ABSENT')}`);
+      if (typeof f.proposalId !== 'string' || !f.proposalId) r.push('FACT_MISSING:proposalId');
       break;
     case 'payment': {
       // The cap is the signed authorization's scope (merchant, amount, currency, purpose, environment), checked by the
@@ -257,13 +261,23 @@ export async function collectDatabaseFacts(pool, { tenantId, incidentId }) {
       incidentId,
     ])
   ).map((r) => r.adapter);
+  // A SERV run counts only when it COMPLETED and its validated proposal is stored; a REJECTED or FAILED run is refused.
+  const completed = (
+    await q(
+      `SELECT count(*)::int AS n FROM reasoning_runs r
+         JOIN reasoning_proposals p ON p.tenant_id = r.tenant_id AND p.reasoning_run_id = r.id
+        WHERE r.tenant_id = $1 AND r.incident_id = $2 AND r.adapter = 'SERV_REASONING' AND r.status = 'COMPLETED'`,
+      [tenantId, incidentId],
+    )
+  )[0]?.n;
   const reasoning =
     adapters.length === 0
       ? absent
-      : {
-          origin: adapters.find((a) => a !== 'SERV_REASONING') ?? 'SERV_REASONING',
-          real: adapters.every((a) => a === 'SERV_REASONING'),
-        };
+      : adapters.some((a) => a !== 'SERV_REASONING')
+        ? { origin: adapters.find((a) => a !== 'SERV_REASONING'), real: false }
+        : completed > 0
+          ? { origin: 'SERV_REASONING', real: true }
+          : { origin: 'SERV_REASONING_NOT_COMPLETED', real: false };
   const origins = (
     await q(
       `SELECT DISTINCT a.result_origin FROM external_attempts a

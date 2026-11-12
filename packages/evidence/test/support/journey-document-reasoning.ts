@@ -382,7 +382,7 @@ async function main() {
               reasoning: {
                 capturedAt: view.completedAt,
                 artifacts: [art('reasoning.json'), art('redaction-check.json')],
-                facts: { runId: run.reasoningRunId, model: view.modelId, responseIds: reasoningRecord.responseIds, costUsd: ev.formatUsd(costMicros) },
+                facts: { runId: run.reasoningRunId, runStatus: run.status, proposalId: proposal?.proposalId, model: view.modelId, responseIds: reasoningRecord.responseIds, costUsd: ev.formatUsd(costMicros) },
               },
             }
           : {}),

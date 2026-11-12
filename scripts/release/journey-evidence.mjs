@@ -212,6 +212,8 @@ export function buildJourneyManifest({ journeyId, sourceSha, startedAt, endedAt,
     }
     if (name === 'reasoning' && (typeof part.facts?.runId !== 'string' || !part.facts.runId))
       throw new Error('reasoning needs facts.runId');
+    if (name === 'reasoning' && (part.facts.runStatus !== 'COMPLETED' || typeof part.facts.proposalId !== 'string'))
+      throw new Error('reasoning needs a COMPLETED run with facts.proposalId');
     out[name] = {
       origin: RECORDED_PARTS[name],
       journeyId,
