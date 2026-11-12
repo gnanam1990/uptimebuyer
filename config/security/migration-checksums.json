@@ -26,6 +26,7 @@
     "0021_m13_separation_of_duties.sql": "41ddc00e31c74e6f5c5fcb147601884f544243fdf003bf910b65dea1680a6ec7",
     "0022_m13_policy_governance.sql": "6a693f801a146f39b49e6c1ff4557e0ecb6414f4ec09a8fcdcb8c4ee44343840",
     "0023_m13_adjustment_separation.sql": "24f3bc408ada5d4f69eb1f10b0a619eaf559449a6f7bd3590e09cb8b7e13621a",
-    "0024_m05_parser_rederivation.sql": "5436aec8efd5d96818e3b31ff704698114716920fe89910965811bc73095e6f0"
+    "0024_m05_parser_rederivation.sql": "5436aec8efd5d96818e3b31ff704698114716920fe89910965811bc73095e6f0",
+    "0025_m05_rederivation_lineage.sql": "249b2b2a42665b55e294adf2c9b8b0b162fc5bcb797bb2ad5d17db6d02f1fb12"
   }
 }

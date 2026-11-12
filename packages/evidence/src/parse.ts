@@ -294,7 +294,17 @@ export const normalizeComponent = (s: string) =>
 const normalizePart = (s: string) => s.trim().toUpperCase();
 const normalizeSpec = (s: string) => s.trim().replace(/\s+/g, ' ');
 
-export function extractFacts(text: string, method: ParsedExtractionMethod, spanOrdinal: number): ExtractedFact[] {
+/**
+ * Exact facts of one span, as extracted by `parserVersion` (default: current). v1 had no certification facts (they
+ * arrived with v2, M06 claim binding), so re-deriving a v1 document reproduces its recorded facts.
+ */
+export function extractFacts(
+  text: string,
+  method: ParsedExtractionMethod,
+  spanOrdinal: number,
+  parserVersion: string = PARSER_VERSION,
+): ExtractedFact[] {
+  const certificationFacts = parserVersion !== 'uptimebuyer-parser.v1';
   const facts: ExtractedFact[] = [];
   const add = (factKey: string, value: string) => {
     if (!/^(part|spec):[a-z0-9][a-z0-9-]{0,79}$/.test(factKey) || !value || value.length > 120) return;
@@ -324,7 +334,7 @@ export function extractFacts(text: string, method: ParsedExtractionMethod, spanO
       const label = s[1]!.trim().toLowerCase();
       // v2: a certification line lists exact codes; each becomes its own fact (spec:certification-<code key>), so
       // a longer code, a negation or prose never equals a claimed code (M06 claim binding).
-      if (label === 'certification' || label === 'certifications') {
+      if (certificationFacts && (label === 'certification' || label === 'certifications')) {
         for (const item of s[2]!.split(/[,;]/).map((x) => normalizeSpec(x))) {
           const key = normalizeComponent(item);
           if (CERT_CODE.test(item) && key) add(`spec:certification-${key}`, item);
