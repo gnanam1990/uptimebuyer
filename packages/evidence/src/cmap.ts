@@ -228,12 +228,28 @@ export const WIN_ANSI_V3: readonly (string | null)[] = (() => {
   return t;
 })();
 
-/** StandardEncoding, ASCII half only (its upper half differs from WinAnsi and is not guessed). */
+/** StandardEncoding (PDF 32000 Annex D): ASCII with quoteright/quoteleft at 0x27/0x60, and its own upper half. */
 export const STANDARD_V3: readonly (string | null)[] = (() => {
   const t: (string | null)[] = [];
   for (let c = 0; c < 256; c++) t.push(c < 0x20 ? ' ' : c < 0x7f ? String.fromCharCode(c) : null);
   t[0x27] = '’';
   t[0x60] = '‘';
+  const upper: Readonly<Record<number, string>> = {
+    0xa1: 'exclamdown', 0xa2: 'cent', 0xa3: 'sterling', 0xa4: 'fraction', 0xa5: 'yen', 0xa6: 'florin', 0xa7: 'section',
+    0xa8: 'currency', 0xa9: 'quotesingle', 0xaa: 'quotedblleft', 0xab: 'guillemotleft', 0xac: 'guilsinglleft',
+    0xad: 'guilsinglright', 0xae: 'fi', 0xaf: 'fl', 0xb1: 'endash', 0xb2: 'dagger', 0xb3: 'daggerdbl',
+    0xb4: 'periodcentered', 0xb6: 'paragraph', 0xb7: 'bullet', 0xb8: 'quotesinglbase', 0xb9: 'quotedblbase',
+    0xba: 'quotedblright', 0xbb: 'guillemotright', 0xbc: 'ellipsis', 0xbd: 'perthousand', 0xbf: 'questiondown',
+    0xc1: 'grave', 0xc2: 'acute', 0xc3: 'circumflex', 0xc4: 'tilde', 0xc5: 'macron', 0xc6: 'breve', 0xc7: 'dotaccent',
+    0xc8: 'dieresis', 0xca: 'ring', 0xcb: 'cedilla', 0xcd: 'hungarumlaut', 0xce: 'ogonek', 0xcf: 'caron', 0xd0: 'emdash',
+    0xe1: 'AE', 0xe3: 'ordfeminine', 0xe8: 'Lslash', 0xe9: 'Oslash', 0xea: 'OE', 0xeb: 'ordmasculine', 0xf1: 'ae',
+    0xf5: 'dotlessi', 0xf8: 'lslash', 0xf9: 'oslash', 0xfa: 'oe', 0xfb: 'germandbls',
+  };
+  for (const [code, name] of Object.entries(upper)) {
+    const g = glyphNameToUnicode(name);
+    const v = g === null ? null : cleanDecoded(g);
+    t[Number(code)] = typeof v === 'string' ? v : null;
+  }
   return t;
 })();
 

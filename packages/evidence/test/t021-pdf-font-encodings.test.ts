@@ -444,8 +444,8 @@ describe('T-021 PDF font encodings: review findings (PR #20)', () => {
     const bytes = buildFontPdf((g) => {
       const f1 = addHelvetica(g);
       const f2 = g.add('<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>');
-      // 0x27 is quoteright and 0xE9 is Oslash in StandardEncoding (WinAnsi: quotesingle and eacute); 0xAE is fl.
-      return [{ fonts: `/F1 ${f1} 0 R /F2 ${f2} 0 R`, content: withAnchor('/F2 9 Tf (It\\047s \\351 \\256ow) Tj') }];
+      // 0x27 is quoteright and 0xE9 is Oslash in StandardEncoding (WinAnsi: quotesingle and eacute); 0xAF is fl.
+      return [{ fonts: `/F1 ${f1} 0 R /F2 ${f2} 0 R`, content: withAnchor('/F2 9 Tf (It\\047s \\351 \\257ow) Tj') }];
     });
     const { doc, text } = pdfText(bytes);
     expect(text.split('\n')).toEqual(['Anchor line', 'It’s Ø flow']);

@@ -499,7 +499,9 @@ function simpleTable(fc: FontContext, e: Map<string, string>, baseFont: string):
   const isSymbol = baseFont.startsWith('Symbol');
   const builtIn: CodeTable = isSymbol ? SYMBOL_TABLE : symbolic || baseFont.startsWith('ZapfDingbats') ? unknownEncoding : STANDARD_TABLE;
   const enc = deref(fc, e.get('Encoding'));
-  if (!e.has('Encoding')) return isSymbol ? SYMBOL_TABLE : builtIn === unknownEncoding ? unknownEncoding : WIN_ANSI_TABLE;
+  // No /Encoding: the font's built-in encoding (Symbol for Symbol, unknown for other symbolic fonts, StandardEncoding
+  // for nonsymbolic fonts). WinAnsi is used only when the font names it.
+  if (!e.has('Encoding')) return builtIn;
   if (!enc) return unknownEncoding;
   const named = nameOf(enc.body);
   if (named !== null) return NAMED_ENCODINGS.get(named) ?? unknownEncoding;
@@ -809,12 +811,19 @@ export function extractPdfText(buf: Buffer, limits: Limits = DOCUMENT_LIMITS, op
       };
     }
     const parts: string[] = [];
+    const streams: string[] = [];
     for (const num of contents.slice(0, 64)) {
       const obj = objects.get(num);
       if (!obj) continue;
       const data = decodeStream(obj, inflater);
-      if (data) parts.push(contentText(data.toString('latin1'), budget, mode));
+      if (!data) continue;
+      // Legacy (v1/v2) interpreted each stream on its own; kept verbatim for re-derivation.
+      if (useFonts) streams.push(data.toString('latin1'));
+      else parts.push(contentText(data.toString('latin1'), budget, mode));
     }
+    // v3: a /Contents array is one content stream split at token boundaries (PDF 32000 7.8.2), so the font, the q/Q
+    // stack and the operand state carry across its parts: interpret their concatenation once.
+    if (useFonts && streams.length) parts.push(contentText(streams.join('\n'), budget, mode));
     const text = parts
       .join('\n')
       .split('\n')
