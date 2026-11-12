@@ -32,6 +32,7 @@ describe('T-059 coverage layers', () => {
       results: [
         vitestReport({
           'tests/m14/t058-journey-gate.test.ts': 'passed',
+          'tests/m14/t058-journey-evidence.test.ts': 'passed',
           [`${BROKER_TESTS}/t058-journey-gate-db.int.test.ts`]: 'passed',
         }),
       ],
