@@ -124,5 +124,23 @@
     "sqlInjectionFlag": "False positive: every value in documents.ts statements is a bound parameter; the only interpolation is the module constant DOCUMENT_SELECT (no caller input).",
     "manualV3Output": "Byte-identical before and after fixes 4 and 5 (single content stream per page, every simple font names WinAnsiEncoding); parser version stays uptimebuyer-parser.v3; the 12 v3 span digests of journey j-2026-11-12-serv-document-2 are pinned in T-021.",
     "recordedEvidence": "Unchanged for both journeys."
+  },
+  "prReviewFollowUp2": {
+    "pr": 20,
+    "commits": [
+      "966b666 test(m05): PR #20 second review pass on font decoding and document transitions (red)",
+      "5b5187b fix(m05): real MacRomanEncoding table; withhold text after an unreadable content part",
+      "c786300 fix(m05): serialize consent withdrawal with ingestion; refuse self-lineage and unrecorded replacements",
+      "docs(m05): second review pass in ADR 0002, ADR 0006 and the handoff note (this note)"
+    ],
+    "findings": [
+      "1 MacRoman: real Annex D MacRomanEncoding upper half; the 15 non-Latin Mac OS glyphs are withheld.",
+      "2 consent withdrawal race (security): per-consent advisory lock shared by consent withdrawal and ingestion, evidence_consent_withdrawals (migration 0027), ingestion refuses CONSENT_WITHDRAWN.",
+      "3 replacement inside the same lineage: refused with SUPERSEDED_DOCUMENT_SAME_LINEAGE.",
+      "4 replacement dropped on reuse: refused with REPLACEMENT_BYTES_ALREADY_RECORDED unless it is the recorded link (idempotent retry).",
+      "5 unreadable /Contents part: that part and everything after it withheld with CONTENT_STREAM_UNREADABLE (migration 0026 extends the text_withheld CHECK)."
+    ],
+    "manualV3Output": "Byte-identical; the pinned journey-2 span digests pass.",
+    "recordedEvidence": "Unchanged for both journeys."
   }
 }

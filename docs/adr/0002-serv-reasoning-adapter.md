@@ -131,9 +131,11 @@ The manual's fonts are WinAnsi TrueType fonts (already handled) and four Type0 I
 
 - Text is decoded through the current font (`Tf`, kept across `BT` and saved/restored by `q`/`Q`; page resources may be
   inherited or indirect). The parts of a `/Contents` array are one content stream, so this state carries across them.
+  If a part cannot be read, the state after it is unknown: that part and everything after it are withheld
+  (`CONTENT_STREAM_UNREADABLE`).
 - A ToUnicode CMap is used when present: `codespacerange`, `bfchar` and `bfrange` (incrementing and array forms) with
   1- and 2-byte codes. A CMap with any malformed entry, `usecmap`, CID operators or wider codes is refused as a whole.
-- Simple fonts decode through the WinAnsi, Standard or Symbol encoding they name, or without `/Encoding` through their
+- Simple fonts decode through the WinAnsi, Standard, MacRoman (Annex D Latin set only) or Symbol encoding they name, or without `/Encoding` through their
   built-in encoding (StandardEncoding for nonsymbolic fonts, Symbol for Symbol, unknown for other symbolic fonts), and
   `/Differences` through a standard glyph-name subset (`uniXXXX`, `uXXXX`, suffixes and ligature components included).
 - Type0 Identity-H/V is decoded only with ToUnicode.
@@ -149,7 +151,14 @@ The manual's fonts are WinAnsi TrueType fonts (already handled) and four Type0 I
   a new derived document (`rederived_from_document_id`, migration 0025), which withdraws the old derivation and
   produces a new evidence revision. Facts are extracted by the version that derived the spans (v1 has no
   certification facts). An unchanged extraction is reused and a withdrawn lineage is not resurrected. An explicit
-  replacement stays in `supersedes_document_id`, so a re-ingest that does both records both.
+  replacement stays in `supersedes_document_id`, so a re-ingest that does both records both. A replacement naming a
+  derivation of its own bytes is refused (`SUPERSEDED_DOCUMENT_SAME_LINEAGE`). A replacement requested for bytes that
+  are already recorded succeeds only when it is the recorded link (idempotent retry), otherwise it is refused
+  (`REPLACEMENT_BYTES_ALREADY_RECORDED`); success is never reported without the transition.
+- Consent withdrawal (`withdrawConsentedCommunicationsInTx`) records the withdrawn consent ref
+  (`evidence_consent_withdrawals`, migration 0027) and withdraws its documents under a per-consent advisory lock that
+  ingestion also takes after the lineage lock. Ingestion refuses a withdrawn consent ref (`CONSENT_WITHDRAWN`), so no
+  committed active document carries a withdrawn consent, whichever path records it.
 - Withdrawal, replacement and re-derivation are serialized by a per-lineage advisory lock (a leaf lock, see ADR 0006).
   Withdrawing or replacing a document withdraws every derivation of its bytes. A re-derivation whose older derivation
   was withdrawn by a path outside the lock fails with `DOCUMENT_WITHDRAWN_DURING_REDERIVATION` and records nothing.
