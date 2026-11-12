@@ -294,11 +294,12 @@ const WIN_ANSI_TABLE = fromArray(WIN_ANSI_V3);
 const STANDARD_TABLE = fromArray(STANDARD_V3);
 const MAC_ROMAN_TABLE = fromArray(STANDARD_V3.map((v, c) => (c === 0x27 ? "'" : c === 0x60 ? '`' : v)));
 const SYMBOL_TABLE: CodeTable = (c) => SYMBOL.get(c) ?? unmapped;
-const NAMED_ENCODINGS: Readonly<Record<string, CodeTable>> = {
-  WinAnsiEncoding: WIN_ANSI_TABLE,
-  StandardEncoding: STANDARD_TABLE,
-  MacRomanEncoding: MAC_ROMAN_TABLE,
-};
+// A Map, not an object literal: a PDF name such as /constructor or /toString must never resolve to a prototype member.
+const NAMED_ENCODINGS: ReadonlyMap<string, CodeTable> = new Map([
+  ['WinAnsiEncoding', WIN_ANSI_TABLE],
+  ['StandardEncoding', STANDARD_TABLE],
+  ['MacRomanEncoding', MAC_ROMAN_TABLE],
+]);
 
 /** Simple (single-byte) font: ToUnicode first, then its encoding table. */
 const simpleFont = (table: CodeTable, tu: ToUnicodeMap | null): FontDecoder => ({
@@ -427,9 +428,13 @@ interface FontContext {
   budget: { mappings: number };
 }
 
-/** Follow indirect references (bounded hops, cycles refused). Returns the final object and its body, or null. */
+/**
+ * Follow indirect references (bounded hops, cycles refused). Returns the final object and its body, or null. An object
+ * whose body exceeds maxFontObjectBytes is unresolvable (checked before it is scanned, so many references to one
+ * oversized object cost nothing per reference).
+ */
 function deref(fc: FontContext, raw: string | undefined): { body: string; obj: PdfObj | null } | null {
-  if (raw === undefined) return null;
+  if (raw === undefined || raw.length > fc.limits.maxFontObjectBytes) return null;
   let body = raw.trim();
   let obj: PdfObj | null = null;
   const seen = new Set<number>();
@@ -440,7 +445,7 @@ function deref(fc: FontContext, raw: string | undefined): { body: string; obj: P
     if (hops >= fc.limits.maxRefHops || seen.has(num)) return null;
     seen.add(num);
     const next = fc.objects.get(num);
-    if (!next) return null;
+    if (!next || next.body.length > fc.limits.maxFontObjectBytes) return null;
     obj = next;
     body = next.body.trim();
   }
@@ -497,11 +502,11 @@ function simpleTable(fc: FontContext, e: Map<string, string>, baseFont: string):
   if (!e.has('Encoding')) return isSymbol ? SYMBOL_TABLE : builtIn === unknownEncoding ? unknownEncoding : WIN_ANSI_TABLE;
   if (!enc) return unknownEncoding;
   const named = nameOf(enc.body);
-  if (named !== null) return NAMED_ENCODINGS[named] ?? unknownEncoding;
+  if (named !== null) return NAMED_ENCODINGS.get(named) ?? unknownEncoding;
   if (!enc.body.startsWith('<<')) return unknownEncoding;
   const d = dictEntries(enc.body);
   const baseName = nameOf(d.get('BaseEncoding'));
-  const base = baseName !== null ? (NAMED_ENCODINGS[baseName] ?? unknownEncoding) : builtIn;
+  const base = baseName !== null ? (NAMED_ENCODINGS.get(baseName) ?? unknownEncoding) : builtIn;
   const diffRaw = d.has('Differences') ? deref(fc, d.get('Differences')) : null;
   if (d.has('Differences') && !diffRaw) return unknownEncoding;
   const diffs = diffRaw ? differences(diffRaw.body) : new Map<number, Mapped>();

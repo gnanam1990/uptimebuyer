@@ -34,6 +34,8 @@ export const DOCUMENT_LIMITS = Object.freeze({
   maxCMapMappingsTotal: 262_144 as number,
   /** Indirect-reference hops followed to resolve one font, resource or encoding object (cycles are refused). */
   maxRefHops: 8 as number,
+  /** Body size of one font, encoding or resource dictionary object; larger ones are unresolvable (text withheld). */
+  maxFontObjectBytes: (64 * 1024) as number,
 });
 
 export const RETRIEVAL_LIMITS = Object.freeze({
