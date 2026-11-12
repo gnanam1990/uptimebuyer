@@ -132,9 +132,27 @@ export function referencedCitationIds(p: ReasoningProposal): string[] {
   ];
 }
 
+/**
+ * Strict structured outputs accept `anyOf` but refuse `oneOf` (found by the T-058 journey run: SERV returned 400
+ * "'oneOf' is not permitted" for the citation locator). Zod emits `oneOf` for discriminated unions; every such union
+ * here is discriminated by a `kind` constant, so its branches are mutually exclusive and `anyOf` accepts exactly the
+ * same documents. Only the wire schema changes; ReasoningProposalSchema still validates every model output.
+ */
+function strictSubset(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(strictSubset);
+  if (node === null || typeof node !== 'object') return node;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(node)) {
+    if (k === 'properties' && v !== null && typeof v === 'object')
+      out[k] = Object.fromEntries(Object.entries(v).map(([name, s]) => [name, strictSubset(s)]));
+    else out[k === 'oneOf' ? 'anyOf' : k] = strictSubset(v);
+  }
+  return out;
+}
+
 /** Strict JSON Schema handed to the model (OpenAI-compatible `response_format: json_schema`, `strict: true`). */
 export const PROPOSAL_JSON_SCHEMA: Record<string, unknown> = (() => {
   const schema = z.toJSONSchema(ReasoningProposalSchema, { target: 'draft-7', io: 'input' }) as Record<string, unknown>;
   delete schema.$schema;
-  return schema;
+  return strictSubset(schema) as Record<string, unknown>;
 })();
