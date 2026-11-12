@@ -58,7 +58,11 @@ const M13_MIGRATIONS = [
   '0023_m13_adjustment_separation.sql',
 ];
 // M05 forward change after the release modules: parser re-derivation (uptimebuyer-parser.v3, T-058 journey finding).
-const M05_REDERIVATION_MIGRATIONS = ['0024_m05_parser_rederivation.sql', '0025_m05_rederivation_lineage.sql'];
+const M05_REDERIVATION_MIGRATIONS = [
+  '0024_m05_parser_rederivation.sql',
+  '0025_m05_rederivation_lineage.sql',
+  '0026_m05_withheld_unreadable_part.sql',
+];
 
 // Tables whose rows are immutable once written (full append-only) and the column used to attempt a mutation.
 const APPEND_ONLY: Record<string, string> = {

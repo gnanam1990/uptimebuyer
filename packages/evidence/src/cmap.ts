@@ -13,6 +13,7 @@ export const WITHHELD = '�';
 export const WITHHELD_REASONS = Object.freeze([
   'CMAP_REFUSED',
   'CODE_POINT_INVALID',
+  'CONTENT_STREAM_UNREADABLE',
   'FONT_ENCODING_UNKNOWN',
   'GLYPH_UNMAPPED',
 ] as const);
@@ -250,6 +251,44 @@ export const STANDARD_V3: readonly (string | null)[] = (() => {
     const v = g === null ? null : cleanDecoded(g);
     t[Number(code)] = typeof v === 'string' ? v : null;
   }
+  return t;
+})();
+
+/**
+ * MacRomanEncoding (PDF 32000 Annex D): ASCII (0x27 quotesingle, 0x60 grave) and its own upper half. Annex D defines
+ * only the standard Latin character set, so the 15 Mac OS Roman glyphs outside it (notequal, infinity, lessequal,
+ * greaterequal, partialdiff, summation, product, pi, integral, Omega, radical, approxequal, Delta, lozenge, apple) are
+ * not part of this encoding and stay unmapped (withheld). 0xCA is the space glyph.
+ */
+export const MAC_ROMAN_V3: readonly (string | null)[] = (() => {
+  const t: (string | null)[] = [];
+  for (let c = 0; c < 256; c++) t.push(c < 0x20 ? ' ' : c < 0x7f ? String.fromCharCode(c) : null);
+  const upper = [
+    // 0x80..0x9F
+    'Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla',
+    'eacute egrave ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis',
+    'otilde uacute ugrave ucircumflex udieresis',
+    // 0xA0..0xBF
+    'dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis -',
+    'AE Oslash - plusminus - - yen mu - - - - - ordfeminine ordmasculine - ae oslash',
+    // 0xC0..0xDF
+    'questiondown exclamdown logicalnot - florin - - guillemotleft guillemotright ellipsis space Agrave Atilde Otilde OE',
+    'oe endash emdash quotedblleft quotedblright quoteleft quoteright divide - ydieresis Ydieresis fraction currency',
+    'guilsinglleft guilsinglright fi fl',
+    // 0xE0..0xFF
+    'daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave',
+    'Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex - Ograve Uacute Ucircumflex Ugrave dotlessi circumflex',
+    'tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron',
+  ]
+    .join(' ')
+    .split(' ');
+  if (upper.length !== 128) throw new Error('MacRomanEncoding table must have 128 upper-half entries');
+  upper.forEach((name, i) => {
+    if (name === '-') return;
+    const g = glyphNameToUnicode(name);
+    const v = g === null ? null : cleanDecoded(g);
+    t[0x80 + i] = typeof v === 'string' ? v : null;
+  });
   return t;
 })();
 

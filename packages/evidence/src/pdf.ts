@@ -16,6 +16,7 @@ import { inflateSync } from 'node:zlib';
 import { DOCUMENT_LIMITS } from './limits.js';
 import { rejected } from './errors.js';
 import {
+  MAC_ROMAN_V3,
   STANDARD_V3,
   SYMBOL,
   WIN_ANSI_V3,
@@ -292,7 +293,7 @@ const fromArray =
     t[c] ?? unmapped;
 const WIN_ANSI_TABLE = fromArray(WIN_ANSI_V3);
 const STANDARD_TABLE = fromArray(STANDARD_V3);
-const MAC_ROMAN_TABLE = fromArray(STANDARD_V3.map((v, c) => (c === 0x27 ? "'" : c === 0x60 ? '`' : v)));
+const MAC_ROMAN_TABLE = fromArray(MAC_ROMAN_V3);
 const SYMBOL_TABLE: CodeTable = (c) => SYMBOL.get(c) ?? unmapped;
 // A Map, not an object literal: a PDF name such as /constructor or /toString must never resolve to a prototype member.
 const NAMED_ENCODINGS: ReadonlyMap<string, CodeTable> = new Map([
@@ -812,11 +813,19 @@ export function extractPdfText(buf: Buffer, limits: Limits = DOCUMENT_LIMITS, op
     }
     const parts: string[] = [];
     const streams: string[] = [];
-    for (const num of contents.slice(0, 64)) {
+    let tail = false;
+    const listed = contents.slice(0, 64);
+    for (const [k, num] of listed.entries()) {
       const obj = objects.get(num);
-      if (!obj) continue;
-      const data = decodeStream(obj, inflater);
-      if (!data) continue;
+      const data = obj ? decodeStream(obj, inflater) : null;
+      if (!data) {
+        if (!useFonts) continue; // legacy (v1/v2): skip the part, kept verbatim
+        // v3: the font and graphics state after an unreadable part is unknown, so nothing after it is decoded with a
+        // guessed state. Its own text is unknown too; both are recorded as withheld.
+        reasons.add('CONTENT_STREAM_UNREADABLE');
+        if (k < listed.length - 1) tail = true;
+        break;
+      }
       // Legacy (v1/v2) interpreted each stream on its own; kept verbatim for re-derivation.
       if (useFonts) streams.push(data.toString('latin1'));
       else parts.push(contentText(data.toString('latin1'), budget, mode));
@@ -824,6 +833,7 @@ export function extractPdfText(buf: Buffer, limits: Limits = DOCUMENT_LIMITS, op
     // v3: a /Contents array is one content stream split at token boundaries (PDF 32000 7.8.2), so the font, the q/Q
     // stack and the operand state carry across its parts: interpret their concatenation once.
     if (useFonts && streams.length) parts.push(contentText(streams.join('\n'), budget, mode));
+    if (tail) parts.push(WITHHELD);
     const text = parts
       .join('\n')
       .split('\n')
