@@ -255,11 +255,16 @@ async function main() {
       factCount: doc.factCount,
       injectionFlaggedSpanCount: doc.injectionFlaggedSpanCount,
       activeContentRemoved: doc.activeContentRemoved,
+      parserVersion: doc.parserVersion,
+      textWithheld: doc.textWithheld,
       trustLevel: doc.trustLevel,
       evidenceRevisionId: revision.evidenceRevisionId,
       ingestedAt: documentCapturedAt,
       parserNote:
-        'Bounded PDF text subset (ADR 0002): text set in fonts with custom encodings is extracted as shifted glyph codes and is unreadable in those spans; nothing was OCRed or hand-corrected.',
+        `Bounded PDF text subset, ${doc.parserVersion} (ADR 0002): text is decoded through each font's ToUnicode CMap or ` +
+        `simple encoding; text that cannot be decoded is withheld as U+FFFD, never guessed (withheld here: ` +
+        `${doc.textWithheld.length ? doc.textWithheld.join(', ') : 'none'}). Form XObject text is not extracted; nothing ` +
+        'was OCRed or hand-corrected.',
     };
     writeFileSync(path.join(outDir, 'document.json'), json(documentRecord));
     const reasoningRecord = {
