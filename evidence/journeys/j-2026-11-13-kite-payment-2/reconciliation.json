@@ -1,0 +1,85 @@
+{
+  "schema": "journey-payment-reconciliation.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+  "externalAttemptId": "att_5882d37f-fdad-499d-bd9d-0732defecc01",
+  "authorizationId": "auth-payment-20261113-86104d",
+  "run": {
+    "sourceSha": "60bc5c59609b3e7c04abbe77b5d66948c5f7fdc5",
+    "manifestSha256": "a54b2e8bf37b0ed8761527c7c05fd03246b35e9318590660d708668635751420",
+    "paymentRecordSha256": "c0f2cfdd392c5b216b0558bd05646ec0c7d6707c3ff01355c83d7bed2c3cb903",
+    "brokerOutcome": {
+      "intentState": "UNKNOWN",
+      "externalOutcomeState": "UNKNOWN",
+      "adapterCapability": "UNSUPPORTED",
+      "reasonCode": "KITE_UNEXPECTED_CHAIN",
+      "rawResponseDigest": "sha256:d09de9fd0250bc501933a00f59c96890dc3e70fb9fcd6977e48b9ff65a30c767"
+    }
+  },
+  "observations": {
+    "walletBaseUsdc": {
+      "before": "1.100000",
+      "beforeSource": "Base USDC before this run: 1.100000, recorded by the operator before the run (kpass wallet balance; Base eth_call balanceOf agreed) and in evidence/journeys/j-2026-11-13-kite-payment/resolution.json (no payment in between: the first attempt made none). Not re-read by the agent (a past value).",
+      "after": "1.090000",
+      "afterReadAt": "2026-11-13T07:56:03.884Z"
+    },
+    "activity": {
+      "id": "activity_01a1d3b6-f557-77e9-b1b7-bce7bdc09c44",
+      "kind": "x402_payment",
+      "status": "completed",
+      "title": "API call — lionx402.com",
+      "occurredAt": "2026-11-13T07:02:25.367514Z",
+      "chainId": 2366,
+      "amountRaw": "10000",
+      "assetSymbol": "USDC",
+      "assetAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "txHash": "0x9d5af32b42f9b6306cff90249d3fa232c04e8a05aec2d01faecf57d16b97c0db",
+      "merchantHost": "lionx402.com",
+      "requestUrl": "https://lionx402.com/api/x402/poi-business-search-json?q=refrigeration%20repair",
+      "sessionApprovalAt": "2026-11-13T07:02:17.588829Z"
+    },
+    "session": {
+      "idSha256": "cc71e4986efcdc254ef820f00e09f1cabd9a10b293f47a09fa5e30f6dbe70007",
+      "status": "active",
+      "expiresAt": "2026-11-13T08:02:16.582502Z",
+      "spentTotal": "0.01",
+      "spentTotalRaw": "10000",
+      "reservedTotal": "0"
+    },
+    "chainDiscrepancy": {
+      "reportedChainId": 2366,
+      "expectedChainId": 8453,
+      "docCitation": "~/.claude/skills/x402-execute/references/commands.md line 110 (kpass 6.13.2 skills): x402.chain_id is 'the numeric chain ID of the chain the payment settled on (informational)' and settlement 'happens on the merchant's advertised network'; the merchant's 402 advertised eip155:8453 (Base). The value 2366 appears nowhere in the installed Kite docs.",
+      "note": "Both kpass execute (x402.chain_id) and Kite's own activity event for this payment (details.transaction.chain_id) report 2366, while the payment's asset is native USDC on Base (0x8335...2913) and the broker wallet's Base USDC fell by exactly 0.010000. What chain id 2366 denotes is unverified: no explorer or chain-registry lookup was made (no network call is authorized here). Open question for Kite; the adapter still refuses to confirm any chain other than 8453 automatically."
+    }
+  },
+  "merchantResponse": {
+    "origin": "PROVIDER_LIVE",
+    "statusCode": 200,
+    "resultCount": 7,
+    "responseSha256": "4af0b56c39eccf02b8f0c71ce5a70095dd053d259cd5e341e9ac78d490d98ee2",
+    "artifactSha256": "98a32138a4d965ceb5bfeb6d8e721fed454212d302b06a7d31c789a46c92329c"
+  },
+  "openQuestion": {
+    "topic": "settlement chain reported by kpass",
+    "reportedChainId": 2366,
+    "expectedChainId": 8453,
+    "docCitation": "~/.claude/skills/x402-execute/references/commands.md line 110 (kpass 6.13.2 skills): x402.chain_id is 'the numeric chain ID of the chain the payment settled on (informational)' and settlement 'happens on the merchant's advertised network'; the merchant's 402 advertised eip155:8453 (Base). The value 2366 appears nowhere in the installed Kite docs.",
+    "note": "Both kpass execute (x402.chain_id) and Kite's own activity event for this payment (details.transaction.chain_id) report 2366, while the payment's asset is native USDC on Base (0x8335...2913) and the broker wallet's Base USDC fell by exactly 0.010000. What chain id 2366 denotes is unverified: no explorer or chain-registry lookup was made (no network call is authorized here). Open question for Kite; the adapter still refuses to confirm any chain other than 8453 automatically.",
+    "adapterPolicy": "unchanged: the adapter keeps refusing to confirm any chain id other than 8453 automatically"
+  },
+  "ownerDecision": {
+    "decidedBy": "repository-owner",
+    "role": "finance_approver",
+    "decidedOn": "2026-11-13",
+    "statement": "Record the payment as captured: resolution CAPTURED of exactly 1 minor unit USD for intent cin_a559edef-ce36-4b0a-9792-665a330c1c30.",
+    "relayedBy": "the coordinator session, from the owner's instruction in chat on 2026-11-13 (the exact time was not relayed)"
+  },
+  "resolution": {
+    "resolution": "CAPTURED",
+    "capturedMinor": "1",
+    "reasonCode": "OWNER_REVIEW_KITE_SETTLEMENT_CHAIN_UNVERIFIED"
+  },
+  "recordedAt": "2026-11-13T08:04:50.205Z",
+  "note": "Read-only observations (kpass wallet balance, activity, session list in the broker state root). Account identifiers are recorded as digests or left out; nothing was re-sent."
+}
