@@ -3,7 +3,7 @@
 // UNSUPPORTED for autonomous execution unless same-key replay has been explicitly verified, never looks a payment up,
 // and only drives `kpass` with an argument vector, a broker-only HOME and no inherited environment. The `kpass` binary
 // here is a local recorded stand-in script; no network, account or credential is used.
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,8 @@ import { UnconfiguredAdapter } from '../src/adapters/port.js';
 
 function fakeKpass(script: string) {
   const dir = mkdtempSync(join(tmpdir(), 'm09-kpass-'));
+  // The broker's own initialized kpass state directory (the adapter refuses to run kpass without it).
+  mkdirSync(join(dir, '.kite-passport'), { mode: 0o700 });
   const bin = join(dir, 'kpass');
   writeFileSync(
     bin,

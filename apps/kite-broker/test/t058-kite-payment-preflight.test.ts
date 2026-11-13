@@ -143,8 +143,10 @@ describe('T-058 broker KITE_PASSPORT adapter file and state root', () => {
     ).toMatch(/^SECRET_CONFIG_INVALID/);
   });
 
-  it('the state root must be a private directory of this user outside the repository', () => {
+  it('the state root must be a private directory of this user outside the repository, with its own kpass state', () => {
     const d = tmp();
+    expect(checkStateRoot(d, repoRoot)).toEqual({ ok: false, reason: 'STATE_ROOT_NOT_INITIALIZED' });
+    mkdirSync(path.join(d, '.kite-passport'), { mode: 0o700 });
     expect(checkStateRoot(d, repoRoot)).toEqual({ ok: true });
     chmodSync(d, 0o755);
     expect(checkStateRoot(d, repoRoot)).toEqual({ ok: false, reason: 'STATE_ROOT_NOT_PRIVATE' });

@@ -2,7 +2,7 @@
 // { exitCode, json } taken in order from a per-command queue (documented-example fixtures, see
 // test/fixtures/kpass-6.13.2-documented.ts), logs every invocation's argv, environment NAMES, HOME and cwd, and can
 // sleep past the adapter timeout. Nothing here touches the network or a real account.
-import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,6 +27,8 @@ export interface FakeKpass {
 export function fakeKpass(): FakeKpass {
   const dir = mkdtempSync(join(tmpdir(), 'ub-fake-kpass-'));
   chmodSync(dir, 0o700);
+  // The broker's own initialized kpass state directory (the adapter refuses to run kpass without it).
+  mkdirSync(join(dir, '.kite-passport'), { mode: 0o700 });
   const bin = join(dir, 'kpass');
   const queue = join(dir, 'queue.json');
   const log = join(dir, 'calls.log');

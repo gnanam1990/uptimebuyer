@@ -9,7 +9,9 @@
 // says; the approval URL never reaches an outcome; argv values cannot be read as flags; execution without autonomous
 // reconciliation is permitted only with explicit attended manual reconciliation.
 /* eslint-disable @typescript-eslint/no-explicit-any -- documented-example fixtures are mutated structurally */
-import { realpathSync } from 'node:fs';
+import { chmodSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   KITE_HARD_CAPS,
@@ -565,5 +567,52 @@ describe('T-040 security review S1/S2 (documented-example fixtures, not Kite)', 
       expect((await adapter.activateSession(scope(), op, noHooks)).kind).toBe('ACCEPTED');
       expect(approvals, approval_url).toEqual([]);
     }
+  });
+});
+
+// S4 (found while exercising the live CLI up to its first hard stop, 2026-11-13): kpass 6.13.2 looks for a project-level
+// `.kite-passport` by walking up from its working directory before it falls back to $HOME. A broker state root without
+// its own `.kite-passport` under /Users/<user> therefore silently resolves to the user's interactive kpass login and its
+// current session. The adapter runs kpass only when <stateRoot>/.kite-passport is a private directory of this user.
+describe('T-040 security review S4: kpass runs only against the broker’s own initialized state', () => {
+  const variants: [string, (dir: string) => void][] = [
+    ['missing', (d) => rmSync(path.join(d, '.kite-passport'), { recursive: true, force: true })],
+    [
+      'a symlink',
+      (d) => {
+        rmSync(path.join(d, '.kite-passport'), { recursive: true, force: true });
+        symlinkSync(tmpdir(), path.join(d, '.kite-passport'));
+      },
+    ],
+    ['open to others', (d) => chmodSync(path.join(d, '.kite-passport'), 0o755)],
+  ];
+  it.each(variants)('a state directory that is %s: no kpass command runs at all', async (_n, spoil) => {
+    const k = fakeKpass();
+    spoil(k.dir);
+    k.script('session status', approved());
+    k.script('session create', { exitCode: 0, json: KPASS.sessionCreateRequested.json });
+    const { adapter } = make(k);
+    expect(await adapter.readiness()).toMatchObject({ loggedIn: false, agentRegistered: false });
+    expect(await adapter.activateSession(scope(), op, noHooks)).toMatchObject({
+      kind: 'FAILED',
+      reasonCode: 'KITE_STATE_ROOT_NOT_INITIALIZED',
+      notSent: true,
+    });
+    expect(await adapter.execute(adapter.prepare(intent()), op, noHooks)).toMatchObject({
+      kind: 'FAILED',
+      reasonCode: 'KITE_STATE_ROOT_NOT_INITIALIZED',
+      notSent: true,
+    });
+    expect(
+      (
+        await adapter.lookupSession({
+          clientOperationId: op.clientOperationId,
+          idempotencyKey: op.idempotencyKey,
+          providerRef: 'req_abc123',
+        })
+      ).kind,
+    ).toBe('UNKNOWN');
+    expect(await adapter.sessionUsage('req_abc123')).toBeNull();
+    expect(k.calls()).toEqual([]);
   });
 });
