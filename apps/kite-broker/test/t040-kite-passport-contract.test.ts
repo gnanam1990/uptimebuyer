@@ -195,6 +195,45 @@ describe('T-040 kpass 6.13.2 session create (documented-example fixtures, not Ki
   });
 });
 
+describe('T-040 kpass 6.13.2 real session request ids (format observed 2026-11-13)', () => {
+  // The first live T-058 attempt (journey j-2026-11-13-kite-payment) showed that real kpass 6.13.2 request ids have the
+  // form agent_session_req_<uuid>, not the req_<id> placeholder of Kite's documentation. The adapter rejected the real
+  // id, so a created session request was recorded as UNKNOWN. The id below has that observed format (it is the id of
+  // that pending, never-approved request, which grants nothing); the rest of each answer is the documented shape.
+  const REAL_ID = 'agent_session_req_01a1d39d-2033-70b3-8e62-63c7d6ed8f2c';
+  const withId = (json: Record<string, unknown>) => ({ ...json, request_id: REAL_ID });
+
+  it('a created request with a real id is ACCEPTED under that id, and its status lookup answers for it', async () => {
+    const k = fakeKpass();
+    k.script('session create', { exitCode: 0, json: withId(KPASS.sessionCreateRequested.json) });
+    k.script('session status', { exitCode: 0, json: withId(KPASS.sessionStatusPending.json) });
+    const { adapter } = make(k);
+    expect(await adapter.activateSession(scope(), op, {})).toMatchObject({ kind: 'ACCEPTED', providerRef: REAL_ID });
+    expect(
+      await adapter.lookupSession({
+        clientOperationId: op.clientOperationId,
+        idempotencyKey: op.idempotencyKey,
+        providerRef: REAL_ID,
+      }),
+    ).toMatchObject({ kind: 'ACCEPTED', providerRef: REAL_ID });
+  });
+
+  it('still refuses ids that are not a Kite session request id', async () => {
+    for (const bad of [
+      '--request-id',
+      'agent_session_req_',
+      'session_req_x',
+      'agent_session_req_a b',
+      'x'.repeat(200),
+    ]) {
+      const k = fakeKpass();
+      k.script('session create', { exitCode: 0, json: { ...KPASS.sessionCreateRequested.json, request_id: bad } });
+      const { adapter } = make(k);
+      expect((await adapter.activateSession(scope(), op, {})).kind, bad).toBe('UNKNOWN');
+    }
+  });
+});
+
 describe('T-040 kpass 6.13.2 session status (documented-example fixtures, not Kite)', () => {
   const lookup = (adapter: KitePassportAdapter, providerRef: string | null = 'req_abc123') =>
     adapter.lookupSession({ clientOperationId: op.clientOperationId, idempotencyKey: op.idempotencyKey, providerRef });
