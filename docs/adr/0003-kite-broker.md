@@ -174,6 +174,28 @@ success`, `session_id` equal to the bound session, no `source: allowance`, `x402
   found again (it is reconciled only by `request_id`, else manual); the exact refund behaviour (x402 has none); the
   backend's behaviour when kpass is killed mid-payment. The real payment itself is NOT_RUN until the operator's live run.
 
+## Manual resolution of a live payment, and the open settlement-chain question (2026-11-13)
+
+Journey `j-2026-11-13-kite-payment-2` (run at 60bc5c5) made one paid call. kpass answered with HTTP 200 from the merchant
+and `x402.chain_id` 2366, not Base (8453), so the adapter recorded UNKNOWN (`KITE_UNEXPECTED_CHAIN`) as designed, the
+attempt's capability became UNSUPPORTED and the reservation stayed. Read-only evidence then showed the payment: Base
+USDC 1.100000 -> 1.090000, a completed `x402_payment` of 10000 raw USDC to lionx402.com in Kite's activity, the session's
+spent total 0.01. The owner, as finance approver, decided CAPTURED; it was recorded through
+`resolveUnknownIntentManually` citing the digest of `reconciliation.json`, and nothing was re-sent.
+
+- **The adapter stays strict.** It still refuses to confirm any chain other than 8453 automatically. Kite's docs call
+  `x402.chain_id` informational and say settlement is on the merchant's advertised network
+  (x402-execute `references/commands.md`); 2366 appears nowhere in them, and Kite's own activity entry reports 2366 too.
+  What 2366 denotes is an **open question** for Kite; no explorer or registry lookup was made.
+- **A resolution is part of its journey.** The journey is recorded again with a `resolution` section: the run's
+  manifest is kept byte for byte (`manifest-run.journey.json`, cited by digest, with `runSourceSha` = the run's commit),
+  `sourceSha` is the commit that recorded the resolution (HEAD when the gate ran, as for every journey), and the window
+  ends after the resolution. Every existing gate rule still applies; the resolution rules only add refusals (bound to
+  this sourceSha, inside the window and after the run's payment, a cited evidence file whose digest is the one the
+  finance approver cited, the run manifest unchanged and showing that intent UNKNOWN, the captured amount, and with
+  the database the product's own manual receipt with that digest; a manually resolved intent recorded without its
+  resolution is refused). The runner is `apps/kite-broker/test/support/journey-kite-resolution.ts`.
+
 ## Consequences
 
 All M09 tests use the LOCAL_STAND_IN HTTPS endpoint (separate process) or the in-memory RECORDED_CONTRACT adapter, both

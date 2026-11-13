@@ -9,8 +9,10 @@ the action themselves. The tooling performs no external action.
 ## Status at handoff
 
 `node scripts/release/release-gate.mjs status`. One authorizer key is registered (`owner-195587c58bb1180e`, the repository
-owner's). The only authorization record is the owner's one-cent PAYMENT authorization `auth-payment-20261113-cacd36`.
-It was consumed by the first live T-058 attempt, which made no payment. Every gate is therefore refused <!-- C-013 -->:
+owner's). The only authorization records are the owner's two one-cent PAYMENT authorizations,
+`auth-payment-20261113-cacd36` (consumed by the first live T-058 attempt, which made no payment) and
+`auth-payment-20261113-86104d` (consumed by the second attempt, whose payment is recorded in
+`evidence/journeys/j-2026-11-13-kite-payment-2/`). Both are used, so every gate is refused <!-- C-013 -->:
 
 | Gate                 | Decision | Reason                     | Action it would allow                                        |
 | -------------------- | -------- | -------------------------- | ------------------------------------------------------------ |
