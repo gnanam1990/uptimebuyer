@@ -216,6 +216,19 @@ First build, reviewed from `after/` captures:
 | T-050 caught the chart line briefly outside the viewport at 320 px: the line eased from its pre-measure geometry. | The line is keyed by chart width, so a resize redraws it and only a new reading animates it.                                                   |
 | On phones the controller listed six facts in one long column; fleet icons were small next to the numerals.        | Two columns of facts below 768 px; fleet icons at 20 px.                                                                                       |
 
+## Changes from the PR #25 review
+
+| Finding                                                                                 | Change                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI (Linux Chromium) put the "Open incident <uuid>" link past the right edge at 1024 px. | Tables switch to labelled records by a container query on their own region (under 760 px), not the viewport; ids in link text and code tokens wrap anywhere; flex and grid children may shrink.     |
+| The faceplate kept "Newest temperature" and FRESH after a failed telemetry refresh.     | A failed refresh makes the faceplate say "Last known temperature, not live", show the error and drop the retained freshness on every tab; the Telemetry panel stops showing the retained FRESH too. |
+| The faceplate could present a simulator's value as a live reading.                      | The faceplate and the panel share one device and series selection; a SIMULATOR value carries SIMULATED_INPUT at the number and is never styled live.                                                |
+| Notices inside the dark faceplate inherited its light text.                             | Notices on the faceplate keep ink text (13:1 or better) and dark links (7:1 or better).                                                                                                             |
+
+Ids stay visible in full. A shortened form (for example `inc_cd4857de…`) was considered and rejected: operators
+compare and copy these ids against CMMS and provider records, and a truncated visible label would either hide part of
+the id or diverge from the link's accessible name.
+
 ## What is not covered
 
 - No dark theme (see "One light theme" above).
