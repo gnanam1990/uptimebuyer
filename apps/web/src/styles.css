@@ -1024,10 +1024,12 @@ main > h1 {
   border-top-color: var(--focus-on-dark);
 }
 @media (min-width: 768px) {
-  /* Tablet and narrow desktop: the readout spans the plate above three columns of facts. */
   .incident-status {
     padding: var(--space-6);
   }
+}
+/* Tablet and narrow desktop: the readout spans the plate above three columns of facts. */
+@media (min-width: 768px) and (max-width: 1279px) {
   .readout {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
@@ -1056,9 +1058,6 @@ main > h1 {
     grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr);
   }
   .readout {
-    display: flex;
-    padding-bottom: 0;
-    border-bottom: 0;
     border-right: 1px solid var(--plate-line);
     padding-right: var(--space-6);
   }
@@ -1902,6 +1901,7 @@ tbody tr:last-child td {
   table.responsive td > * {
     min-width: 0;
     max-width: 100%;
+    justify-self: start;
   }
   table.responsive tr td:last-child {
     border-bottom: 0;
