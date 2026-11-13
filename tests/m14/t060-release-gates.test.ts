@@ -185,7 +185,7 @@ describe('T-060 release gates are separate and explicit', () => {
 });
 
 describe('T-060 repository state: no external action is authorized', () => {
-  it('registers no authorizer and holds no authorization record, so every gate is REFUSED', () => {
+  it('registers only the owner key and holds no authorization record, so every gate is REFUSED', () => {
     const r = run('node', ['scripts/release/release-gate.mjs', 'status', '--json']);
     expect(r.code).toBe(0);
     const status = JSON.parse(r.stdout);
@@ -194,7 +194,8 @@ describe('T-060 repository state: no external action is authorized', () => {
       expect(g.decision, g.gate).toBe('REFUSED');
       expect(g.reasons, g.gate).toContain('NO_AUTHORIZATION');
     }
-    expect(status.authorizers).toEqual([]);
+    // A registered key alone opens nothing: each gate still needs its own signed, unused record.
+    expect(status.authorizers).toEqual(['owner-195587c58bb1180e']);
   });
 
   it('a check against the repository refuses and exits non-zero', () => {
