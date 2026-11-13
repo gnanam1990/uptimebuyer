@@ -33,7 +33,7 @@ Agents with verifiable identity and spending limits you control:
 - Signed bounded authority: amount, merchant, purpose and expiry, with hard caps in code (1 cent per call, 5 cents per
   session) <!-- C-005 -->. Any payment outside local tests also needs the owner's single-use, Ed25519-signed PAYMENT gate
   record <!-- C-013 C-018 -->.
-- Recorded payment (the full journey stays NOT_RUN): journey `j-2026-11-13-kite-payment-2`, a passkey-approved Kite Passport session of one cent, one x402 payment of 0.01 USDC on Base to lionx402.com (OpenStreetMap business search) <!-- C-022 -->.
+- Recorded payment (the full journey stays NOT_RUN): journey `j-2026-11-13-kite-payment-2`, a passkey-approved Kite Passport session of one cent, one x402 payment of 0.01 USDC to lionx402.com (OpenStreetMap business search), debited from the broker wallet's Base USDC <!-- C-022 -->.
 - Recorded fulfillment and duplicate (the full journey stays NOT_RUN): the merchant answered HTTP 200 with 7 refrigeration-repair businesses; a duplicate request returned the same intent with no second charge <!-- C-022 -->.
 - Honest UNKNOWN (recorded; the full journey stays NOT_RUN): kpass reported settlement chain id 2366, not Base (8453), so the broker recorded UNKNOWN, kept the reservation and retried nothing <!-- C-007 C-022 -->.
 - Manual resolution (recorded; the full journey stays NOT_RUN): the owner, as finance approver, resolved it CAPTURED through the product's manual resolution from out-of-band evidence (wallet 1.10 to 1.09 USDC, Kite activity, session spent 0.01) <!-- C-022 -->.
@@ -60,8 +60,8 @@ and authorization tooling <!-- C-017 C-018 -->.
 | E4    | Real bounded payment plus fulfilled action  | recorded once: payment, fulfillment and duplicate PASS after a manual resolution; the full journey is NOT_RUN <!-- C-022 --> |
 | E5    | Independent physical recovery evidence      | NOT_RUN <!-- C-023 -->                                                                                                       |
 
-Local suites at the submission commit: about 1,300 unit, 630 integration and 10 browser tests, all passing in
-`pnpm verify` <!-- C-016 -->.
+Local suites in `pnpm verify` on this branch: 1,327 unit tests, 626 integration tests (624 passed, 2 skipped) and 10
+browser tests <!-- C-016 -->.
 
 ## Not yet proven (NOT_RUN)
 
