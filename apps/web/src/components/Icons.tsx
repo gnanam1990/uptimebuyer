@@ -22,14 +22,17 @@ function Svg({ size = 20, className, children }: { size?: number; className?: st
   );
 }
 
-/** The product mark: a cold-room controller faceplate with its readout bar. */
-export function BrandMark({ size = 28 }: { size?: number }) {
+/** The product mark: a controller faceplate with its readout window and a thermal scale stopped short of the
+ * threshold notch (the same scale the incident faceplate draws). Presentation attributes only (CSP). */
+export function BrandMark({ size = 32 }: { size?: number }) {
   return (
-    <svg className="brand-mark" viewBox="0 0 28 28" width={size} height={size} aria-hidden="true" focusable="false">
-      <rect x="1.5" y="1.5" width="25" height="25" rx="6" fill="currentColor" />
-      <rect x="6" y="7" width="16" height="8" rx="1.5" fill="none" stroke="#edf1f2" strokeWidth="1.6" />
-      <path d="M9 11h5" stroke="#ffc94d" strokeWidth="2" strokeLinecap="round" />
-      <path d="M7 20h4M15 20h6" stroke="#c2d0d6" strokeWidth="1.6" strokeLinecap="round" />
+    <svg className="brand-mark" viewBox="0 0 32 32" width={size} height={size} aria-hidden="true" focusable="false">
+      <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="#17323f" stroke="#3a5a6c" />
+      <rect x="6" y="6.5" width="20" height="10" rx="2" fill="#0a1a23" />
+      <path d="M9.5 11.5h7" stroke="#6fe0f2" strokeWidth="2.4" strokeLinecap="round" />
+      <rect x="6" y="21" width="20" height="4" rx="2" fill="#0a1a23" />
+      <rect x="6" y="21" width="12" height="4" rx="2" fill="#7cc8f0" />
+      <path d="M21.5 19.5v7" stroke="#e6eef2" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

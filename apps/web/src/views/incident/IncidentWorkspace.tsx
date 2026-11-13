@@ -1,14 +1,16 @@
 // Incident workspace (UI-SPEC §8): a status header that always shows lifecycle, signal freshness, the current and
 // original pinned-SOP deadline, owner, blocker and next safe action; URL-addressable sections; shared reloadable
 // resources so a command or a version conflict refreshes the authoritative server state (never a local guess).
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { api, useResource } from '../../api';
 import { AxisBadge, Icon } from '../../components/AxisBadge';
 import { formatMilliCelsius, formatUtc } from '../../format';
 import { INCIDENT_TABS, Link, type IncidentTab } from '../../router';
 import { Code, Loadable } from '../common';
 import { EvidenceTab } from './EvidenceTab';
-import { readoutModel } from './readout';
+import { readoutModel, type ReadoutModel } from './readout';
+import { readingState, scaleModel } from './thermalScale.js';
+import { cssVars } from '../../motion/cssVars';
 import { OverviewTab } from './OverviewTab';
 import { PlanTab } from './PlanTab';
 import { SpendTab } from './SpendTab';
@@ -98,7 +100,9 @@ export function IncidentWorkspace({ id, tab, context }: { id: string; tab: Incid
 
   return (
     <>
-      <h1 tabIndex={-1}>Incident {id}</h1>
+      <h1 tabIndex={-1}>
+        Incident <span className="h1-id">{id}</span>
+      </h1>
       <Loadable res={detail} what="incident">
         {(d) => {
           const i = d.incident;
@@ -161,21 +165,7 @@ export function IncidentWorkspace({ id, tab, context }: { id: string; tab: Incid
                   </dl>
                 </div>
               </section>
-              <nav className="section-nav" aria-label="Incident sections">
-                <ul>
-                  {INCIDENT_TABS.map((t) => (
-                    <li key={t}>
-                      <Link
-                        to={t === 'overview' ? `/incidents/${id}` : `/incidents/${id}/${t}`}
-                        className="nav-link"
-                        {...(t === tab ? { 'aria-current': 'page' as const } : {})}
-                      >
-                        {TAB_LABEL[t]}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
+              <SectionNav id={id} tab={tab} />
               {context ? (
                 <p className="notice notice-info">
                   Opened from a notification about provider contact <Code>{context}</Code>.
@@ -249,8 +239,13 @@ function Readout({
     <div className="readout">
       <p className="readout-label">{m.label}</p>
       {m.last ? (
-        <p className="readout-value" data-live={String(m.live)} data-simulated={String(m.simulated)}>
-          {formatMilliCelsius(m.last.valueInt)}
+        <p
+          className="readout-value"
+          data-live={String(m.live)}
+          data-simulated={String(m.simulated)}
+          data-state={readingState(m)}
+        >
+          <ReadoutNumber text={formatMilliCelsius(m.last.valueInt)} />
         </p>
       ) : freshness === null && refreshError === null ? (
         <p className="readout-value readout-none">Signal freshness loading…</p>
@@ -268,6 +263,7 @@ function Readout({
           </span>
         ) : null}
       </div>
+      <ThermalScale model={m} />
       {m.refreshError ? (
         <p className="notice notice-error readout-error">
           Telemetry refresh failed: {m.refreshError} The value shown is the last one loaded.
@@ -279,5 +275,109 @@ function Readout({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** "4.3 °C" with the unit set smaller; the text content is unchanged. */
+function ReadoutNumber({ text }: { text: string }) {
+  const i = text.lastIndexOf(' ');
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      <span className="readout-num">{text.slice(0, i)}</span>
+      <span className="readout-unit">{text.slice(i)}</span>
+    </>
+  );
+}
+
+/**
+ * The faceplate thermal scale: the newest reading against the pinned threshold (geometry and honesty in
+ * ./thermalScale.ts). Hidden from assistive technology: the value, freshness and threshold are stated as text beside
+ * it. Positions are CSS custom properties set through the CSSOM (no style attributes under the CSP); the fill settles
+ * from the cold end on first paint and glides to each new reading, and prefers-reduced-motion leaves it static.
+ */
+function ThermalScale({ model }: { model: ReadoutModel }) {
+  const s = scaleModel(model);
+  if (!s || !model.threshold) return null;
+  return (
+    <div
+      className="scale"
+      aria-hidden="true"
+      data-state={s.state}
+      data-danger={s.danger}
+      data-beyond={String(s.beyond)}
+      ref={cssVars({ '--at': s.at, '--thr': s.thresholdAt })}
+    >
+      <span className="scale-thr-label">{formatMilliCelsius(model.threshold.thresholdInt)}</span>
+      <div className="scale-track">
+        <span className="scale-zone" />
+        <span className="scale-fill" />
+        {s.ticks.map((t) => (
+          <span key={t} className="scale-tick" ref={cssVars({ '--tick': t })} />
+        ))}
+        <span className="scale-threshold" />
+        <span className="scale-marker" />
+      </div>
+      <div className="scale-ends">
+        <span>{formatMilliCelsius(s.lo)}</span>
+        <span>{formatMilliCelsius(s.hi)}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Incident section links with a plate that slides to the active section (continuity between sections). The plate is
+ * placed from the active link's box after layout and on every resize; until it is placed the active link carries its
+ * own plate, so nothing depends on the script. Reduced motion makes the plate jump.
+ */
+function SectionNav({ id, tab }: { id: string; tab: IncidentTab }) {
+  const navRef = useRef<HTMLElement>(null);
+  const plateRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    const plate = plateRef.current;
+    if (!nav || !plate) return;
+    const place = () => {
+      const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!active) return;
+      const n = nav.getBoundingClientRect();
+      const a = active.getBoundingClientRect();
+      plate.style.setProperty('--x', `${a.left - n.left}px`);
+      plate.style.setProperty('--y', `${a.top - n.top}px`);
+      plate.style.setProperty('--w', `${a.width}px`);
+      plate.style.setProperty('--h', `${a.height}px`);
+      nav.dataset.plate = 'placed';
+    };
+    place();
+    // Transitions start only after the first placement, so the plate never slides in from the corner.
+    const raf = requestAnimationFrame(() => {
+      plate.dataset.ready = 'true';
+    });
+    const ro = new ResizeObserver(place);
+    ro.observe(nav);
+    nav.querySelectorAll('a').forEach((a) => ro.observe(a));
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [tab]);
+  return (
+    <nav className="section-nav" aria-label="Incident sections" ref={navRef}>
+      <span className="section-plate" aria-hidden="true" ref={plateRef} />
+      <ul>
+        {INCIDENT_TABS.map((t) => (
+          <li key={t}>
+            <Link
+              to={t === 'overview' ? `/incidents/${id}` : `/incidents/${id}/${t}`}
+              className="nav-link"
+              {...(t === tab ? { 'aria-current': 'page' as const } : {})}
+            >
+              {TAB_LABEL[t]}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

@@ -7,6 +7,7 @@ import { describeAxis, type Shape, type Tone } from '../status/axes';
 import { formatDuration, formatUtc } from '../format';
 import { Link } from '../router';
 import { useSession } from '../session';
+import { cssVars } from '../motion/cssVars';
 import { Code, Loadable } from './common';
 
 type Stat = [key: string, label: string, shape: Shape, tone: Tone];
@@ -27,6 +28,32 @@ const INCIDENT_STATS: Stat[] = [
   ['criticalIncidents', 'Critical incidents', 'octagon', 'critical'],
   ['unresolvedExternalOutcomes', 'Unresolved external outcomes', 'question', 'unknown'],
 ];
+
+// The signal-mix bar: the five freshness counts as one proportional bar. Every asset has exactly one freshness (the
+// API partitions them), so the segments sum to the assets in scope. A visual duplicate of the counts below it, hidden
+// from assistive technology; segment widths are custom properties (CSSOM) that grow from zero on first paint and
+// re-proportion on each poll, and prefers-reduced-motion leaves them static.
+function SignalMix({ counts }: { counts: Record<string, number> }) {
+  const total = SIGNAL_STATS.reduce((n, [key]) => n + (counts[key] ?? 0), 0);
+  return (
+    <div className="mix">
+      <p className="mix-caption">
+        Signal across {total} {total === 1 ? 'asset' : 'assets'}
+      </p>
+      <div className="mix-bar" aria-hidden="true" ref={cssVars({ '--total': Math.max(1, total) })}>
+        {SIGNAL_STATS.map(([key, , , tone]) => (
+          <span
+            key={key}
+            className={`mix-seg tone-${tone}`}
+            data-key={key}
+            data-empty={String((counts[key] ?? 0) === 0)}
+            ref={cssVars({ '--n': counts[key] ?? 0 })}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function StatList({ stats, counts }: { stats: Stat[]; counts: Record<string, number> }) {
   return (
@@ -64,6 +91,7 @@ export function CommandCenter() {
             const counts = f.counts as unknown as Record<string, number>;
             return (
               <>
+                <SignalMix counts={counts} />
                 <div className="fleet-groups">
                   <div className="fleet-group">
                     <h3>Sensor signal</h3>
