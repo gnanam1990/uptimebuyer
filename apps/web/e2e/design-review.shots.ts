@@ -9,11 +9,15 @@ import { expect, test, type Page } from '@playwright/test';
 import { base, manifest, signIn } from './support/fixtures.js';
 
 const repo = resolve(import.meta.dirname, '..', '..', '..');
-const outDir = join(repo, 'docs', 'design', process.env.UB_SHOTS_DIR ?? 'after');
-const WIDTHS = [
-  { label: '1440', width: 1440, height: 900 },
-  { label: '375', width: 375, height: 812 },
-];
+// UB_SHOTS_OUT (an absolute folder) overrides docs/design/<UB_SHOTS_DIR>; UB_SHOTS_WIDTHS (comma-separated CSS px)
+// overrides the default 1440 and 375; UB_SHOTS_MOTION=full captures with motion allowed (default: reduced).
+const outDir = process.env.UB_SHOTS_OUT ?? join(repo, 'docs', 'design', process.env.UB_SHOTS_DIR ?? 'after');
+const HEIGHTS: Record<number, number> = { 1920: 1080, 1440: 900, 1024: 768, 768: 1024, 375: 812, 320: 720 };
+const WIDTHS = (process.env.UB_SHOTS_WIDTHS ?? '1440,375').split(',').map((v) => {
+  const width = Number(v.trim());
+  return { label: String(width), width, height: HEIGHTS[width] ?? 900 };
+});
+const REDUCED = process.env.UB_SHOTS_MOTION === 'full' ? 'no-preference' : 'reduce';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -41,7 +45,7 @@ test('design review screenshots', async ({ browser }) => {
   for (const w of WIDTHS) {
     const context = await browser.newContext({
       viewport: { width: w.width, height: w.height },
-      reducedMotion: 'reduce',
+      reducedMotion: REDUCED,
     });
     const page = await context.newPage();
     const shot = async (name: string) => {
