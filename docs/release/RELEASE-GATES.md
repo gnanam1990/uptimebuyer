@@ -31,6 +31,45 @@ every gate is refused <!-- C-013 -->:
    and an exercised rollback) and `node scripts/release/release-gate.mjs check <GATE> --request ... --preflight ...`.
 4. On `AUTHORIZED`, the operator performs the action and adds the authorization id to `consumed.json`.
 
+## Authorizing the one bounded Kite payment (T-058)
+
+The payment part of the real-input journey is NOT_RUN until the steps below are done. The person who authorizes runs
+`scripts/release/authorize.mjs` on their own machine; no agent runs it. It works offline, keeps one Ed25519 key in
+`~/.config/uptimebuyer/authorizer/` (directory 0700, key 0600, outside the repository), prints only the public key and
+its key id, and signs a PAYMENT record only after the person types `YES`.
+
+1. Create (or show) the authorizer key and copy the printed `keyId` and `publicKey`:
+
+   ```sh
+   cd /Users/kratos/uptimebuyer
+   node scripts/release/authorize.mjs keygen
+   ```
+
+2. Register that public key in `config/release/authorizers.json` under `authorizers` as a reviewed, committed change
+   (`"<keyId>": "<publicKey>"`). The live run refuses a dirty tracked tree, so this commit comes first.
+
+3. Sign the authorization for exactly this payment (validity at most 4 hours; read the plain-words summary, then type
+   `YES`). It writes `evidence/authorizations/PAYMENT.<authorizationId>.json` and prints the `authorizationId`:
+
+   ```sh
+   cd /Users/kratos/uptimebuyer
+   node scripts/release/authorize.mjs payment --merchant lionx402.com --amount-minor 1 --currency USD --purpose REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP --environment kite-passport-prod --valid-hours 2
+   ```
+
+4. The operator's live journey run checks the gate itself before any Kite command:
+   `release-gate.mjs check PAYMENT --request <file> --preflight <file> --authorization <id>`, with the request and the
+   four preflight checks (`broker-isolation`, `budget-bound`, `reconciliation-ready`, `kill-switch-ready`) built from
+   the run's real state. An AUTHORIZED decision consumes the record and is logged with the digest of the exact request
+   it decided and that request's journey id. Evidence of a completed payment counts only with that consumed decision,
+   for that request, that journey id and inside that run window; an unused record is never evidence that a payment was
+   authorized, and the record cannot be used twice. The journey id is bound in the decision record, not in the signed
+   scope, because the authorization is signed before the run (and its id) exists. The recorded payment must stay inside
+   the authorized request: amount at most its amount, the same currency, merchant and purpose.
+
+The scope is merchant `lionx402.com`, at most 1 minor unit of USD, purpose `REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP`,
+environment `kite-passport-prod`. The broker also caps every Kite session in code at 1 cent per call and 5 cents in
+total, whatever an authorization says.
+
 ## Rollback
 
 Backup, restore and image rollback were exercised locally (`docs/release/evidence/t057-release-smoke.json`,

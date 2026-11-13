@@ -13,7 +13,7 @@
 // performs an external action: it spawns nothing and makes no network call.
 //   node scripts/release/release-gate.mjs status [--json]
 //   node scripts/release/release-gate.mjs check <GATE> [--request <file>] [--preflight <file>] [--authorization <id>]
-import { createPublicKey, sign, verify } from 'node:crypto';
+import { createHash, createPublicKey, sign, verify } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -183,9 +183,11 @@ export function checkAndRecord(root, gate, request, { preflight = {}, now = new 
   const dir = path.join(root, 'evidence', 'authorizations');
   if (d.authorizationId) {
     mkdirSync(dir, { recursive: true });
+    // The decision names the exact request it decided (canonical digest), so a consumed authorization can later be
+    // tied to this request only (journey gate, payment part).
     appendFileSync(
       path.join(dir, 'decisions.jsonl'),
-      `${JSON.stringify({ at: now.toISOString(), gate, decision: d.decision, reasons: d.reasons, authorizationId: d.authorizationId })}\n`,
+      `${JSON.stringify({ at: now.toISOString(), gate, decision: d.decision, reasons: d.reasons, authorizationId: d.authorizationId, requestSha256: requestDigest(request), journeyId: typeof request?.journeyId === 'string' ? request.journeyId : null })}\n`,
     );
   }
   if (d.decision === 'AUTHORIZED') {
@@ -215,6 +217,48 @@ export function authorizationVerifies(root, gate, authorizationId, now = new Dat
   const to = Date.parse(record.expiresAt);
   if (!(from <= t && t <= to) || to - from > (config.gates[gate].maxValidityHours ?? 24) * 3_600_000) return false;
   return !consumed.has(authorizationId);
+}
+
+/** sha256 (hex) of the canonical request a decision was made for. */
+export function requestDigest(request) {
+  return createHash('sha256')
+    .update(canonical(request ?? {}), 'utf8')
+    .digest('hex');
+}
+
+/**
+ * The AUTHORIZED decision recorded for exactly `request` under `authorizationId`, if the record still verifies (its
+ * signature by a registered authorizer, its gate, a scope covering the request) and the decision fell inside its
+ * validity window and consumed it. Returns { ok: true, decidedAt } or { ok: false }. Used after a single-use
+ * authorization was spent on the action it allowed (the journey gate's payment part).
+ */
+export function authorizationDecidedFor(root, gate, authorizationId, request) {
+  if (!request) return { ok: false };
+  const { records, consumed } = loadAuthorizations(root);
+  const record = records.find((r) => r?.authorizationId === authorizationId);
+  if (!record || record.gate !== gate || !consumed.has(authorizationId)) return { ok: false };
+  const config = loadGateConfig(root);
+  if (signatureReasons(record, loadAuthorizers(root)).length) return { ok: false };
+  if (scopeReasons(config.gates[gate], record.scope, request).length) return { ok: false };
+  const file = path.join(root, 'evidence', 'authorizations', 'decisions.jsonl');
+  if (!existsSync(file)) return { ok: false };
+  const want = requestDigest(request);
+  const decided = readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter((d) => d?.gate === gate && d.authorizationId === authorizationId && d.decision === 'AUTHORIZED');
+  // Single use: exactly one AUTHORIZED decision can exist for a consumed record, and it must be for this request.
+  if (decided.length !== 1 || decided[0].requestSha256 !== want) return { ok: false };
+  const at = Date.parse(decided[0].at);
+  if (!(Date.parse(record.authorizedAt) <= at && at <= Date.parse(record.expiresAt))) return { ok: false };
+  return { ok: true, decidedAt: new Date(at).toISOString(), journeyId: decided[0].journeyId ?? null };
 }
 
 /** The repository's current decision for every gate (no request, no preflight). */

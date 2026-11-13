@@ -54,7 +54,24 @@ const realManifest = () => ({
     payment: {
       ...realPart('payment'),
       authorizationId: 'auth-payment-1',
-      facts: { state: 'CONFIRMED', reconciled: true, amountMinor: 1500, capMinor: 2000, currency: 'USD' },
+      // The authorized request (bound to the PAYMENT decision) is the boundary for amount, currency, merchant, purpose.
+      facts: {
+        state: 'CONFIRMED',
+        reconciled: true,
+        amountMinor: 1500,
+        capMinor: 2000,
+        currency: 'USD',
+        merchant: 'merchant-1',
+        purpose: 'diagnostic visit',
+        request: {
+          merchant: 'merchant-1',
+          amountMinor: 2000,
+          currency: 'USD',
+          purpose: 'diagnostic visit',
+          environment: 'pilot',
+          journeyId: 'jrn-test',
+        },
+      },
     },
     fulfillment: realPart('fulfillment'),
     recovery: { ...realPart('recovery'), facts: { evaluation: 'PASSED', independentEvidence: true } },

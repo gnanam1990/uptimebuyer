@@ -61,8 +61,20 @@ describe('T-039 broker secret delivery', () => {
     expect(
       reason(() => loadSecretFromFile(file(JSON.stringify(doc({ adapter: kite, sendLeaseMs: 60_000 })), 0o600))),
     ).toBe('SEND_LEASE_SHORTER_THAN_ADAPTER_TIMEOUT');
+    // PR #21 review 2: one KITE_PASSPORT send is a status read (readTimeoutMs, default 30 s) plus the paid call
+    // (timeoutMs): the lease must outlast both plus a margin, not the paid call alone.
     expect(
       reason(() => loadSecretFromFile(file(JSON.stringify(doc({ adapter: kite, sendLeaseMs: 301_000 })), 0o600))),
+    ).toBe('SEND_LEASE_SHORTER_THAN_ADAPTER_TIMEOUT');
+    expect(
+      reason(() =>
+        loadSecretFromFile(
+          file(JSON.stringify(doc({ adapter: { ...kite, readTimeoutMs: 60_000 }, sendLeaseMs: 331_000 })), 0o600),
+        ),
+      ),
+    ).toBe('SEND_LEASE_SHORTER_THAN_ADAPTER_TIMEOUT');
+    expect(
+      reason(() => loadSecretFromFile(file(JSON.stringify(doc({ adapter: kite, sendLeaseMs: 331_000 })), 0o600))),
     ).toBe('ACCEPTED');
   });
 });
