@@ -5,7 +5,9 @@
 // Every console input is synthetic: SIMULATOR sensors (SIMULATED_INPUT), a RECORDED_CONTRACT broker, CONTRACT_FAKE CMMS
 // and reasoning, synthetic citations and a test identity provider. The environment label naming the simulation is
 // asserted on every recorded page, and the composer adds a persistent SIMULATED banner around the recording.
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { manifest, signIn } from './support/fixtures.js';
@@ -33,12 +35,20 @@ test('demo video: render the still frames', async ({ browser }) => {
   const p = plan();
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  // Each frame's input digest goes into rendered.json, so a later --skip-record build can tell a stale frame.
+  const rendered: { png: string; htmlSha256: string }[] = [];
   for (const s of p.stills) {
+    const html = readFileSync(s.html, 'utf8');
     await page.goto(pathToFileURL(s.html).href);
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: s.png, omitBackground: s.transparent, animations: 'disabled' });
+    rendered.push({ png: basename(s.png), htmlSha256: createHash('sha256').update(html, 'utf8').digest('hex') });
   }
   await context.close();
+  writeFileSync(
+    `${work}/rendered.json`,
+    `${JSON.stringify({ schema: 'demo-video-rendered.v1', stills: rendered }, null, 2)}\n`,
+  );
   expect(p.stills.length).toBeGreaterThan(10);
 });
 

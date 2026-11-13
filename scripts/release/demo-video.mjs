@@ -11,6 +11,8 @@
 // No network call beyond 127.0.0.1, no upload. Every console frame carries a persistent SIMULATED banner and every
 // evidence slide a REAL label naming its record.
 //   node scripts/release/demo-video.mjs [--out <mp4>] [--work <dir>] [--skip-record]   (needs DATABASE_URL)
+//     --skip-record reuses the work directory's console recording only; it stops if any still or overlay there was
+//     rendered from other HTML than the current timeline and evidence produce (rendered.json digests).
 //   node scripts/release/demo-video.mjs --srt      write docs/release/SUBTITLES.srt from the timeline
 //   node scripts/release/demo-video.mjs --check    exit 1 if SUBTITLES.srt differs from the timeline
 import { spawnSync } from 'node:child_process';
@@ -825,6 +827,18 @@ export function probe(file) {
   };
 }
 
+const htmlDigest = (html) => createHash('sha256').update(html, 'utf8').digest('hex');
+
+/**
+ * The still and overlay frames (by PNG file name) that were not rendered from exactly the HTML the current timeline and
+ * evidence produce: changed or missing from the render record (`rendered.json`, written by the Playwright step).
+ * --skip-record reuses the console recording only, so any stale frame stops the build (PR #26 review).
+ */
+export function staleStills(parts, rendered) {
+  const done = new Map((rendered?.stills ?? []).map((x) => [x.png, x.htmlSha256]));
+  return parts.filter((p) => done.get(path.basename(p.png)) !== htmlDigest(p.html)).map((p) => path.basename(p.png));
+}
+
 function build({ out, work, skipRecord }) {
   mkdirSync(work, { recursive: true });
   const plan = buildPlan(repo, work);
@@ -855,6 +869,15 @@ function build({ out, work, skipRecord }) {
     );
     if (r.status !== 0) throw new Error(`Playwright recording failed (${r.status})`);
   }
+  const renderedFile = path.join(work, 'rendered.json');
+  const rendered = existsSync(renderedFile) ? JSON.parse(readFileSync(renderedFile, 'utf8')) : undefined;
+  const missing = plan.parts.filter((p) => !existsSync(p.png)).map((p) => path.basename(p.png));
+  const stale = [...new Set([...staleStills(plan.parts, rendered), ...missing])];
+  if (stale.length)
+    throw new Error(
+      `stale frames in ${work}: ${stale.join(', ')} were not rendered from the current timeline and evidence` +
+        `${skipRecord ? '; run without --skip-record to render them again' : ''}`,
+    );
   const marks = JSON.parse(readFileSync(marksFile, 'utf8'));
   const list = [];
   for (const p of plan.parts) {
