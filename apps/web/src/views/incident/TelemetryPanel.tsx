@@ -63,6 +63,14 @@ export function TelemetryPanel({
     .map((s, i) => `${i === 0 ? 'M' : 'L'}${x(Date.parse(s.eventAt)).toFixed(1)},${y(s.valueInt).toFixed(1)}`)
     .join(' ');
   const anomalyCount = samples.filter((s) => isAnomaly(s.valueInt)).length;
+  // Samples closer together than a point's diameter are drawn as small dots so the line stays legible (every sample is
+  // still marked, and anomalies keep their distinct triangle).
+  const first = samples[0];
+  const spacing =
+    first && last && samples.length > 1
+      ? (x(Date.parse(last.eventAt)) - x(Date.parse(first.eventAt))) / (samples.length - 1)
+      : Infinity;
+  const dense = spacing < 8;
   const name = `Temperature chart, last 30 minutes, ${samples.length} samples, threshold ${threshold ? formatMilliCelsius(threshold.thresholdInt) : 'not pinned'}, ${anomalyCount} above threshold, current ${last ? formatMilliCelsius(last.valueInt) : 'not reported'}`;
   // Horizontal grid every 2 °C or more (milli-degrees), labelled on the left; bounded for any reported value.
   const ticks = gridTicks(vmin, vmax);
@@ -205,8 +213,8 @@ export function TelemetryPanel({
                       data-shape="circle"
                       cx={cx}
                       cy={cy}
-                      r={3}
-                      className="chart-point"
+                      r={dense ? 1.75 : 3}
+                      className={dense ? 'chart-point chart-point-dense' : 'chart-point'}
                     />
                   );
                 })}

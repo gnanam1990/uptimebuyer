@@ -1,7 +1,7 @@
-// Application shell (UI-SPEC §6): skip link, banner with product name, a persistent environment label (seeded, replay
-// or simulated data is always labelled), tenant/site scope, pending notification count and the user menu; primary
-// navigation (a rail on wide screens, a wrapping grid on narrow ones); the main landmark that receives focus on
-// navigation.
+// Application shell (UI-SPEC §6): skip link, banner with product name, tenant/site scope, pending notification count,
+// the user menu and the primary navigation (the dark "cabinet": a full-height rail on wide screens, a top bar with
+// wrapping navigation on narrow ones); a persistent environment label (seeded, replay or simulated data is always
+// labelled) heading the working column; the main landmark that receives focus on navigation.
 import { useEffect, type ReactNode } from 'react';
 import { api, useResource } from '../api';
 import { signOut } from '../auth';
@@ -36,35 +36,13 @@ export function Shell({ children, title }: { children: ReactNode; title: string 
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
+      {/* The cabinet: a full-height rail on wide screens, a top bar with wrapping navigation on narrow ones. DOM order
+          (brand, navigation, scope, user) is the visual and keyboard order at every width. */}
       <header className="banner" role="banner">
-        <div className="banner-row">
-          <p className="brand">
-            <BrandMark />
-            <span>UptimeBuyer Operations</span>
-          </p>
-          <dl className="scope">
-            <div>
-              <dt>Tenant</dt>
-              <dd>{session.tenant.name}</dd>
-            </div>
-            <div>
-              <dt>Scope</dt>
-              <dd>{scope}</dd>
-            </div>
-          </dl>
-          <div className="user">
-            <span className="user-name">
-              <span>{session.user.displayName}</span>
-              <span className="user-roles">{roles}</span>
-            </span>
-            <button type="button" className="btn btn-secondary" onClick={signOut}>
-              Sign out
-            </button>
-          </div>
-        </div>
-        <EnvironmentLabel label={config.environmentLabel} />
-      </header>
-      <div className="frame">
+        <p className="brand">
+          <BrandMark />
+          <span>UptimeBuyer Operations</span>
+        </p>
         <nav className="primary-nav" aria-label="Primary">
           <ul>
             {NAV.map((n) => (
@@ -88,6 +66,30 @@ export function Shell({ children, title }: { children: ReactNode; title: string 
             ))}
           </ul>
         </nav>
+        <div className="banner-foot">
+          <dl className="scope">
+            <div>
+              <dt>Tenant</dt>
+              <dd>{session.tenant.name}</dd>
+            </div>
+            <div>
+              <dt>Scope</dt>
+              <dd>{scope}</dd>
+            </div>
+          </dl>
+          <div className="user">
+            <span className="user-name">
+              <span>{session.user.displayName}</span>
+              <span className="user-roles">{roles}</span>
+            </span>
+            <button type="button" className="btn btn-cabinet" onClick={signOut}>
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+      <div className="workspace">
+        <EnvironmentLabel label={config.environmentLabel} />
         <main id="main" tabIndex={-1}>
           {children}
         </main>

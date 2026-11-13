@@ -1,5 +1,11 @@
 # Operator console redesign
 
+> **Superseded visual direction.** The look described here (frost canvas, white top bar, transparent rail) was replaced
+> by the studio redesign, `docs/design/studio/BRIEF.md` (the cold-chain instrument), with its upstream source record
+> in `docs/design/studio/SOURCES.md`. The type families, status tones, honesty rules, table record layout and the
+> accessibility decisions below still hold. `docs/design/after/` now shows the studio redesign; the frost captures are
+> in `docs/design/studio/before/`.
+
 The console in `apps/web` is rebuilt on a new visual system. Every view, route, API call, data flow and state is
 unchanged; the work is design tokens, typography, the layout shell, components and copy. This file records the plan,
 the review of that plan against the brief, and the outside inputs used.

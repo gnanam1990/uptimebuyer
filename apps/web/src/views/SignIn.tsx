@@ -20,58 +20,63 @@ export function SignIn({ config }: { config: PublicConfig | null }) {
   const [busy, setBusy] = useState(false);
   return (
     <main id="main" className="signin" tabIndex={-1}>
-      <p className="signin-brand">
-        <BrandMark />
-        <span>UptimeBuyer Operations</span>
-      </p>
-      <h1>Sign in to UptimeBuyer Operations</h1>
-      <p className="muted">
-        Refrigeration incidents, cited evidence, bounded spend and recovery checks for your sites.
-      </p>
-      {config?.environmentLabel ? <EnvironmentLabel label={config.environmentLabel} /> : null}
-      {error ? (
-        <div className="error-summary" role="alert">
-          <h2>Sign-in did not complete</h2>
-          <p>{error}</p>
-        </div>
-      ) : null}
-      <div className="signin-sheet">
-        <p>You sign in with your organization's identity provider. This page never asks for a password.</p>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!config) return;
-            setBusy(true);
-            setError(null);
-            try {
-              await signInWithPopup(config.oidc, hint);
-            } catch (err) {
-              setError(
-                MESSAGES[err instanceof SignInError ? err.reason : 'TOKEN_REJECTED'] ?? MESSAGES.TOKEN_REJECTED!,
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label htmlFor="login-hint">Login hint (optional)</label>
-          <input
-            id="login-hint"
-            type="text"
-            autoComplete="username"
-            value={hint}
-            onChange={(e) => setHint(e.target.value)}
-            aria-describedby="login-hint-help"
-          />
-          <p id="login-hint-help" className="muted small">
-            Your work username. It is passed only to the identity provider, to pre-fill your account there.
-          </p>
-          <button type="submit" className="btn btn-primary" disabled={!config || busy}>
-            Sign in with identity provider
-          </button>
-        </form>
+      <div className="signin-plate">
+        <p className="signin-brand">
+          <BrandMark />
+          <span>UptimeBuyer Operations</span>
+        </p>
+        <h1>Sign in to UptimeBuyer Operations</h1>
+        <p className="signin-lede">
+          Refrigeration incidents, cited evidence, bounded spend and recovery checks for your sites.
+        </p>
+        <span className="signin-scale" aria-hidden="true" />
       </div>
-      {!config ? <p role="status">Loading sign-in configuration…</p> : null}
+      <div className="signin-body">
+        {config?.environmentLabel ? <EnvironmentLabel label={config.environmentLabel} /> : null}
+        {error ? (
+          <div className="error-summary" role="alert">
+            <h2>Sign-in did not complete</h2>
+            <p>{error}</p>
+          </div>
+        ) : null}
+        <div className="signin-sheet">
+          <p>You sign in with your organization's identity provider. This page never asks for a password.</p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!config) return;
+              setBusy(true);
+              setError(null);
+              try {
+                await signInWithPopup(config.oidc, hint);
+              } catch (err) {
+                setError(
+                  MESSAGES[err instanceof SignInError ? err.reason : 'TOKEN_REJECTED'] ?? MESSAGES.TOKEN_REJECTED!,
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label htmlFor="login-hint">Login hint (optional)</label>
+            <input
+              id="login-hint"
+              type="text"
+              autoComplete="username"
+              value={hint}
+              onChange={(e) => setHint(e.target.value)}
+              aria-describedby="login-hint-help"
+            />
+            <p id="login-hint-help" className="muted small">
+              Your work username. It is passed only to the identity provider, to pre-fill your account there.
+            </p>
+            <button type="submit" className="btn btn-primary" disabled={!config || busy}>
+              Sign in with identity provider
+            </button>
+          </form>
+        </div>
+        {!config ? <p role="status">Loading sign-in configuration…</p> : null}
+      </div>
     </main>
   );
 }
