@@ -1,0 +1,66 @@
+{
+  "schema": "demo-video-manifest.v1",
+  "file": "docs/release/video/uptimebuyer-demo.mp4",
+  "sha256": "72631169b35a79a359da1be681788ef220594dc473f25a9705c59252bf47c153",
+  "bytes": 7770314,
+  "durationSeconds": 176,
+  "width": 1920,
+  "height": 1080,
+  "codec": "h264",
+  "frameRate": "30/1",
+  "builtFromSha": "de10d1fe4f812b109ca76bbdd84eb367ccce7183",
+  "builtAt": "2026-11-13T11:44:30.071Z",
+  "builder": "scripts/release/demo-video.mjs",
+  "subtitles": "docs/release/SUBTITLES.srt (captions are burned in)",
+  "segments": [
+    {
+      "id": "title",
+      "label": "CONTEXT",
+      "start": 0,
+      "end": 8
+    },
+    {
+      "id": "architecture",
+      "label": "CONTEXT",
+      "start": 8,
+      "end": 24
+    },
+    {
+      "id": "console",
+      "label": "SIMULATED",
+      "start": 24,
+      "end": 83
+    },
+    {
+      "id": "real-serv",
+      "label": "REAL",
+      "start": 83,
+      "end": 109
+    },
+    {
+      "id": "real-kite",
+      "label": "REAL",
+      "start": 109,
+      "end": 157
+    },
+    {
+      "id": "not-yet",
+      "label": "NOT_RUN",
+      "start": 157,
+      "end": 169
+    },
+    {
+      "id": "end",
+      "label": "CONTEXT",
+      "start": 169,
+      "end": 176
+    }
+  ],
+  "simulatedInputs": "console segment: local e2e stack (seeded throwaway database, SIMULATOR sensors SIMULATED_INPUT, RECORDED_CONTRACT broker, CONTRACT_FAKE reasoning and CMMS, local test identity provider)",
+  "realEvidence": [
+    "evidence/journeys/j-2026-11-12-serv-document-2/",
+    "evidence/journeys/j-2026-11-13-kite-payment-2/",
+    "docs/release/evidence/t058-journey-j-2026-11-12-serv-document-2.gate.json",
+    "docs/release/evidence/t058-journey-j-2026-11-13-kite-payment-2.gate.json"
+  ]
+}

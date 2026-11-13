@@ -1,8 +1,9 @@
 // T-059 (INV-12) demo video: the timeline in scripts/release/demo-video.mjs is the single source of the video's
 // segments and captions and of docs/release/SUBTITLES.srt; the REAL slides are rendered only from the committed
 // evidence records; every console frame says SIMULATED and no evidence slide does; nothing on screen carries a wallet
-// address or an e-mail.
-import { readFileSync } from 'node:fs';
+// address or an e-mail; the committed video is the file its manifest and the VIDEO_UPLOAD request describe.
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { repoRoot, run } from '../m00/helpers.js';
@@ -101,5 +102,27 @@ describe('T-059 demo video timeline', () => {
       expect(p.html, p.segment).not.toMatch(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
       expect(p.html, p.segment).not.toMatch(/ten_[0-9a-f-]{36}|agent_session_req_/);
     }
+  });
+});
+
+describe('T-059 committed demo video', () => {
+  const manifest = JSON.parse(read('docs/release/video/video-manifest.json'));
+  const file = path.join(repoRoot, manifest.file);
+
+  it('is the file its manifest names: digest, size under 25 MB, 1080p at 30 fps, the timeline length', () => {
+    expect(manifest.file).toBe('docs/release/video/uptimebuyer-demo.mp4');
+    const bytes = readFileSync(file);
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(manifest.sha256);
+    expect(statSync(file).size).toBe(manifest.bytes);
+    expect(manifest.bytes).toBeLessThan(25_000_000);
+    expect(manifest).toMatchObject({ width: 1920, height: 1080, codec: 'h264', frameRate: '30/1' });
+    expect(Math.abs(manifest.durationSeconds - plan.totalSeconds)).toBeLessThan(0.5);
+    expect(manifest.segments.map((x: { id: string; label: string }) => `${x.id}:${x.label}`)).toEqual(
+      dv.SEGMENTS.map((x: { id: string; label: string }) => `${x.id}:${x.label}`),
+    );
+  });
+
+  it('is the file the VIDEO_UPLOAD request in GATE-REQUESTS.md names', () => {
+    expect(read('docs/release/GATE-REQUESTS.md')).toContain(manifest.sha256);
   });
 });
