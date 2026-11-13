@@ -535,6 +535,24 @@ main {
 .controller h2 {
   color: var(--controller-text);
 }
+/* Notices keep their own light fill on the faceplate, so they also keep ink text (13:1 or better on every notice
+   fill), dark links (7:1 or better) and the light-surface focus ring; the faceplate's light text is unreadable there. */
+.controller .notice,
+.controller .error-summary {
+  color: var(--ink);
+}
+.controller .notice a,
+.controller .error-summary a {
+  color: var(--signal-strong);
+}
+.controller .notice :focus-visible,
+.controller .error-summary :focus-visible {
+  outline-color: var(--focus);
+}
+.controller .empty {
+  color: var(--controller-muted);
+  border-color: var(--controller-rule);
+}
 
 /* Fleet strip on the Command Center */
 .fleet {
