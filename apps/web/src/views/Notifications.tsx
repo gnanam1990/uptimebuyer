@@ -61,7 +61,7 @@ export function Notifications() {
                       ) : null}
                       {link && incidentId ? (
                         <Link to={link} className="link-button">
-                          Open incident {incidentId} context
+                          Open incident <span className="id-text">{incidentId}</span> context
                         </Link>
                       ) : (
                         <p className="muted small">Link withheld: not an application route.</p>

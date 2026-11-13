@@ -41,7 +41,7 @@ export function IncidentRegister() {
                     <tr key={i.incidentId}>
                       <td data-label="Incident">
                         <Link to={`/incidents/${i.incidentId}`} className="link-button">
-                          Open incident {i.incidentId}
+                          Open incident <span className="id-text">{i.incidentId}</span>
                         </Link>
                       </td>
                       <td data-label="State">

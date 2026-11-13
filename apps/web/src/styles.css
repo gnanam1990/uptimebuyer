@@ -183,6 +183,27 @@ code,
   font-size: 0.875em;
   overflow-wrap: anywhere;
 }
+/* Identifiers inside link text (e.g. "Open incident inc_…") may break anywhere, like ids elsewhere, so a long id never
+   pushes its control past its container. */
+.id-text,
+.code-text {
+  overflow-wrap: anywhere;
+}
+/* Flex and grid children may shrink below their content's width; long tokens then wrap instead of overflowing. */
+.banner-row > *,
+.user > *,
+.badges > *,
+.actions > *,
+.telemetry-controls > *,
+.readout-meta > *,
+.note-head > *,
+.chain-summary > *,
+.status-grid > *,
+.kv > *,
+.fleet-groups > *,
+.stat > * {
+  min-width: 0;
+}
 .id {
   padding: 0 0.2em;
   border-radius: 3px;
@@ -1086,11 +1107,15 @@ main.signin {
   }
 }
 
-/* ---------- Tables: log-sheet style; scroll inside a labelled region; records on narrow screens ---------- */
+/* ---------- Tables: log-sheet style; scroll inside a labelled region; records when the region is narrow ----------
+   The record layout follows the table's own region width (a container query), not the viewport: next to the
+   navigation rail at 1024 px a six-column table no longer fits, and whether it fits must not depend on how wide a
+   platform's text rendering happens to be. */
 .table-wrap {
   overflow-x: auto;
   max-width: 100%;
   margin-bottom: var(--space-4);
+  container-type: inline-size;
 }
 .table-wrap:focus-visible {
   outline-offset: 0;
@@ -1131,7 +1156,7 @@ thead th {
 tbody tr:last-child td {
   border-bottom: 0;
 }
-@media (max-width: 760px) {
+@container (max-width: 760px) {
   table.responsive thead {
     position: absolute;
     width: 1px;
@@ -1161,6 +1186,12 @@ tbody tr:last-child td {
     gap: var(--space-2);
     padding: var(--space-2) 0;
     border-bottom: 1px solid var(--frost);
+    /* A record cell is narrow: long ids and codes may break anywhere rather than overflow. */
+    overflow-wrap: anywhere;
+  }
+  table.responsive td > * {
+    min-width: 0;
+    max-width: 100%;
   }
   table.responsive tr td:last-child {
     border-bottom: 0;

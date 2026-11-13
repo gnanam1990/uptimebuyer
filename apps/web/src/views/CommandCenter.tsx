@@ -116,7 +116,9 @@ export function CommandCenter() {
                         <td data-label="Site">{s.name}</td>
                         <td data-label="Freshness">
                           <AxisBadge axis="freshness" value={a.freshness} />
-                          {a.freshnessReason ? <span className="muted small"> {a.freshnessReason}</span> : null}
+                          {a.freshnessReason ? (
+                            <span className="muted small code-text"> {a.freshnessReason}</span>
+                          ) : null}
                         </td>
                         <td data-label="Newest reading">
                           {formatUtc(a.sourceTime)}
@@ -138,7 +140,7 @@ export function CommandCenter() {
                             ? 'None'
                             : a.activeIncidentIds.map((id) => (
                                 <Link key={id} to={`/incidents/${id}`} className="link-button">
-                                  Open incident {id}
+                                  Open incident <span className="id-text">{id}</span>
                                 </Link>
                               ))}
                         </td>
@@ -179,7 +181,7 @@ export function CommandCenter() {
                     <tr key={i.incidentId}>
                       <td data-label="Incident">
                         <Link to={`/incidents/${i.incidentId}`} className="link-button">
-                          Open incident {i.incidentId}
+                          Open incident <span className="id-text">{i.incidentId}</span>
                         </Link>
                       </td>
                       <td data-label="Severity and state">
