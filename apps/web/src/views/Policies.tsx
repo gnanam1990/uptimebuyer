@@ -29,6 +29,10 @@ export function Policies() {
   return (
     <>
       <h1 tabIndex={-1}>Policy administration</h1>
+      <p className="page-intro">
+        Approval limits and compatibility rules. Each published revision is immutable and takes effect from its
+        effective time.
+      </p>
       <section className="panel" aria-labelledby="policy-h">
         <h2 id="policy-h">Policy revisions</h2>
         <Loadable res={res} what="policy revisions" empty={(d) => d.revisions.length === 0}>

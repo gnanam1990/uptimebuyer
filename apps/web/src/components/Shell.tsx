@@ -1,18 +1,20 @@
 // Application shell (UI-SPEC §6): skip link, banner with product name, a persistent environment label (seeded, replay
 // or simulated data is always labelled), tenant/site scope, pending notification count and the user menu; primary
-// navigation; the main landmark that receives focus on navigation.
+// navigation (a rail on wide screens, a wrapping grid on narrow ones); the main landmark that receives focus on
+// navigation.
 import { useEffect, type ReactNode } from 'react';
 import { api, useResource } from '../api';
 import { signOut } from '../auth';
 import { Link, useRouter } from '../router';
 import { useSession } from '../session';
+import { BrandMark, NavIcon, WarningIcon, type NavIconName } from './Icons';
 
-const NAV: { to: string; label: string; match: (n: string) => boolean }[] = [
-  { to: '/', label: 'Command Center', match: (n) => n === 'command' },
-  { to: '/incidents', label: 'Incidents', match: (n) => n === 'incidents' || n === 'incident' },
-  { to: '/ledger', label: 'Evidence ledger', match: (n) => n === 'ledger' },
-  { to: '/policies', label: 'Policies', match: (n) => n === 'policies' },
-  { to: '/notifications', label: 'Notifications', match: (n) => n === 'notifications' },
+const NAV: { to: string; label: string; icon: NavIconName; match: (n: string) => boolean }[] = [
+  { to: '/', label: 'Command Center', icon: 'command', match: (n) => n === 'command' },
+  { to: '/incidents', label: 'Incidents', icon: 'incidents', match: (n) => n === 'incidents' || n === 'incident' },
+  { to: '/ledger', label: 'Evidence ledger', icon: 'ledger', match: (n) => n === 'ledger' },
+  { to: '/policies', label: 'Policies', icon: 'policies', match: (n) => n === 'policies' },
+  { to: '/notifications', label: 'Notifications', icon: 'notifications', match: (n) => n === 'notifications' },
 ];
 
 export function Shell({ children, title }: { children: ReactNode; title: string }) {
@@ -35,45 +37,77 @@ export function Shell({ children, title }: { children: ReactNode; title: string 
         Skip to main content
       </a>
       <header className="banner" role="banner">
-        <div className="brand">UptimeBuyer Operations</div>
-        <div className="env" role="note" aria-label="Environment">
-          <strong>{config.environmentLabel ?? 'PRODUCTION'}</strong>
-          {config.environmentLabel ? <span> — seeded or simulated data, not live operations</span> : null}
+        <div className="banner-row">
+          <p className="brand">
+            <BrandMark />
+            <span>UptimeBuyer Operations</span>
+          </p>
+          <dl className="scope">
+            <div>
+              <dt>Tenant</dt>
+              <dd>{session.tenant.name}</dd>
+            </div>
+            <div>
+              <dt>Scope</dt>
+              <dd>{scope}</dd>
+            </div>
+          </dl>
+          <div className="user">
+            <span className="user-name">
+              <span>{session.user.displayName}</span>
+              <span className="user-roles">{roles}</span>
+            </span>
+            <button type="button" className="btn btn-secondary" onClick={signOut}>
+              Sign out
+            </button>
+          </div>
         </div>
-        <div className="scope">
-          <span>
-            Tenant: <strong>{session.tenant.name}</strong>
-          </span>{' '}
-          <span>· Scope: {scope}</span>
-        </div>
-        <div className="user">
-          <span>
-            {session.user.displayName} <span className="muted">({roles})</span>
-          </span>
-          <button type="button" className="btn btn-secondary" onClick={signOut}>
-            Sign out
-          </button>
-        </div>
+        <EnvironmentLabel label={config.environmentLabel} />
       </header>
-      <nav className="primary-nav" aria-label="Primary">
-        <ul>
-          {NAV.map((n) => (
-            <li key={n.to}>
-              <Link
-                to={n.to}
-                className="nav-link"
-                {...(n.match(route.name) ? { 'aria-current': 'page' as const } : {})}
-              >
-                {n.label}
-                {n.to === '/notifications' && pending !== null ? <span className="count"> ({pending})</span> : null}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <main id="main" tabIndex={-1}>
-        {children}
-      </main>
+      <div className="frame">
+        <nav className="primary-nav" aria-label="Primary">
+          <ul>
+            {NAV.map((n) => (
+              <li key={n.to}>
+                <Link
+                  to={n.to}
+                  className="nav-link"
+                  {...(n.match(route.name) ? { 'aria-current': 'page' as const } : {})}
+                >
+                  <NavIcon name={n.icon} />
+                  <span>{n.label}</span>
+                  {n.to === '/notifications' && pending !== null ? (
+                    <span className="count">
+                      <span className="sr-only"> (</span>
+                      {pending}
+                      <span className="sr-only">)</span>
+                    </span>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <main id="main" tabIndex={-1}>
+          {children}
+        </main>
+      </div>
     </div>
+  );
+}
+
+/** The persistent environment label: seeded, replay or simulated data is always named, on every page. */
+export function EnvironmentLabel({ label }: { label: string | null | undefined }) {
+  return label ? (
+    <p className="env env-labelled" role="note" aria-label="Environment">
+      <WarningIcon />
+      <span>
+        <strong>{label}</strong> <span>Seeded or simulated data, not live operations.</span>
+      </span>
+    </p>
+  ) : (
+    <p className="env env-production" role="note" aria-label="Environment">
+      <strong>PRODUCTION</strong>
+    </p>
   );
 }

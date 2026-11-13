@@ -3,8 +3,8 @@
 // resources so a command or a version conflict refreshes the authoritative server state (never a local guess).
 import { useState } from 'react';
 import { api, useResource } from '../../api';
-import { AxisBadge } from '../../components/AxisBadge';
-import { formatUtc } from '../../format';
+import { AxisBadge, Icon } from '../../components/AxisBadge';
+import { formatMilliCelsius, formatUtc } from '../../format';
 import { INCIDENT_TABS, Link, type IncidentTab } from '../../router';
 import { Code, Loadable } from '../common';
 import { EvidenceTab } from './EvidenceTab';
@@ -94,53 +94,56 @@ export function IncidentWorkspace({ id, tab, context }: { id: string; tab: Incid
           const g = guidance(d, freshness);
           return (
             <>
-              <section className="incident-status panel" role="region" aria-label="Incident status">
-                <div className="badges">
-                  <AxisBadge axis="incident-state" value={i.state} />
-                  <AxisBadge axis="urgency" value={i.urgency} />
-                  {freshness ? (
-                    <AxisBadge axis="freshness" value={freshness} />
-                  ) : (
-                    <span className="muted">Signal freshness loading…</span>
-                  )}
-                  <AxisBadge axis="deadline" value={i.deadlineStatus} />
-                  {i.triggerInputOrigin === 'SIMULATED_INPUT' ? (
-                    <span className="label-sim">SIMULATED_INPUT</span>
-                  ) : null}
+              <section className="incident-status controller" role="region" aria-label="Incident status">
+                <Readout telemetry={telemetry.data} freshness={freshness} paused={paused} />
+                <div className="plate-main">
+                  <div className="badges">
+                    <AxisBadge axis="incident-state" value={i.state} />
+                    <AxisBadge axis="urgency" value={i.urgency} />
+                    <AxisBadge axis="deadline" value={i.deadlineStatus} />
+                    {i.triggerInputOrigin === 'SIMULATED_INPUT' ? (
+                      <span className="label-sim">SIMULATED_INPUT</span>
+                    ) : null}
+                  </div>
+                  <dl className="status-grid">
+                    <div className="deadline-current">
+                      <dt>Current deadline</dt>
+                      <dd>
+                        <UtcSplit iso={i.currentResponseDeadlineAt} />{' '}
+                        {i.deadlineOverdue ? <strong>(overdue)</strong> : null}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Original deadline</dt>
+                      <dd>{formatUtc(i.originalResponseDeadlineAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>Owner</dt>
+                      <dd>
+                        {nameOf(i.currentAssignment?.assigneeUserId)}
+                        {i.currentAssignment
+                          ? i.currentAssignment.acceptedAt
+                            ? ' (accepted)'
+                            : ' (not accepted)'
+                          : ''}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Blocker</dt>
+                      <dd>{g.blocker}</dd>
+                    </div>
+                    <div className="next-action">
+                      <dt>Next safe action</dt>
+                      <dd>{g.next}</dd>
+                    </div>
+                    <div>
+                      <dt>Asset</dt>
+                      <dd>
+                        <Code>{i.assetId}</Code>
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
-                <dl className="status-grid">
-                  <div>
-                    <dt>Current deadline</dt>
-                    <dd>
-                      {formatUtc(i.currentResponseDeadlineAt)} {i.deadlineOverdue ? <strong>(overdue)</strong> : null}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Original deadline</dt>
-                    <dd>{formatUtc(i.originalResponseDeadlineAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>Owner</dt>
-                    <dd>
-                      {nameOf(i.currentAssignment?.assigneeUserId)}
-                      {i.currentAssignment ? (i.currentAssignment.acceptedAt ? ' (accepted)' : ' (not accepted)') : ''}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Blocker</dt>
-                    <dd>{g.blocker}</dd>
-                  </div>
-                  <div>
-                    <dt>Next safe action</dt>
-                    <dd>{g.next}</dd>
-                  </div>
-                  <div>
-                    <dt>Asset</dt>
-                    <dd>
-                      <Code>{i.assetId}</Code>
-                    </dd>
-                  </div>
-                </dl>
               </section>
               <nav className="section-nav" aria-label="Incident sections">
                 <ul>
@@ -194,4 +197,78 @@ export function IncidentWorkspace({ id, tab, context }: { id: string; tab: Incid
 
 function rank(f: string): number {
   return ({ FRESH: 0, STALE: 1, OFFLINE: 2, INVALID: 3 } as Record<string, number>)[f] ?? 4;
+}
+
+/** A UTC instant with the time large and the date small (same text as formatUtc). */
+function UtcSplit({ iso }: { iso: string | null | undefined }) {
+  const text = formatUtc(iso);
+  if (!/^\d{4}-\d{2}-\d{2} /.test(text)) return <>{text}</>;
+  return (
+    <>
+      <span className="deadline-date">{text.slice(0, 10)}</span> <span>{text.slice(11)}</span>
+    </>
+  );
+}
+
+/**
+ * The controller readout: the asset's newest temperature from the telemetry the workspace already loads. It reads as
+ * the newest reading only while the signal is FRESH; otherwise it says "last known, not live" next to the freshness
+ * tag, so a stale number never looks current.
+ */
+function Readout({
+  telemetry,
+  freshness,
+  paused,
+}: {
+  telemetry: Telemetry | null;
+  freshness: string | null;
+  paused: boolean;
+}) {
+  const device = telemetry?.devices[0];
+  const series = device?.series.find((s) => s.kind === 'TEMPERATURE') ?? device?.series[0];
+  const last = series?.samples.at(-1);
+  const threshold = telemetry?.threshold ?? null;
+  const fresh = freshness === 'FRESH';
+  const over =
+    last && threshold
+      ? threshold.comparator === 'ABOVE'
+        ? last.valueInt > threshold.thresholdInt
+        : last.valueInt < threshold.thresholdInt
+      : false;
+  const label = !last
+    ? 'Temperature'
+    : !fresh
+      ? 'Last known temperature, not live'
+      : paused
+        ? 'Newest temperature, live updates paused'
+        : 'Newest temperature';
+  return (
+    <div className="readout">
+      <p className="readout-label">{label}</p>
+      {freshness === null ? (
+        <p className="readout-value readout-none">Signal freshness loading…</p>
+      ) : last ? (
+        <p className="readout-value" data-live={String(fresh)}>
+          {formatMilliCelsius(last.valueInt)}
+        </p>
+      ) : (
+        <p className="readout-value readout-none">No reading</p>
+      )}
+      <div className="readout-meta">
+        {freshness ? <AxisBadge axis="freshness" value={freshness} /> : null}
+        {last ? <span>at {formatUtc(last.eventAt).slice(11)}</span> : null}
+        {over && threshold ? (
+          <span className="tag-alert">
+            <Icon shape="triangle" />
+            {threshold.comparator === 'ABOVE' ? 'Above threshold' : 'Below threshold'}
+          </span>
+        ) : null}
+      </div>
+      {threshold ? (
+        <p className="readout-meta">
+          Pinned threshold {formatMilliCelsius(threshold.thresholdInt)} ({threshold.comparator.toLowerCase()})
+        </p>
+      ) : null}
+    </div>
+  );
 }

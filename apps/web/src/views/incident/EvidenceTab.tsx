@@ -161,7 +161,7 @@ export function EvidenceTab({ incidentId }: { incidentId: string }) {
               </ul>
             )}
           </section>
-          <Dialog title="Citation" open={open !== null} onClose={() => setOpen(null)}>
+          <Dialog title="Citation" variant="drawer" open={open !== null} onClose={() => setOpen(null)}>
             {cite ? (
               <>
                 <p className="muted">

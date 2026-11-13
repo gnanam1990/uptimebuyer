@@ -11,7 +11,8 @@ export function IncidentRegister() {
   const res = useResource(() => api.incidents(), []);
   return (
     <>
-      <h1 tabIndex={-1}>Incidents — {session.tenant.name}</h1>
+      <h1 tabIndex={-1}>Incidents</h1>
+      <p className="page-intro">Every incident you can see at {session.tenant.name}, newest first.</p>
       <section className="panel" aria-labelledby="register-h">
         <h2 id="register-h">Incident register</h2>
         <Loadable res={res} what="incidents" empty={(d) => d.incidents.length === 0}>
