@@ -151,8 +151,17 @@ success`, `session_id` equal to the bound session, no `source: allowance`, `x402
   `<stateRoot>/.kite-passport` is a private directory of this user (security review S4). The adapter file
   (`uptimebuyer-kite-broker-adapter.v1`, example in `apps/kite-broker/config/`) is a 0600 file outside the repository
   holding paths and policy only, never a credential.
-- **Timeouts:** execute uses the configured timeout (300 s; kpass documents a 5-minute execution timeout and the broker's
-  send lease is longer); session create/status and the readiness reads use 30 s. A timed-out or killed kpass is UNKNOWN.
+- **Timeouts and lease:** execute uses the configured timeout (300 s; kpass documents a 5-minute execution timeout);
+  session create/status and the readiness reads use 30 s. One send is a status read plus the paid call, so the
+  production send lease must exceed `timeoutMs + readTimeoutMs + 1 s` (`minimumSendLeaseMs`; PR #21 review). A
+  timed-out or killed kpass is UNKNOWN.
+- **GET only:** merchant endpoints are GET only (the adapter file schema and the adapter refuse POST) until a request-body
+  contract exists, so no session can be approved for an endpoint that execute() would refuse.
+- **The adapter file read** is race-free: opened once with O_NOFOLLOW, checked with fstat on that descriptor, read from it.
+- **Outcomes of the journey:** a confirmed payment that does not reconcile (ledger, captured amount and Kite's spent
+  total) is UNKNOWN and keeps its database; an ambiguous `session create` is UNKNOWN and keeps its reconciliation record
+  (`session.json`), the evidence and the database; nothing is retried. An interrupt (Ctrl-C) at any point after the
+  authority exists, or a passkey timeout, revokes the authority. Evidence is written 0700/0600.
 - **The journey** (`apps/kite-broker/test/support/journey-kite-payment.ts`, library `kite-payment-journey.ts`): hard
   stops before any egress, the M08/M09 world, the PAYMENT release gate, the bounded passkey wait, one paid call, the
   duplicate, reconciliation, redacted evidence, the manifest and the journey gate. The paid lookup is modelled as a

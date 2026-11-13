@@ -16,13 +16,19 @@
     "0a2756b test(t058): security review S4 - kpass must run only against the broker's own state (red)",
     "0033c4f fix(t058): security review S4 - run kpass only against the broker's own initialized state",
     "2e71eee docs(t058): live Kite wiring in ADR 0003 and how the user authorizes the payment",
-    "docs(t058): handoff note for the Kite payment journey (this commit)"
+    "5a37f8a docs(t058): handoff note for the Kite payment journey",
+    "47202a8 test(t058): PR #21 review findings 1-10 (red)",
+    "194e5de fix(t058): PR #21 review 1-3 - GET-only endpoints, a lease over the whole send, race-free adapter file read",
+    "a8c3a2f fix(t058): PR #21 review 4-7 - interrupts revoke, private evidence, UNKNOWN when unreconciled or ambiguous",
+    "8629f41 fix(t060): PR #21 review 8-10 - realpath key dir, request-bounded payment, journey-bound decisions",
+    "docs(t058): PR #21 review in ADR 0003, RELEASE-GATES.md and this handoff (this commit)"
   ],
   "redEvidence": {
     "method": "each red commit checked out in a detached git worktree (scratchpad), dependencies installed offline from the store, vitest run there",
     "3308831": "unit: 5 files failed, 37 tests failed / 11 passed (adapter contract, existing adapter test fixtures moved to the documented shapes, preflight and adapter file, gate binding and manifest, authorize script); integration: t058-journey-kite-payment.int.test.ts failed to import the runner module",
     "923fd87": "3 failed / 50 passed (S1 request-id binding, S2 approval host, S3 402 resource binding)",
-    "0a2756b": "4 failed / 52 passed (S4 state-root initialization, three variants, plus the runner's state-root check)"
+    "0a2756b": "4 failed / 52 passed (S4 state-root initialization, three variants, plus the runner's state-root check)",
+    "47202a8": "PR #21 review: 6 files failed, 20 tests failed / 115 passed in a detached worktree (findings 1-10; the existing journey-gate fixture gained the authorized request and still passed)"
   },
   "userAuthorization": "Merchant lionx402.com, GET https://lionx402.com/api/x402/poi-business-search-json (OpenStreetMap business/POI search; q required, lat/lon optional). Catalog price USD 0.01 in USDC on Base via x402 (catalog id 5fd185ffb0d48c8a307e4fb1). Caps 0.01 per call, 0.05 total, session TTL 1 hour. One paid call, then the identical request with the same idempotency key without a second charge. This step only builds and tests; it made no session, execute, allowance or wallet command.",
   "kpassContract": {
@@ -127,12 +133,12 @@
     },
     {
       "who": "parent",
-      "step": "Live run (one unpaid preflight GET, the PAYMENT gate, kpass session create, the bounded wait, one paid call, the duplicate, reconciliation, evidence, journey gate). Ctrl-C revokes the authority.",
+      "step": "Live run (one unpaid preflight GET, the PAYMENT gate, kpass session create, the bounded wait, one paid call, the duplicate, reconciliation, evidence, journey gate). Ctrl-C at any point after the authority exists revokes it and stops the run; a passkey timeout revokes it too.",
       "commands": [
         "cd /Users/kratos/uptimebuyer",
         "DATABASE_URL=postgres://uptimebuyer:uptimebuyer@localhost:55432/uptimebuyer_dev node --experimental-transform-types --no-warnings --import ./packages/domain/test/support/ts-register.mjs apps/kite-broker/test/support/journey-kite-payment.ts --live --journey-id j-2026-11-13-kite-payment --authorization AUTHORIZATION_ID"
       ],
-      "exitCodes": "0 COMPLETED, 2 REFUSED (nothing paid), 4 UNKNOWN (database kept; never retry), 5 FAILED"
+      "exitCodes": "0 COMPLETED (paid and reconciled), 2 REFUSED (nothing paid), 4 UNKNOWN (unreconciled payment or ambiguous session request: database and evidence kept; never retry), 5 FAILED"
     },
     {
       "who": "user",
@@ -155,5 +161,17 @@
     "The timeout part: NOT_RUN by design (Kite documents no lookup by client key, so an injected timeout cannot be reconciled safely)",
     "Sensor, document, reasoning and recovery parts: not part of this run"
   ],
-  "secrets": "No token, JWT or key was printed, written or committed. The broker adapter file holds paths only. The redaction check compares artifacts against the kpass JWT, agent token, account identifiers, approval links and request ids by value and records only their names."
+  "secrets": "No token, JWT or key was printed, written or committed. The broker adapter file holds paths only. The redaction check compares artifacts against the kpass JWT, agent token, account identifiers, approval links and request ids by value and records only their names.",
+  "prReview21": {
+    "1": "GET-only merchant endpoints in the adapter file schema and the adapter",
+    "2": "send lease >= timeoutMs + readTimeoutMs + 1 s (minimumSendLeaseMs); the CLI adds 60 s",
+    "3": "adapter file opened once with O_NOFOLLOW, fstat-checked and read from the same fd",
+    "4": "interrupt before the gate, before the session, during the wait and before execute revokes the authority; a late registerKillSwitch after an interrupt revokes at once",
+    "5": "evidence dir 0700, artifacts/manifest/gate reports 0600",
+    "6": "CONFIRMED but unreconciled -> UNKNOWN, database kept",
+    "7": "ambiguous session create -> UNKNOWN, session.json reconciliation record, evidence and database kept",
+    "8": "authorizer key dir compared by realpath",
+    "9": "recorded amount <= authorized request.amountMinor, same currency, merchant and purpose (gate and manifest builder)",
+    "10": "completed-payment evidence needs the consumed decision recorded for this request and journey id inside the window; journey id bound in the decision record (decision)"
+  }
 }

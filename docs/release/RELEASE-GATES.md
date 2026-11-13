@@ -60,8 +60,11 @@ its key id, and signs a PAYMENT record only after the person types `YES`.
    `release-gate.mjs check PAYMENT --request <file> --preflight <file> --authorization <id>`, with the request and the
    four preflight checks (`broker-isolation`, `budget-bound`, `reconciliation-ready`, `kill-switch-ready`) built from
    the run's real state. An AUTHORIZED decision consumes the record and is logged with the digest of the exact request
-   it decided; the journey gate later accepts the consumed record only for that request, that journey and that run
-   window. Any other request is refused, and the record cannot be used twice.
+   it decided and that request's journey id. Evidence of a completed payment counts only with that consumed decision,
+   for that request, that journey id and inside that run window; an unused record is never evidence that a payment was
+   authorized, and the record cannot be used twice. The journey id is bound in the decision record, not in the signed
+   scope, because the authorization is signed before the run (and its id) exists. The recorded payment must stay inside
+   the authorized request: amount at most its amount, the same currency, merchant and purpose.
 
 The scope is merchant `lionx402.com`, at most 1 minor unit of USD, purpose `REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP`,
 environment `kite-passport-prod`. The broker also caps every Kite session in code at 1 cent per call and 5 cents in
