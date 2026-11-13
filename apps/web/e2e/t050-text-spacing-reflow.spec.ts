@@ -26,7 +26,17 @@ async function everyActionInside(page: Page, context: string) {
   const outside = await page.evaluate(() => {
     const w = document.documentElement.clientWidth;
     const offenders: string[] = [];
+    // Visually hidden content (the sr-only pattern: absolutely positioned and clipped, e.g. a record table's header row
+    // kept for screen readers) has layout boxes but paints nothing, so it cannot hide an action.
+    const clipped = (el: Element) => {
+      for (let p: Element | null = el; p; p = p.parentElement) {
+        const s = getComputedStyle(p);
+        if (s.position === 'absolute' && s.clip !== 'auto') return true;
+      }
+      return false;
+    };
     for (const el of Array.from(document.body.querySelectorAll<HTMLElement>('main *'))) {
+      if (clipped(el)) continue;
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       if (r.right > w + 1 || r.left < -1)
@@ -74,12 +84,18 @@ for (const vp of [
     await expect(page.getByRole('heading', { level: 1, name: 'Incidents' })).toBeVisible();
     await everyActionInside(page, `${ctx} incident register`);
 
+    // The overview of the incident whose asset has a live chart, then the plan with a pending approval (as T-050).
     await page
-      .getByRole('link', { name: `Open incident ${m.incidents.approval2!.incidentId}` })
+      .getByRole('link', { name: `Open incident ${m.incidents.approval!.incidentId}` })
       .first()
       .click();
     await expect(page.getByRole('img', { name: /^Temperature chart/ })).toBeVisible();
     await everyActionInside(page, `${ctx} incident overview`);
+    await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Incidents' }).click();
+    await page
+      .getByRole('link', { name: `Open incident ${m.incidents.approval2!.incidentId}` })
+      .first()
+      .click();
     await page
       .getByRole('navigation', { name: 'Incident sections' })
       .getByRole('link', { name: 'Recovery plan' })
