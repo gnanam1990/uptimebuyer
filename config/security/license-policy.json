@@ -29,6 +29,11 @@
       "packagePrefix": "lightningcss",
       "license": "MPL-2.0",
       "reason": "Vite's CSS transformer and its per-platform native binaries (build time only); used unmodified, its output is our CSS, it is not linked into shipped code."
+    },
+    {
+      "packagePrefix": "@fontsource/",
+      "license": "OFL-1.1",
+      "reason": "Self-hosted web fonts for the operator console (Atkinson Hyperlegible Next and Mono, Barlow Semi Condensed): the font files are bundled unmodified into apps/web/dist and served same-origin under the CSP (font-src 'self'). The SIL Open Font License 1.1 permits bundling and embedding the fonts with software; it restricts only selling the fonts on their own and reusing the reserved font names for modified versions, neither of which applies."
     }
   ]
 }
