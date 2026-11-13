@@ -23,7 +23,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
+  readlinkSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -43,22 +43,32 @@ const lexicallyInside = (child, parent) => {
   const rel = path.relative(parent, child);
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 };
-/** The real path of `p`, resolved through its nearest existing ancestor (the rest may not exist yet). */
-function realpathOfNearest(p) {
-  let cur = path.resolve(p);
-  const rest = [];
-  while (!existsSync(cur)) {
-    const up = path.dirname(cur);
-    if (up === cur) break;
-    rest.unshift(path.basename(cur));
-    cur = up;
+/**
+ * The real path of `p`: every existing component is resolved, and a symbolic link is followed even when its target does
+ * not exist yet (a dangling link into the repository must not slip past the boundary check; PR #26 CI); the missing
+ * rest is kept lexically. Reads only (lstat, readlink); writes nothing.
+ */
+export function resolveThroughLinks(p, depth = 0) {
+  if (depth > 40) throw new Error(`too many symbolic links resolving ${p}`);
+  const abs = path.resolve(p);
+  const parts = abs.slice(path.parse(abs).root.length).split(path.sep).filter(Boolean);
+  let cur = path.parse(abs).root;
+  for (let i = 0; i < parts.length; i++) {
+    const next = path.join(cur, parts[i]);
+    let st;
+    try {
+      st = lstatSync(next);
+    } catch {
+      return path.join(cur, ...parts.slice(i));
+    }
+    cur = st.isSymbolicLink() ? resolveThroughLinks(path.resolve(cur, readlinkSync(next)), depth + 1) : next;
   }
-  return path.join(realpathSync(cur), ...rest);
+  return cur;
 }
-/** True when `child` is inside `parent`, compared by real path so a symlink into the repository cannot hide it. */
+/** True when `child` is inside `parent`, lexically or by real path, so no symlink into the repository can hide it. */
 const inside = (child, parent) =>
   lexicallyInside(path.resolve(child), path.resolve(parent)) ||
-  lexicallyInside(realpathOfNearest(child), realpathSync(parent));
+  lexicallyInside(resolveThroughLinks(child), resolveThroughLinks(parent));
 
 function ownedPrivate(p, kind) {
   const st = lstatSync(p);
@@ -78,8 +88,10 @@ function describeKey(privateKey) {
 }
 
 /** Create the key once (0700 dir, 0600 PKCS#8 PEM) or reuse it; returns the public key and key id only. */
-export function ensureKey(dir = DEFAULT_KEY_DIR, { repoRoot = repo } = {}) {
-  if (inside(dir, repoRoot)) throw new Error('the authorizer key directory must be outside the repository');
+export function ensureKey(keyDir = DEFAULT_KEY_DIR, { repoRoot = repo } = {}) {
+  // The boundary check runs before any filesystem write, and every write goes to the resolved path it checked.
+  if (inside(keyDir, repoRoot)) throw new Error('the authorizer key directory must be outside the repository');
+  const dir = resolveThroughLinks(keyDir);
   const file = path.join(dir, KEY_FILE);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -96,7 +108,8 @@ export function ensureKey(dir = DEFAULT_KEY_DIR, { repoRoot = repo } = {}) {
   return { ...describeKey(privateKey), created: true };
 }
 
-function loadPrivateKey(dir) {
+function loadPrivateKey(keyDir) {
+  const dir = resolveThroughLinks(keyDir);
   const file = path.join(dir, KEY_FILE);
   ownedPrivate(dir, 'dir');
   ownedPrivate(file, 'file');
