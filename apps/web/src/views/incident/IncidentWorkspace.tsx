@@ -230,7 +230,8 @@ function UtcSplit({ iso }: { iso: string | null | undefined }) {
  * The controller readout: the asset's newest temperature from the telemetry the workspace already loads (selection and
  * honesty rules in ./readout.ts). It reads as the newest reading only while the signal is FRESH and the latest refresh
  * succeeded; otherwise it says "last known, not live", and after a failed refresh it shows the error instead of the
- * retained freshness. The faceplate heads every incident section, so the failure is visible on every tab.
+ * retained freshness. The faceplate heads every incident section, so the failure is visible on every tab. A
+ * simulator's value carries SIMULATED_INPUT at the number, as the Telemetry panel shows it, and is never styled live.
  */
 function Readout({
   telemetry,
@@ -248,7 +249,7 @@ function Readout({
     <div className="readout">
       <p className="readout-label">{m.label}</p>
       {m.last ? (
-        <p className="readout-value" data-live={String(m.live)}>
+        <p className="readout-value" data-live={String(m.live)} data-simulated={String(m.simulated)}>
           {formatMilliCelsius(m.last.valueInt)}
         </p>
       ) : freshness === null && refreshError === null ? (
@@ -258,6 +259,7 @@ function Readout({
       )}
       <div className="readout-meta">
         {m.freshness ? <AxisBadge axis="freshness" value={m.freshness} /> : null}
+        {m.simulated ? <span className="label-sim">SIMULATED_INPUT</span> : null}
         {m.last ? <span>at {formatUtc(m.last.eventAt).slice(11)}</span> : null}
         {m.beyond ? (
           <span className="tag-alert">

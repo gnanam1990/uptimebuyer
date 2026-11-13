@@ -46,7 +46,7 @@ export function TelemetryPanel({
   const H = W < 480 ? 200 : 240;
   const t = telemetry.data;
   // Same device and series as the incident faceplate (./readout.ts).
-  const { device, samples, last, threshold } = selectReading(t);
+  const { device, samples, last, threshold, simulated } = selectReading(t);
   // After a failed refresh the retained freshness is not current and is not shown as if it were.
   const failed = telemetry.error !== null;
   const isAnomaly = (v: number) =>
@@ -108,7 +108,7 @@ export function TelemetryPanel({
             ) : (
               <AxisBadge axis="freshness" value={device.freshness} />
             )}
-            {device.inputClass === 'SIMULATOR' ? <span className="label-sim">SIMULATED_INPUT</span> : null}
+            {simulated ? <span className="label-sim">SIMULATED_INPUT</span> : null}
           </div>
           <div data-testid="current-value" className="current-value">
             {last ? (
@@ -126,7 +126,7 @@ export function TelemetryPanel({
                 <span className="cv-fact">
                   <span>Freshness</span> {failed ? 'Not current (latest refresh failed)' : freshLabel(device.freshness)}
                 </span>
-                {device.inputClass === 'SIMULATOR' ? (
+                {simulated ? (
                   <span className="cv-fact">
                     <span>Input</span> SIMULATED_INPUT
                   </span>
