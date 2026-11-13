@@ -60,7 +60,7 @@ and authorization tooling <!-- C-017 C-018 -->.
 | E4    | Real bounded payment plus fulfilled action  | recorded once: payment, fulfillment and duplicate PASS after a manual resolution; the full journey is NOT_RUN <!-- C-022 --> |
 | E5    | Independent physical recovery evidence      | NOT_RUN <!-- C-023 -->                                                                                                       |
 
-Local suites in `pnpm verify` on this branch: 1,327 unit tests, 626 integration tests (624 passed, 2 skipped) and 10
+Local suites in `pnpm verify` on this branch: 1,327 unit tests, 626 integration tests and 10
 browser tests <!-- C-016 -->.
 
 ## Not yet proven (NOT_RUN)
