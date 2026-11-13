@@ -1,0 +1,25 @@
+{
+  "schema": "journey-manual-resolution.v1",
+  "journeyId": "j-2026-11-13-kite-payment",
+  "resolvedAt": "2026-11-13T07:10:00Z",
+  "outcomeRecordedByRunner": "UNKNOWN (SESSION_UNKNOWN, reasonCode KPASS_SESSION_UNRESOLVED)",
+  "resolution": "SESSION_REQUEST_PENDING_NEVER_APPROVED_NO_PAYMENT",
+  "facts": {
+    "kiteSessionRequestId": "agent_session_req_01a1d39d-2033-70b3-8e62-63c7d6ed8f2c",
+    "kiteSessionRequestState": "pending (kpass 6.13.2 local session state of the broker's state root, read 2026-11-13)",
+    "approvedByOwner": false,
+    "activeKiteSessions": "none (kpass session list)",
+    "paymentsMade": 0,
+    "egress": {
+      "sessionCreate": 1,
+      "execute": 0
+    },
+    "walletBaseUsdcBefore": "1.100000",
+    "walletBaseUsdcAfter": "1.100000 (kpass wallet balance and Base eth_call balanceOf agree)",
+    "kiteActivitySinceAttempt": "no session_approval and no x402_payment events",
+    "paymentAuthorization": "auth-payment-20261113-cacd36 consumed by this attempt (single use); a new signed record is required for any further attempt"
+  },
+  "rootCause": "Real kpass 6.13.2 session request ids have the form agent_session_req_<uuid>. The adapter accepted only the req_<id> placeholder form from Kite's documentation, so it could not read the id of the request it had created and, correctly, recorded the outcome as UNKNOWN without retrying. Fixed on branch fix/kite-session-request-id (T-040 test with the observed id format).",
+  "notRetried": true,
+  "databaseDisposition": "the kept throwaway database was dropped after this resolution was recorded; it held only the synthetic incident world"
+}

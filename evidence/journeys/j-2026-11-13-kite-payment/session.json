@@ -1,0 +1,18 @@
+{
+  "schema": "journey-kite-session-record.v1",
+  "journeyId": "j-2026-11-13-kite-payment",
+  "origin": "KITE_PASSPORT",
+  "executionAuthorityId": "xau_cc88f50e-2348-4b3e-a997-486099a55a33",
+  "kiteSessionId": "kss_c5d374dc-c470-446e-a656-d6d0d77b429d",
+  "clientOperationId": "op_4568b3c7-3415-4138-99e7-d4bb99921fee",
+  "idempotencyKeySha256": "c7c96a148bfa8308b6bdb0bfdf801847cc50775d3a258bf4804f0230510de30c",
+  "requestDigest": "sha256:c3362ca0161254d03d77434b21826d4bba39fd800fd9cb6a391566ff6eb1de5f",
+  "transportState": "UNKNOWN",
+  "externalOutcomeState": "UNKNOWN",
+  "adapterCapability": "UNSUPPORTED",
+  "reasonCode": "KPASS_SESSION_UNRESOLVED",
+  "rawResponseDigest": "sha256:2c2d3c46b048b95e21149876fc7cd2ba293b55cdfb73f405a81981c749d3afbf",
+  "requestRefSha256": null,
+  "observedAt": "2026-11-13T06:34:12.962Z",
+  "note": "The session request outcome is ambiguous; resolve it manually against the owner's Kite activity. Not retried."
+}

@@ -1,1 +1,6 @@
-{ "schema": "release-authorizations-consumed.v1", "consumed": [] }
+{
+  "schema": "release-authorizations-consumed.v1",
+  "consumed": [
+    "auth-payment-20261113-cacd36"
+  ]
+}

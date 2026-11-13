@@ -1,0 +1,6 @@
+{
+  "broker-isolation": true,
+  "budget-bound": true,
+  "reconciliation-ready": true,
+  "kill-switch-ready": true
+}
