@@ -170,6 +170,18 @@ export function checkStateRoot(dir: string, repoRoot: string = repo): { ok: true
   if ((st.mode & 0o077) !== 0) return { ok: false, reason: 'STATE_ROOT_NOT_PRIVATE' };
   if (typeof process.getuid === 'function' && st.uid !== process.getuid())
     return { ok: false, reason: 'STATE_ROOT_NOT_OWNED' };
+  // kpass walks up from its cwd to the nearest `.kite-passport`: the state root must hold its own, private one.
+  try {
+    const k = lstatSync(path.join(dir, '.kite-passport'));
+    if (
+      !k.isDirectory() ||
+      (k.mode & 0o077) !== 0 ||
+      (typeof process.getuid === 'function' && k.uid !== process.getuid())
+    )
+      return { ok: false, reason: 'STATE_ROOT_NOT_INITIALIZED' };
+  } catch {
+    return { ok: false, reason: 'STATE_ROOT_NOT_INITIALIZED' };
+  }
   return { ok: true };
 }
 

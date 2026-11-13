@@ -11,6 +11,7 @@
 // (an ambiguous outcome stays UNKNOWN and reserved; nothing is retried) or has verified same-key replay.
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { lstatSync } from 'node:fs';
 import { isIP } from 'node:net';
 import path from 'node:path';
 import { canonicalize } from '@uptimebuyer/domain';
@@ -232,6 +233,24 @@ export class KitePassportAdapter implements PaidAdapter {
     return { adapterId: this.adapterId, resultOrigin: this.resultOrigin };
   }
 
+  /**
+   * kpass 6.13.2 discovers a project-level `.kite-passport` by walking up from its working directory before it falls
+   * back to $HOME (observed 2026-11-13). Unless the state root holds its own private `.kite-passport`, kpass could
+   * resolve to another login (for example the user's interactive one) and its current session: nothing runs then.
+   */
+  stateReady(): boolean {
+    try {
+      const st = lstatSync(path.join(this.#cfg.stateRoot, '.kite-passport'));
+      return (
+        st.isDirectory() &&
+        (st.mode & 0o077) === 0 &&
+        (typeof process.getuid !== 'function' || st.uid === process.getuid())
+      );
+    } catch {
+      return false;
+    }
+  }
+
   #endpoint(merchantId: string): KitePassportEndpoint | null {
     return Object.hasOwn(this.#cfg.merchantEndpoints, merchantId) ? this.#cfg.merchantEndpoints[merchantId]! : null;
   }
@@ -300,6 +319,7 @@ export class KitePassportAdapter implements PaidAdapter {
     if (!OP_KEY.test(op.idempotencyKey)) return this.notSent('KITE_OPERATION_KEY_INVALID');
     const bound = b.boundSessionRequest ?? '';
     if (!REQUEST_ID.test(bound)) return this.notSent('KITE_SESSION_NOT_BOUND');
+    if (!this.stateReady()) return this.notSent('KITE_STATE_ROOT_NOT_INITIALIZED');
     // Resolve the bound session from its approval request (a non-paying status read) and require it active, unexpired
     // and capped inside the hard caps before any paid command.
     const st = await this.run(['session', 'status', '--request-id', bound], null, this.readTimeout);
@@ -429,6 +449,7 @@ export class KitePassportAdapter implements PaidAdapter {
   ): Promise<AdapterOutcome> {
     const cap = this.assessSession(scope);
     if (cap.kind !== 'ELIGIBLE') return this.notSent(cap.reasonCode);
+    if (!this.stateReady()) return this.notSent('KITE_STATE_ROOT_NOT_INITIALIZED');
     const ep = this.#endpoint(scope.merchantId)!;
     const u = new URL(ep.url);
     const ttl = scope.remainingSeconds; // database-clock remaining lifetime: never more than the authority
@@ -490,6 +511,15 @@ export class KitePassportAdapter implements PaidAdapter {
 
   /** Read-only readiness: `kpass status`, `allowance status`, `wallet balance` (no bind, no spend). */
   async readiness(): Promise<KiteReadiness> {
+    if (!this.stateReady())
+      return {
+        loggedIn: false,
+        agentRegistered: false,
+        agentIdSha256: null,
+        allowanceSet: true,
+        allowanceState: null,
+        baseUsdcMicros: null,
+      };
     const st = await this.run(['status'], null, this.readTimeout);
     const al = await this.run(['allowance', 'status'], null, this.readTimeout);
     const wb = await this.run(['wallet', 'balance'], null, this.readTimeout);
@@ -578,6 +608,9 @@ export class KitePassportAdapter implements PaidAdapter {
   }
 
   private run(args: string[], hooks: SendHooks | null, timeoutMs: number): Promise<Run> {
+    // Never spawn kpass against anything but the broker's own initialized state (see stateReady).
+    if (!this.stateReady())
+      return Promise.resolve({ exitCode: -2, json: null, stdout: '', digest: null, timedOut: false });
     const full = [
       ...args,
       ...(this.#cfg.baseUrl ? ['--base-url', this.#cfg.baseUrl] : []),
