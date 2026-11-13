@@ -1,0 +1,8 @@
+{
+  "merchant": "lionx402.com",
+  "amountMinor": 1,
+  "currency": "USD",
+  "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+  "environment": "kite-passport-prod",
+  "journeyId": "j-2026-11-13-kite-payment"
+}

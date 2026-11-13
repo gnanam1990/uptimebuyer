@@ -1,0 +1,60 @@
+{
+  "schema": "journey-redaction-check.v1",
+  "checkedAt": "2026-11-13T06:34:12.965Z",
+  "rules": [
+    "SECRET_VALUE",
+    "AUTHORIZATION_HEADER",
+    "BEARER_TOKEN",
+    "CREDENTIALED_URL",
+    "ENV_DUMP",
+    "SECRET_PATTERN:aws-access-key",
+    "SECRET_PATTERN:github-token",
+    "SECRET_PATTERN:private-key",
+    "SECRET_PATTERN:slack-token",
+    "SECRET_PATTERN:stripe-live-key",
+    "SECRET_PATTERN:anthropic-key",
+    "SECRET_PATTERN:openai-key",
+    "SECRET_PATTERN:generic-assigned-secret"
+  ],
+  "secretValuesChecked": [
+    "KPASS_JWT",
+    "KPASS_AGENT_TOKEN",
+    "KPASS_ACCOUNT_EMAIL",
+    "KPASS_USER_ID",
+    "KPASS_AGENT_ID"
+  ],
+  "files": [
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment/gate-decision.json",
+      "sha256": "01339c5b9c0f99036984dd737501931a9a0ab2a5f951cf986021628f3d542a06",
+      "bytes": 137,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment/gate-preflight.json",
+      "sha256": "aaaf42d59e4ef4a53c7b7da88c14ae46403f12e1052c70e85ac0e5682ac0e1b6",
+      "bytes": 116,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment/gate-request.json",
+      "sha256": "ce8a590cef54ee207cae35dd7731b03e10e492331d06dc5d1a93b42cb95fe929",
+      "bytes": 212,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment/preflight-402.json",
+      "sha256": "6a8bbed5f1ec5f0c4245e5398bdef009f7c975345e685e670fecb0144634a2e1",
+      "bytes": 2337,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment/session.json",
+      "sha256": "531a28c9431ae24cdd4eafc5f5c0faf43144ce7dfce44cde73c6302e1000c385",
+      "bytes": 952,
+      "binary": false
+    }
+  ],
+  "findings": [],
+  "result": "PASS"
+}

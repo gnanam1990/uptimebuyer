@@ -185,14 +185,17 @@ describe('T-060 release gates are separate and explicit', () => {
 });
 
 describe('T-060 repository state: no external action is authorized', () => {
-  it('registers only the owner key and holds no authorization record, so every gate is REFUSED', () => {
+  it('registers only the owner key; the one PAYMENT record is already used, so every gate is REFUSED', () => {
     const r = run('node', ['scripts/release/release-gate.mjs', 'status', '--json']);
     expect(r.code).toBe(0);
     const status = JSON.parse(r.stdout);
     expect(status.gates.map((g: { gate: string }) => g.gate).sort()).toEqual([...rg.GATES].sort());
     for (const g of status.gates) {
       expect(g.decision, g.gate).toBe('REFUSED');
-      expect(g.reasons, g.gate).toContain('NO_AUTHORIZATION');
+      // The only record in the repository is the owner's PAYMENT authorization for the first live T-058 attempt
+      // (auth-payment-20261113-cacd36). That attempt consumed it, so it can never open the gate again; every other gate
+      // has no record at all.
+      expect(g.reasons, g.gate).toContain(g.gate === 'PAYMENT' ? 'AUTHORIZATION_ALREADY_USED' : 'NO_AUTHORIZATION');
     }
     // A registered key alone opens nothing: each gate still needs its own signed, unused record.
     expect(status.authorizers).toEqual(['owner-195587c58bb1180e']);
