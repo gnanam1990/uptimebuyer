@@ -26,6 +26,7 @@
     "verify": "pnpm lint && pnpm security:check && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e && pnpm check:pack && pnpm release:check && pnpm secrets:scan",
     "release:smoke": "node scripts/release/smoke.mjs --record",
     "release:check": "node scripts/release/claim-check.mjs",
+    "release:video": "node scripts/release/demo-video.mjs",
     "release:gates": "node scripts/release/release-gate.mjs status",
     "release:journey": "node scripts/release/journey-gate.mjs",
     "demo:local": "pnpm --filter @uptimebuyer/web exec playwright test -c playwright.demo.config.ts"
