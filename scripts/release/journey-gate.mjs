@@ -64,6 +64,7 @@ export const NON_REAL_ORIGINS = Object.freeze([
 const SEVERITY = { PASS: 0, UNSUPPORTED: 1, NOT_RUN: 2, UNKNOWN: 3, FAIL: 4 };
 const worst = (statuses) => statuses.reduce((a, b) => (SEVERITY[b] > SEVERITY[a] ? b : a), 'PASS');
 const HEX64 = /^[0-9a-f]{64}$/;
+const HEX40 = /^[0-9a-f]{40}$/;
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
 /** Facts each part must show (beyond origin and artifacts). Return a reason when a fact is missing. */
@@ -189,6 +190,91 @@ function reasoningRecordReasons(p, ctx, journeyId) {
   return r;
 }
 
+/**
+ * A payment resolved after its run (INV-08): a finance approver's manual resolution of an UNKNOWN outcome, recorded with
+ * a `resolution` section. These rules only add refusals to the ones every part already meets: the resolution is the
+ * work of this manifest's sourceSha (HEAD), inside the window and after the run's payment, cites an evidence file by
+ * digest that the payment part lists, keeps the run's own manifest (same journey, start, authorization and intent, the
+ * payment UNKNOWN there, run under runSourceSha), captures exactly the recorded amount, and is repeated in the payment
+ * facts. With the database, the product's own manual-resolution receipt for that intent must carry exactly that digest,
+ * and a manually resolved intent recorded without a resolution section is refused.
+ */
+function resolutionReasons(manifest, p, ctx) {
+  const r = [];
+  const res = manifest.resolution;
+  const fres = p.facts?.resolution;
+  const manual = ctx.databaseFacts?.payment?.manual;
+  if (!res) {
+    if (fres !== undefined) r.push('RESOLUTION_UNDECLARED');
+    if (Array.isArray(manual) && manual.some((m) => m?.intentId === p.facts?.intentId))
+      r.push('DATABASE_RESOLUTION_UNDECLARED');
+    return r;
+  }
+  const own = path.join(path.resolve(ctx.artifactRoot), 'evidence', 'journeys', String(manifest.journeyId));
+  const readOwn = (a) => {
+    if (!a || typeof a.path !== 'string' || typeof a.sha256 !== 'string' || !HEX64.test(a.sha256)) return null;
+    const full = path.resolve(ctx.artifactRoot, a.path);
+    if (!full.startsWith(`${own}${path.sep}`) || !existsSync(full) || !statSync(full).isFile()) return null;
+    const bytes = readFileSync(full);
+    return sha256(bytes) === a.sha256 ? bytes : null;
+  };
+  if (res.kind !== 'MANUAL_FINANCE_RESOLUTION' || res.resolution !== 'CAPTURED') r.push('RESOLUTION_FACTS_MISMATCH');
+  if (res.sourceSha !== manifest.sourceSha) r.push('RESOLUTION_SOURCE_SHA_MISMATCH');
+  const at = Date.parse(res.resolvedAt);
+  if (!Number.isFinite(at) || at < Date.parse(manifest.startedAt) || at > Date.parse(manifest.endedAt))
+    r.push('RESOLUTION_OUTSIDE_WINDOW');
+  // The evidence the finance approver cited: an own-journey file whose digest is the cited one, listed by the part.
+  const evidence = readOwn(res.evidence);
+  if (!evidence || res.evidenceDigest !== `sha256:${sha256(evidence)}`) r.push('RESOLUTION_EVIDENCE_MISMATCH');
+  if (!(p.artifacts ?? []).some((a) => a?.path === res.evidence?.path && a?.sha256 === res.evidence?.sha256))
+    r.push('RESOLUTION_EVIDENCE_NOT_CITED');
+  // The run's own manifest, unchanged.
+  const runBytes = readOwn(res.runManifest);
+  const run = (() => {
+    try {
+      return runBytes ? JSON.parse(runBytes.toString('utf8')) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const runPay = run?.parts?.payment;
+  if (
+    !run ||
+    run.journeyId !== manifest.journeyId ||
+    run.startedAt !== manifest.startedAt ||
+    run.resolution !== undefined ||
+    !runPay ||
+    runPay.authorizationId !== p.authorizationId ||
+    runPay.facts?.intentId === undefined ||
+    runPay.facts.intentId !== p.facts?.intentId ||
+    res.intentId !== p.facts?.intentId
+  )
+    r.push('RESOLUTION_RUN_MANIFEST_MISMATCH');
+  else {
+    if (runPay.facts.state !== 'UNKNOWN') r.push('RESOLUTION_RUN_NOT_UNKNOWN');
+    if (!HEX40.test(String(manifest.runSourceSha)) || run.sourceSha !== manifest.runSourceSha)
+      r.push('RESOLUTION_RUN_SOURCE_SHA_MISMATCH');
+    if (Number.isFinite(at) && at < Date.parse(runPay.capturedAt)) r.push('RESOLUTION_OUTSIDE_WINDOW');
+  }
+  if (!Number.isSafeInteger(res.capturedMinor) || res.capturedMinor !== p.facts?.amountMinor)
+    r.push('RESOLUTION_AMOUNT_MISMATCH');
+  if (
+    !fres ||
+    fres.kind !== res.kind ||
+    fres.resolution !== res.resolution ||
+    fres.evidenceDigest !== res.evidenceDigest ||
+    fres.resolvedAt !== res.resolvedAt
+  )
+    r.push('RESOLUTION_FACTS_MISMATCH');
+  if (Array.isArray(manual)) {
+    const mine = manual.filter((m) => m?.intentId === res.intentId);
+    if (mine.length === 0) r.push('DATABASE_RESOLUTION_MISSING');
+    else if (!mine.some((m) => m.evidenceDigest === res.evidenceDigest && m.kind === 'PAYMENT_SETTLEMENT'))
+      r.push('DATABASE_RESOLUTION_MISMATCH');
+  }
+  return r;
+}
+
 function classifyPart(part, manifest, ctx) {
   const p = manifest?.parts?.[part];
   if (!p || typeof p !== 'object') return { part, status: 'NOT_RUN', reasons: ['NOT_PROVIDED'] };
@@ -225,6 +311,7 @@ function classifyPart(part, manifest, ctx) {
   // A missing artifact is UNKNOWN (above); the record is compared only once every listed artifact is present.
   if (part === 'reasoning' && art.unknown.length === 0)
     facts.push(...reasoningRecordReasons(p, ctx, manifest.journeyId));
+  if (part === 'payment') facts.push(...resolutionReasons(manifest, p, ctx));
   // An ambiguous outcome is UNKNOWN until reconciled; other missing facts fail the part.
   if (part === 'payment' && (p.facts?.state === 'UNKNOWN' || p.facts?.reconciled !== true))
     unknown.push('OUTCOME_UNRECONCILED');
@@ -386,12 +473,23 @@ export async function collectDatabaseFacts(pool, { tenantId, incidentId, reasoni
       [tenantId, incidentId],
     )
   ).map((r) => r.result_origin);
+  // Manual resolutions the product recorded (commerce resolveUnknownIntentManually): receipts with a manual_ status
+  // whose raw digest is the finance approver's evidence digest.
+  const manual = (
+    await q(
+      `SELECT r.intent_id, r.kind, r.raw_response_digest FROM external_receipts r
+         JOIN commercial_intents i ON i.tenant_id = r.tenant_id AND i.id = r.intent_id
+        WHERE r.tenant_id = $1 AND i.incident_id = $2 AND r.provider_status LIKE 'manual\\_%'`,
+      [tenantId, incidentId],
+    )
+  ).map((m) => ({ intentId: m.intent_id, kind: m.kind, evidenceDigest: m.raw_response_digest }));
   const payment =
     origins.length === 0
-      ? absent
+      ? { ...absent, manual }
       : {
           origin: origins.find((o) => o !== 'KITE_PASSPORT') ?? 'KITE_PASSPORT',
           real: origins.every((o) => o === 'KITE_PASSPORT'),
+          manual,
         };
   const closeouts = (
     await q(`SELECT count(*)::int AS n FROM recovery_closeouts WHERE tenant_id = $1 AND incident_id = $2`, [

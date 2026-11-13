@@ -223,6 +223,8 @@ export function buildJourneyManifest({
   context = {},
   recordable = RECORDED_PARTS,
   originOverride,
+  runSourceSha,
+  resolution,
 }) {
   if (originOverride !== undefined && !DRY_RUN_ORIGINS.includes(originOverride))
     throw new Error('originOverride must be a non-real origin label');
@@ -287,10 +289,40 @@ export function buildJourneyManifest({
       ...(part.facts ? { facts: part.facts } : {}),
     };
   }
+  if (resolution !== undefined) {
+    // A payment resolved after its run (INV-08): see scripts/release/journey-gate.mjs resolutionReasons.
+    if (!HEX40.test(String(runSourceSha))) throw new Error('a resolution needs the runSourceSha of the run');
+    const pay = out.payment;
+    const at = Date.parse(resolution?.resolvedAt);
+    const inJourney = (a) =>
+      typeof a?.path === 'string' &&
+      a.path.startsWith(`evidence/journeys/${journeyId}/`) &&
+      !a.path.includes('..') &&
+      HEX64.test(String(a.sha256));
+    if (
+      resolution?.kind !== 'MANUAL_FINANCE_RESOLUTION' ||
+      resolution.resolution !== 'CAPTURED' ||
+      resolution.sourceSha !== sourceSha ||
+      !Number.isFinite(at) ||
+      at < start ||
+      at > end ||
+      !inJourney(resolution.evidence) ||
+      !inJourney(resolution.runManifest) ||
+      resolution.evidenceDigest !== `sha256:${resolution.evidence.sha256}` ||
+      !pay ||
+      resolution.capturedMinor !== pay.facts?.amountMinor ||
+      resolution.intentId !== pay.facts?.intentId ||
+      pay.facts?.resolution?.evidenceDigest !== resolution.evidenceDigest ||
+      pay.facts?.resolution?.resolvedAt !== resolution.resolvedAt ||
+      !pay.artifacts.some((a) => a.path === resolution.evidence.path && a.sha256 === resolution.evidence.sha256)
+    )
+      throw new Error('the resolution section does not match the payment it resolves');
+  } else if (runSourceSha !== undefined) throw new Error('runSourceSha is recorded only with a resolution');
   return {
     schema: 'real-input-journey.v1',
     journeyId,
     sourceSha,
+    ...(resolution !== undefined ? { runSourceSha } : {}),
     startedAt,
     endedAt,
     parts: out,
@@ -299,5 +331,6 @@ export function buildJourneyManifest({
       : ALL_PARTS
     ).filter((p) => !(p in out)),
     context,
+    ...(resolution !== undefined ? { resolution } : {}),
   };
 }

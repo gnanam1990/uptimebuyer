@@ -6,6 +6,7 @@
 // the resolution is bound to this sourceSha, inside the window, to an evidence file whose digest it cites and that the
 // payment part lists, to the run manifest (same journey, authorization and intent, payment UNKNOWN there, its own
 // sourceSha), to the captured amount, and, with the database, to the product's own manual-resolution receipt.
+/* eslint-disable @typescript-eslint/no-explicit-any -- manifests are mutated structurally */
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,12 +33,17 @@ const request = {
   environment: 'kite-passport-prod',
   journeyId: JID,
 };
+type Json = Record<string, any>;
 const window = { startedAt: '2026-11-13T07:01:37.404Z', endedAt: '2026-11-13T08:30:00.000Z' };
 const resolvedAt = '2026-11-13T08:10:00.000Z';
 
-type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-
-function world(mutate: (w: { files: Record<string, string>; manifest: Json }) => void = () => {}) {
+function world(
+  mutate: (w: {
+    files: Record<string, string>;
+    manifest: Json;
+    tamper: Record<string, string | null>;
+  }) => void = () => {},
+) {
   const root = mkdtempSync(path.join(tmpdir(), 'ub-t058-resolution-'));
   roots.push(root);
   const rel = (f: string) => `evidence/journeys/${JID}/${f}`;
@@ -77,7 +83,6 @@ function world(mutate: (w: { files: Record<string, string>; manifest: Json }) =>
     'merchant-response.json': JSON.stringify({ origin: 'PROVIDER_LIVE', statusCode: 200 }),
     'duplicate.json': JSON.stringify({ sameIntentReturned: true }),
   };
-  const digest = () => `sha256:${sha256(files['reconciliation.json']!)}`;
   const manifest: Json = {
     schema: 'real-input-journey.v1',
     journeyId: JID,
@@ -137,22 +142,28 @@ function world(mutate: (w: { files: Record<string, string>; manifest: Json }) =>
       runManifest: { path: rel('manifest-run.journey.json'), sha256: 'FILE' },
     },
   };
-  mutate({ files, manifest });
+  // `tamper` changes files AFTER their digests were recorded in the manifest (an edit must not match).
+  const tamper: Record<string, string | null> = {};
+  mutate({ files, manifest, tamper });
+  const recorded = Object.fromEntries(Object.entries(files).map(([f, b]) => [f, sha256(b)]));
   mkdirSync(path.join(root, 'evidence', 'journeys', JID), { recursive: true });
   for (const [f, body] of Object.entries(files)) writeFileSync(path.join(root, rel(f)), body);
+  for (const [f, body] of Object.entries(tamper))
+    if (body === null) rmSync(path.join(root, rel(f)));
+    else writeFileSync(path.join(root, rel(f)), body);
   const fill = (v: unknown): unknown => {
     if (typeof v === 'string' && v.endsWith('.json') && !v.includes('/'))
       return { path: rel(v), sha256: sha256(files[v] ?? '') };
     return v;
   };
   for (const p of Object.values(manifest.parts) as Json[]) p.artifacts = p.artifacts.map(fill);
-  const d = digest();
+  const d = `sha256:${recorded['reconciliation.json']}`;
   if (manifest.resolution?.evidenceDigest === 'DIGEST') manifest.resolution.evidenceDigest = d;
   if (manifest.parts.payment.facts.resolution?.evidenceDigest === 'DIGEST')
     manifest.parts.payment.facts.resolution.evidenceDigest = d;
   for (const k of ['evidence', 'runManifest'])
     if (manifest.resolution?.[k]?.sha256 === 'FILE')
-      manifest.resolution[k].sha256 = sha256(files[path.basename(manifest.resolution[k].path)] ?? '');
+      manifest.resolution[k].sha256 = recorded[path.basename(manifest.resolution[k].path)] ?? '';
   return { root, manifest, digest: d };
 }
 const ctx = (root: string, over: Record<string, unknown> = {}) => ({
@@ -198,7 +209,7 @@ describe('T-058 a manually resolved payment, recorded with a resolution section'
     ],
     [
       'the evidence file was edited',
-      (w: any) => (w.files['reconciliation.json'] = '{"edited":true}'),
+      (w: any) => (w.tamper['reconciliation.json'] = '{"edited":true}'),
       'RESOLUTION_EVIDENCE_MISMATCH',
     ],
     [
@@ -208,12 +219,12 @@ describe('T-058 a manually resolved payment, recorded with a resolution section'
     ],
     [
       'the run manifest was edited',
-      (w: any) => (w.files['manifest-run.journey.json'] = '{}'),
+      (w: any) => (w.tamper['manifest-run.journey.json'] = '{}'),
       'RESOLUTION_RUN_MANIFEST_MISMATCH',
     ],
     [
       'the run manifest is missing',
-      (w: any) => delete w.files['manifest-run.journey.json'],
+      (w: any) => (w.tamper['manifest-run.journey.json'] = null),
       'RESOLUTION_RUN_MANIFEST_MISMATCH',
     ],
     [
