@@ -367,7 +367,10 @@ describe('T-060 authorize.mjs release-artifact records', () => {
     const a = Object.fromEntries(
       Object.entries(over).map(([k, v]) => [k, typeof v === 'string' && map[v] ? map[v] : v]),
     );
-    expect(() => az.buildGateAuthorization(gate, a, now)).toThrow();
+    // A refusal is the builder's own rule, not a missing function.
+    expect(() => az.buildGateAuthorization(gate, a, now)).toThrow(
+      /builder|valid-hours|tag|commit|account|https URL|does not exist|empty|characters/,
+    );
   });
 });
 
