@@ -36,8 +36,8 @@ const scope = {
   executionAuthorityId: 'xau_t040-kite',
   merchantId: 'mer_weather-0001',
   purpose: 'PAID_LOOKUP',
-  perActionLimitMinor: 18_500n,
-  baseLimitMinor: 20_000n,
+  perActionLimitMinor: 1n,
+  baseLimitMinor: 5n,
   currency: 'USD',
   expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
   remainingSeconds: 3_600,
@@ -50,11 +50,24 @@ const intent = {
   semanticOperation: 'PAID_LOOKUP',
   merchantId: 'mer_weather-0001',
   purpose: 'PAID_LOOKUP',
-  amountMinor: 120n,
+  amountMinor: 1n,
   currency: 'USD',
   providerAccountRevisionId: 'par_t040-kite',
   providerSessionRef: 'req_authorityA',
 };
+// The documented approved-session shape (request-session commands.md "Approved Output"), dated in the future.
+const ACTIVE = (id: string, status = 'active') =>
+  JSON.stringify({
+    status: 'success',
+    session_id: id,
+    session: {
+      id,
+      status,
+      expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+      delegation: { payment_policy: { max_amount_per_tx: '0.01', max_total_amount: '0.05', currency: 'USD' } },
+    },
+  });
+const WEATHER = { 'mer_weather-0001': { url: 'https://x402.dev.gokite.ai/api/weather', method: 'GET' as const } };
 const op = {
   clientOperationId: 'op_t040-kite-1',
   idempotencyKey: 'cin-op.t040-kite-1',
@@ -103,13 +116,13 @@ describe('T-040 KitePassportAdapter capability (recorded kpass contract, not Kit
   it('creates a bounded separate session via `kpass session create` and confirms it by request id', async () => {
     const k = fakeKpass(`
 if (args[0] === 'session' && args[1] === 'create') process.stdout.write(JSON.stringify({ status: 'human_action_required', request_id: 'req_t040abc', approval_url: 'https://agentpassport.ai/approve/x', expires_at: 'z' }));
-else if (args[0] === 'session' && args[1] === 'status') process.stdout.write(JSON.stringify({ status: 'success', session_id: 'ses_1', session: { id: 'ses_1', status: 'active' } }));
+else if (args[0] === 'session' && args[1] === 'status') process.stdout.write(${JSON.stringify(ACTIVE('ses_1'))});
 `);
     const adapter = new KitePassportAdapter({
       kpassBinary: k.bin,
       stateRoot: k.dir,
       timeoutMs: 5_000,
-      merchantEndpoints: {},
+      merchantEndpoints: WEATHER,
     });
     let handoff = 0;
     const created = await adapter.activateSession(scope, op, { onHandoff: () => handoff++ });
@@ -126,17 +139,37 @@ else if (args[0] === 'session' && args[1] === 'status') process.stdout.write(JSO
     expect(create!.args).toContain('--separate');
     const delegation = JSON.parse(create!.args[create!.args.indexOf('--delegation') + 1]!);
     expect(delegation.payment_policy).toMatchObject({
-      max_amount_per_tx: '185.00',
-      max_total_amount: '200.00',
+      max_amount_per_tx: '0.01',
+      max_total_amount: '0.05',
       currency: 'USD',
     });
-    expect(status!.args).toEqual(['session', 'status', '--request-id', 'req_t040abc', '--output', 'json']);
-    // The CLI sees only PATH, its broker-only HOME and a no-colour flag: nothing inherited from the broker.
+    expect(status!.args).toEqual([
+      'session',
+      'status',
+      '--request-id',
+      'req_t040abc',
+      '--no-interactive',
+      '--output',
+      'json',
+    ]);
+    // The CLI sees only PATH, its broker-only HOME and fixed no-colour/no-update/no-browser flags: nothing inherited.
     for (const c of k.calls()) {
       expect(c.home).toBe(k.dir);
       expect(
         c.env.filter(
-          (e) => !['PATH', 'HOME', 'KPASS_NO_COLOR', '__CF_USER_TEXT_ENCODING', 'PWD', 'SHLVL', '_'].includes(e),
+          (e) =>
+            ![
+              'PATH',
+              'HOME',
+              'KPASS_NO_COLOR',
+              'KPASS_NO_UPDATE_CHECK',
+              'KPASS_AUTO_UPGRADE',
+              'KPASS_NO_BROWSER',
+              '__CF_USER_TEXT_ENCODING',
+              'PWD',
+              'SHLVL',
+              '_',
+            ].includes(e),
         ),
       ).toEqual([]);
     }
@@ -155,17 +188,17 @@ else if (args[0] === 'session' && args[1] === 'status') process.stdout.write(JSO
 
   it('with verified same-key replay, executes with the pre-egress idempotency key; a pending outcome stays UNKNOWN', async () => {
     const k = fakeKpass(`
-if (args[1] === 'status') { process.stdout.write(JSON.stringify({ status: 'success', session: { id: 'ses_A', status: 'active' } })); process.exit(0); }
+if (args[1] === 'status') { process.stdout.write(${JSON.stringify(ACTIVE('ses_A'))}); process.exit(0); }
 const key = args[args.indexOf('--idempotency-key') + 1];
-if (key.endsWith('pending')) { process.stdout.write(JSON.stringify({ status: 'pending', error: { code: 'payment_outcome_pending', retriable: true } })); process.exit(7); }
-process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 200 }, payment_requirement: { asset: 'USDC', amount: '120' } }));
+if (key.endsWith('pending')) { process.stdout.write(JSON.stringify({ status: 'error', error_code: 'payment_outcome_pending', retriable: true })); process.exit(7); }
+process.stdout.write(JSON.stringify({ status: 'success', session_id: 'ses_A', x402: { status_code: 200 }, payment_requirement: { asset: 'USDC', amount: '0.01' } }));
 `);
     const adapter = new KitePassportAdapter({
       kpassBinary: k.bin,
       stateRoot: k.dir,
       timeoutMs: 5_000,
       sameKeyReplayVerified: true,
-      merchantEndpoints: { 'mer_weather-0001': { url: 'https://x402.dev.gokite.ai/api/weather', method: 'GET' } },
+      merchantEndpoints: WEATHER,
     });
     expect(adapter.assess(intent)).toEqual({ kind: 'ELIGIBLE' });
     expect(adapter.assess({ ...intent, merchantId: 'mer_unlisted-0001' })).toEqual({
@@ -174,7 +207,7 @@ process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 20
     });
     const prepared = adapter.prepare(intent);
     const ok = await adapter.execute(prepared, op, { onHandoff: () => {} });
-    expect(ok).toMatchObject({ kind: 'CONFIRMED', capturedMinor: 120n });
+    expect(ok).toMatchObject({ kind: 'CONFIRMED', capturedMinor: 1n });
     const pending = await adapter.execute(
       prepared,
       { ...op, idempotencyKey: 'cin-op.t040-pending' },
@@ -193,15 +226,15 @@ if (args[0] === 'session' && args[1] === 'status') {
   const req = args[args.indexOf('--request-id') + 1];
   const map = { req_authorityA: ['ses_A', 'active'], req_authorityB: ['ses_B', 'active'], req_inactive: ['ses_C', 'expired'] };
   const [id, status] = map[req] ?? [null, 'unknown'];
-  process.stdout.write(JSON.stringify({ status: 'success', session_id: id, session: { id, status } }));
-} else process.stdout.write(JSON.stringify({ status: 'success', x402: { status_code: 200 }, payment_requirement: { amount: '120' } }));
+  process.stdout.write(JSON.stringify({ status: 'success', session_id: id, session: { id, status, expires_at: ${JSON.stringify(new Date(Date.now() + 3_600_000).toISOString())}, delegation: { payment_policy: { max_amount_per_tx: '0.01', max_total_amount: '0.05' } } } }));
+} else process.stdout.write(JSON.stringify({ status: 'success', session_id: 'ses_A', x402: { status_code: 200 }, payment_requirement: { asset: 'USDC', amount: '0.01' } }));
 `);
     const adapter = new KitePassportAdapter({
       kpassBinary: k.bin,
       stateRoot: k.dir,
       timeoutMs: 5_000,
       sameKeyReplayVerified: true,
-      merchantEndpoints: { 'mer_weather-0001': { url: 'https://x402.dev.gokite.ai/api/weather', method: 'GET' } },
+      merchantEndpoints: WEATHER,
     });
     expect(adapter.assess({ ...intent, providerSessionRef: null })).toEqual({
       kind: 'UNSUPPORTED',
@@ -232,7 +265,7 @@ if (args[0] === 'session' && args[1] === 'status') {
       kpassBinary: k.bin,
       stateRoot: k.dir,
       timeoutMs: 5_000,
-      merchantEndpoints: {},
+      merchantEndpoints: WEATHER,
     });
     expect(adapter.assessSession({ ...scope, remainingSeconds: 59 })).toEqual({
       kind: 'UNSUPPORTED',
@@ -250,19 +283,19 @@ if (args[0] === 'session' && args[1] === 'status') {
     expect(ttl).toBe(120);
   });
 
-  it('a local kpass refusal is marked not-sent (never authoritative no-effect for an earlier send)', async () => {
+  it('a documented pre-spend kpass refusal is marked not-sent (never authoritative no-effect for an earlier send)', async () => {
     const k = fakeKpass(`
-if (args[1] === 'status') { process.stdout.write(JSON.stringify({ session: { id: 'ses_A', status: 'active' } })); process.exit(0); }
-process.stdout.write(JSON.stringify({ status: 'error', error: { code: 'local_protocol_refusal' } })); process.exit(8);
+if (args[1] === 'status') { process.stdout.write(${JSON.stringify(ACTIVE('ses_A'))}); process.exit(0); }
+process.stdout.write(JSON.stringify({ status: 'error', error_code: 'idempotency_key_required' })); process.exit(2);
 `);
     const adapter = new KitePassportAdapter({
       kpassBinary: k.bin,
       stateRoot: k.dir,
       timeoutMs: 5_000,
       sameKeyReplayVerified: true,
-      merchantEndpoints: { 'mer_weather-0001': { url: 'https://x402.dev.gokite.ai/api/weather', method: 'GET' } },
+      merchantEndpoints: WEATHER,
     });
     const out = await adapter.execute(adapter.prepare(intent), op, { onHandoff: () => {} });
-    expect(out).toMatchObject({ kind: 'FAILED', reasonCode: 'KPASS_LOCAL_REFUSAL', notSent: true });
+    expect(out).toMatchObject({ kind: 'FAILED', reasonCode: 'KITE_PRE_SPEND_REFUSAL', notSent: true });
   });
 });
