@@ -9,6 +9,9 @@ export function Ledger() {
   return (
     <>
       <h1 tabIndex={-1}>Evidence ledger</h1>
+      <p className="page-intro">
+        This tenant's append-only, hash-chained evidence record, as exported for audit. Entries are never edited.
+      </p>
       <section className="panel" aria-labelledby="ledger-h">
         <h2 id="ledger-h">Ledger entries</h2>
         <Loadable res={res} what="evidence ledger" empty={(d) => d.entries.length === 0}>
@@ -16,14 +19,26 @@ export function Ledger() {
             const chain = (d as { chain?: { valid?: boolean } }).chain;
             return (
               <>
-                <p>
-                  Cut-off {formatUtc(d.cutoffAt)} · {d.entries.length} entries · chain{' '}
-                  {chain?.valid === true
-                    ? 'verified (every envelope links to its predecessor)'
-                    : chain?.valid === false
-                      ? 'BROKEN — investigate'
-                      : 'not reported'}
-                </p>
+                <dl className="chain-summary">
+                  <div>
+                    <dt>Cut-off</dt>
+                    <dd>{formatUtc(d.cutoffAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Entries</dt>
+                    <dd>{d.entries.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Hash chain</dt>
+                    <dd>
+                      {chain?.valid === true
+                        ? 'Verified: every envelope links to its predecessor'
+                        : chain?.valid === false
+                          ? 'Broken: investigate before relying on this export'
+                          : 'Not reported'}
+                    </dd>
+                  </div>
+                </dl>
                 <div
                   className="table-wrap"
                   data-scroll-region

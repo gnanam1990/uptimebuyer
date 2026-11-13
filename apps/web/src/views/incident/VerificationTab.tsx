@@ -33,7 +33,7 @@ export function VerificationTab({ incidentId }: { incidentId: string }) {
                 telemetry window does.
               </p>
               <h3>Checklist</h3>
-              <ul className="checklist">
+              <ol className="checklist">
                 <li>
                   Intervention milestone:{' '}
                   {milestone
@@ -61,7 +61,7 @@ export function VerificationTab({ incidentId }: { incidentId: string }) {
                   Closeout:{' '}
                   {g.recovered ? 'current closeout passed every configured check' : 'no current passing closeout'}
                 </li>
-              </ul>
+              </ol>
               <div
                 className="table-wrap"
                 data-scroll-region

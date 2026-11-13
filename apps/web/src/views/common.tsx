@@ -33,7 +33,7 @@ export function Loadable<T>({
           Showing the last loaded {what}; the latest refresh failed. {res.error}
         </p>
       ) : null}
-      {empty && empty(res.data) ? <p className="muted">No {what} to show.</p> : children(res.data)}
+      {empty && empty(res.data) ? <p className="empty">No {what} to show yet.</p> : children(res.data)}
     </>
   );
 }

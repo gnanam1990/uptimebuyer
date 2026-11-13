@@ -93,9 +93,26 @@ function PlanComparison({ plan }: { plan: PlanWire }) {
   return (
     <section className="panel" aria-labelledby="plan-h">
       <h2 id="plan-h">Plan comparison</h2>
-      <p>
-        Plan revision {plan.revision} · {humanize(plan.state)} · outcome {humanize(plan.outcome)} ·{' '}
-        <strong>{plan.label}</strong> — the ranking is advisory and never an approval.
+      <dl className="chain-summary">
+        <div>
+          <dt>Plan</dt>
+          <dd>{plan.label}</dd>
+        </div>
+        <div>
+          <dt>Revision</dt>
+          <dd>{plan.revision}</dd>
+        </div>
+        <div>
+          <dt>State</dt>
+          <dd>{humanize(plan.state)}</dd>
+        </div>
+        <div>
+          <dt>Outcome</dt>
+          <dd>{humanize(plan.outcome)}</dd>
+        </div>
+      </dl>
+      <p className="muted">
+        The ranking is advisory and never an approval.
         {plan.incomplete ? ' A required input is missing, so there is no deterministic winner.' : ''}
       </p>
       <div
@@ -251,7 +268,18 @@ function Approval({
         {active ? (
           <>
             <p>You are approving at most {formatMoney(active.sessionBounds.amount)} for exactly this scope:</p>
-            <p className="bounds-text">{boundsText(active)}.</p>
+            <dl className="kv bounds-list">
+              <Field label="Incident">
+                <Code>{active.sessionBounds.incidentId}</Code>
+              </Field>
+              <Field label="Merchant">
+                <Code>{active.sessionBounds.merchantId}</Code>
+              </Field>
+              <Field label="Action">{active.sessionBounds.actionKind}</Field>
+              <Field label="Amount">{formatMoney(active.sessionBounds.amount)}</Field>
+              <Field label="Purpose">{active.sessionBounds.purpose}</Field>
+              <Field label="Expires">{formatUtc(active.sessionBounds.expiresAt)}</Field>
+            </dl>
             <p>
               No money moves when you approve. Approval records a bounded authorization; an execution authority and a
               CONFIRMED Kite session are still required before any spend, and the server re-checks your authority and

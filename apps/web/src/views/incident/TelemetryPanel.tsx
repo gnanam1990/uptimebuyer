@@ -3,16 +3,33 @@
 // tab is hidden), anomaly samples marked by a distinct triangle shape plus "Above threshold" text, the threshold line
 // from the incident's pinned rule, and transitions that prefers-reduced-motion removes. Freshness, ingestion class,
 // quality flags and SIMULATED_INPUT are shown as text; stale data never renders as healthy.
-import { useState } from 'react';
+// The chart's coordinate system follows its rendered width (one SVG unit = one CSS px), so axis text never stretches
+// and stays 12 px at every width; nothing is positioned with inline styles (CSP).
+import { useLayoutEffect, useState } from 'react';
 import type { Telemetry } from '@uptimebuyer/api-client';
 import type { Resource } from '../../api';
 import { useAnnounce } from '../../announce';
 import { AxisBadge } from '../../components/AxisBadge';
 import { formatMilliCelsius, formatUtc } from '../../format';
+import { gridTicks } from './chartTicks.js';
+import { selectReading } from './readout';
 
-const W = 640;
-const H = 220;
-const PAD = { l: 48, r: 12, t: 12, b: 28 };
+const PAD = { l: 52, r: 14, t: 14, b: 30 };
+
+/** Follow an element's content width (initially `fallback`), for a chart that redraws instead of scaling. */
+function useWidth<T extends HTMLElement>(fallback: number) {
+  const [el, setEl] = useState<T | null>(null);
+  const [width, setWidth] = useState(fallback);
+  useLayoutEffect(() => {
+    if (!el) return;
+    const measure = () => setWidth(Math.max(240, Math.round(el.clientWidth)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return [setEl, width] as const;
+}
 
 export function TelemetryPanel({
   telemetry,
@@ -25,14 +42,15 @@ export function TelemetryPanel({
 }) {
   const announce = useAnnounce();
   const [showTable, setShowTable] = useState(false);
+  const [frameRef, W] = useWidth<HTMLDivElement>(640);
+  const H = W < 480 ? 200 : 240;
   const t = telemetry.data;
-  const device = t?.devices[0];
-  const series = device?.series.find((s) => s.kind === 'TEMPERATURE') ?? device?.series[0];
-  const samples = series?.samples ?? [];
-  const threshold = t?.threshold ?? null;
+  // Same device and series as the incident faceplate (./readout.ts).
+  const { device, samples, last, threshold, simulated } = selectReading(t);
+  // After a failed refresh the retained freshness is not current and is not shown as if it were.
+  const failed = telemetry.error !== null;
   const isAnomaly = (v: number) =>
     threshold !== null && (threshold.comparator === 'ABOVE' ? v > threshold.thresholdInt : v < threshold.thresholdInt);
-  const last = samples.at(-1);
 
   const t0 = t ? Date.parse(t.windowStart) : 0;
   const t1 = t ? Date.parse(t.asOf) : 1;
@@ -46,6 +64,11 @@ export function TelemetryPanel({
     .join(' ');
   const anomalyCount = samples.filter((s) => isAnomaly(s.valueInt)).length;
   const name = `Temperature chart, last 30 minutes, ${samples.length} samples, threshold ${threshold ? formatMilliCelsius(threshold.thresholdInt) : 'not pinned'}, ${anomalyCount} above threshold, current ${last ? formatMilliCelsius(last.valueInt) : 'not reported'}`;
+  // Horizontal grid every 2 °C or more (milli-degrees), labelled on the left; bounded for any reported value.
+  const ticks = gridTicks(vmin, vmax);
+  const plotTop = PAD.t;
+  const plotBottom = H - PAD.b;
+  const ty = threshold ? y(threshold.thresholdInt) : null;
 
   return (
     <section className="panel" role="region" aria-label="Telemetry">
@@ -80,83 +103,124 @@ export function TelemetryPanel({
             <span className="muted small">
               {paused ? 'Live updates paused' : 'Updating every 5 s while this tab is visible'}
             </span>
-            <AxisBadge axis="freshness" value={device.freshness} />
-            {device.inputClass === 'SIMULATOR' ? <span className="label-sim">SIMULATED_INPUT</span> : null}
+            {failed ? (
+              <span className="tag-unknown">Freshness not current: the latest refresh failed</span>
+            ) : (
+              <AxisBadge axis="freshness" value={device.freshness} />
+            )}
+            {simulated ? <span className="label-sim">SIMULATED_INPUT</span> : null}
           </div>
-          <p data-testid="current-value" className="current-value">
+          <div data-testid="current-value" className="current-value">
             {last ? (
               <>
-                Current value: <strong>{formatMilliCelsius(last.valueInt)}</strong> at {formatUtc(last.eventAt)} ·{' '}
-                {last.ingestionClass} · quality {last.qualityFlags.length ? last.qualityFlags.join(', ') : 'GOOD'} ·{' '}
-                {freshLabel(device.freshness)}
-                {device.inputClass === 'SIMULATOR' ? ' · SIMULATED_INPUT' : ''}
-                {threshold
-                  ? ` · threshold ${formatMilliCelsius(threshold.thresholdInt)} (${threshold.comparator.toLowerCase()})`
-                  : ''}
+                <span className="cv-primary">
+                  {failed ? 'Last loaded value' : 'Current value'}: <strong>{formatMilliCelsius(last.valueInt)}</strong>{' '}
+                  at {formatUtc(last.eventAt)}
+                </span>
+                <span className="cv-fact">
+                  <span>Ingestion</span> {last.ingestionClass}
+                </span>
+                <span className="cv-fact">
+                  <span>Quality</span> {last.qualityFlags.length ? last.qualityFlags.join(', ') : 'GOOD'}
+                </span>
+                <span className="cv-fact">
+                  <span>Freshness</span> {failed ? 'Not current (latest refresh failed)' : freshLabel(device.freshness)}
+                </span>
+                {simulated ? (
+                  <span className="cv-fact">
+                    <span>Input</span> SIMULATED_INPUT
+                  </span>
+                ) : null}
+                {threshold ? (
+                  <span className="cv-fact">
+                    <span>Threshold</span> {formatMilliCelsius(threshold.thresholdInt)} (
+                    {threshold.comparator.toLowerCase()})
+                  </span>
+                ) : null}
               </>
             ) : (
-              <>No reading in the last 30 minutes · {freshLabel(device.freshness)}</>
+              <span className="cv-primary">
+                No reading in the last 30 minutes ·{' '}
+                {failed ? 'Freshness not current (latest refresh failed)' : freshLabel(device.freshness)}
+              </span>
             )}
-          </p>
+          </div>
           <figure className="chart">
-            <svg
-              viewBox={`0 0 ${W} ${H}`}
-              role="img"
-              aria-label={name}
-              preserveAspectRatio="none"
-              className="chart-svg"
-            >
-              <rect x={PAD.l} y={PAD.t} width={W - PAD.l - PAD.r} height={H - PAD.t - PAD.b} className="chart-bg" />
-              {threshold ? (
-                <g>
-                  <line
-                    data-threshold-line
-                    x1={PAD.l}
-                    x2={W - PAD.r}
-                    y1={y(threshold.thresholdInt)}
-                    y2={y(threshold.thresholdInt)}
-                    className="chart-threshold"
+            <div className="chart-frame" ref={frameRef}>
+              <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={name} className="chart-svg">
+                <rect
+                  x={PAD.l}
+                  y={plotTop}
+                  width={W - PAD.l - PAD.r}
+                  height={plotBottom - plotTop}
+                  className="chart-bg"
+                />
+                {ty !== null && threshold ? (
+                  <rect
+                    x={PAD.l}
+                    width={W - PAD.l - PAD.r}
+                    y={threshold.comparator === 'ABOVE' ? plotTop : ty}
+                    height={Math.max(0, threshold.comparator === 'ABOVE' ? ty - plotTop : plotBottom - ty)}
+                    className="chart-band"
                   />
-                  <text x={W - PAD.r - 4} y={y(threshold.thresholdInt) - 4} textAnchor="end" className="chart-label">
-                    threshold {formatMilliCelsius(threshold.thresholdInt)}
-                  </text>
-                </g>
-              ) : null}
-              <path d={path} className="chart-line" fill="none" />
-              {samples.map((s) => {
-                const cx = x(Date.parse(s.eventAt));
-                const cy = y(s.valueInt);
-                return isAnomaly(s.valueInt) ? (
-                  <polygon
-                    key={s.sampleId}
-                    data-point
-                    data-anomaly="above-threshold"
-                    data-shape="triangle"
-                    points={`${cx},${cy - 6} ${cx + 6},${cy + 5} ${cx - 6},${cy + 5}`}
-                    className="chart-anomaly"
-                  />
-                ) : (
-                  <circle
-                    key={s.sampleId}
-                    data-point
-                    data-shape="circle"
-                    cx={cx}
-                    cy={cy}
-                    r={2.5}
-                    className="chart-point"
-                  />
-                );
-              })}
-              <text x={PAD.l} y={H - 8} className="chart-label">
-                {formatUtc(t?.windowStart).slice(11, 16)} UTC
-              </text>
-              <text x={W - PAD.r} y={H - 8} textAnchor="end" className="chart-label">
-                {formatUtc(t?.asOf).slice(11, 16)} UTC
-              </text>
-            </svg>
+                ) : null}
+                {ticks.map((v) => (
+                  <g key={v}>
+                    <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} className="chart-grid" />
+                    <text x={PAD.l - 8} y={y(v) + 4} textAnchor="end" className="chart-label">
+                      {(v / 1000).toFixed(0)} °C
+                    </text>
+                  </g>
+                ))}
+                {threshold && ty !== null ? (
+                  <g>
+                    <line data-threshold-line x1={PAD.l} x2={W - PAD.r} y1={ty} y2={ty} className="chart-threshold" />
+                    <text
+                      x={PAD.l + 8}
+                      y={threshold.comparator === 'ABOVE' ? ty - 6 : ty + 16}
+                      className="chart-label chart-label-threshold"
+                    >
+                      Threshold {formatMilliCelsius(threshold.thresholdInt)}
+                    </text>
+                  </g>
+                ) : null}
+                {/* Keyed by width: a new reading eases the line, a resize redraws it without sweeping across. */}
+                <path key={W} d={path} className="chart-line" fill="none" />
+                {samples.map((s) => {
+                  const cx = x(Date.parse(s.eventAt));
+                  const cy = y(s.valueInt);
+                  return isAnomaly(s.valueInt) ? (
+                    <polygon
+                      key={s.sampleId}
+                      data-point
+                      data-anomaly="above-threshold"
+                      data-shape="triangle"
+                      points={`${cx},${cy - 7} ${cx + 7},${cy + 5} ${cx - 7},${cy + 5}`}
+                      className="chart-anomaly"
+                    />
+                  ) : (
+                    <circle
+                      key={s.sampleId}
+                      data-point
+                      data-shape="circle"
+                      cx={cx}
+                      cy={cy}
+                      r={3}
+                      className="chart-point"
+                    />
+                  );
+                })}
+                <text x={PAD.l} y={H - 8} className="chart-label">
+                  {formatUtc(t?.windowStart).slice(11, 16)} UTC
+                </text>
+                <text x={W - PAD.r} y={H - 8} textAnchor="end" className="chart-label">
+                  {formatUtc(t?.asOf).slice(11, 16)} UTC
+                </text>
+              </svg>
+            </div>
             <figcaption>
-              Triangles mark samples above the pinned threshold; the dashed line is the threshold. Values are
-              milli-degree readings shown in °C.
+              Triangles mark samples above the pinned threshold; the dashed line is the threshold and the shaded band is
+              the range beyond it. Values are milli-degree readings shown in °C.
             </figcaption>
           </figure>
           <button
