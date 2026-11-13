@@ -3,6 +3,7 @@
 // captured on 2026-11-13 (test/fixtures/lionx402-preflight-402.json, public data, nothing paid) and variants of it.
 // The broker's KITE_PASSPORT adapter file (outside the repository, 0600) and its kpass state root (0700, outside the
 // repository) are validated before anything runs; the committed example stays valid and binds the exact merchant URL.
+/* eslint-disable @typescript-eslint/no-explicit-any -- documented-example fixtures are mutated structurally */
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -162,5 +163,13 @@ describe('T-058 broker KITE_PASSPORT adapter file and state root', () => {
     expect(parsed.adapter.merchantEndpoints[LIONX402.merchantId]).toEqual({ url: LIONX402.url, method: 'GET' });
     expect(parsed.adapter.sameKeyReplayVerified ?? false).toBe(false);
     expect(JSON.stringify(example)).not.toMatch(/eyJ|agt_|art_|jwt|token/i);
+  });
+});
+
+describe('T-058 security review S3: the 402 must be for the bound resource', () => {
+  it('refuses a 402 whose resource URL is not the exact bound merchant URL', () => {
+    const b = realBody();
+    b.resource.url = 'https://lionx402.com/api/x402/other-endpoint';
+    expect(assessX402Preflight(asCapture(b))).toEqual({ ok: false, reason: 'PREFLIGHT_RESOURCE_MISMATCH' });
   });
 });

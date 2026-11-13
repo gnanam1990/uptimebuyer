@@ -8,6 +8,8 @@
 // account allowance is never CONFIRMED; hard caps of 1 cent per call and 5 cents per session hold whatever the config
 // says; the approval URL never reaches an outcome; argv values cannot be read as flags; execution without autonomous
 // reconciliation is permitted only with explicit attended manual reconciliation.
+/* eslint-disable @typescript-eslint/no-explicit-any -- documented-example fixtures are mutated structurally */
+import { realpathSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   KITE_HARD_CAPS,
@@ -140,7 +142,7 @@ describe('T-040 kpass 6.13.2 session create (documented-example fixtures, not Ki
     expect(JSON.stringify(out)).not.toContain('documented-placeholder-token');
     // cwd and HOME are the broker-only state root; the environment is minimal and fixed.
     expect(c!.home).toBe(k.dir);
-    expect(c!.cwd).toBe(k.dir);
+    expect(c!.cwd).toBe(realpathSync(k.dir));
     const allowed = new Set([
       'PATH',
       'HOME',
@@ -520,5 +522,48 @@ describe('T-040 kpass 6.13.2 read-only readiness (observed shapes, synthetic val
       ['allowance', 'status'],
       ['wallet', 'balance'],
     ]);
+  });
+});
+
+// Security review of the live wiring (2026-11-13): S1 a session-status answer for another request id is never taken for
+// the bound one; S2 an approval link outside Kite's Passport web host is withheld from the operator; S3 is in
+// t058-kite-payment-preflight.test.ts (the 402 must be for the bound resource URL).
+describe('T-040 security review S1/S2 (documented-example fixtures, not Kite)', () => {
+  it('S1 a status answer naming another request id is UNKNOWN for lookups and refuses execution (nothing sent)', async () => {
+    const k = fakeKpass();
+    const other = approved();
+    (other.json as Record<string, unknown>).request_id = 'req_someoneelse';
+    k.script('session status', other);
+    const { adapter } = make(k);
+    expect(
+      (
+        await adapter.lookupSession({
+          clientOperationId: op.clientOperationId,
+          idempotencyKey: op.idempotencyKey,
+          providerRef: 'req_abc123',
+        })
+      ).kind,
+    ).toBe('UNKNOWN');
+    expect(await adapter.execute(adapter.prepare(intent()), op, noHooks)).toMatchObject({
+      kind: 'FAILED',
+      reasonCode: 'KITE_BOUND_SESSION_UNRESOLVED',
+      notSent: true,
+    });
+    expect(await adapter.sessionUsage('req_abc123')).toBeNull();
+    expect(k.callsOf('session execute')).toEqual([]);
+  });
+
+  it('S2 an approval link that is not https on the Passport web host is withheld', async () => {
+    for (const approval_url of [
+      'https://agentpassport.ai.evil.example/approve?token=x',
+      'http://agentpassport.ai/approve?token=x',
+      'https://evil.example/agentpassport.ai',
+    ]) {
+      const k = fakeKpass();
+      k.script('session create', { exitCode: 0, json: { ...KPASS.sessionCreateRequested.json, approval_url } });
+      const { adapter, approvals } = make(k);
+      expect((await adapter.activateSession(scope(), op, noHooks)).kind).toBe('ACCEPTED');
+      expect(approvals, approval_url).toEqual([]);
+    }
   });
 });

@@ -8,6 +8,7 @@
 // an ambiguous paid outcome is UNKNOWN, reserved and never retried (not by the duplicate, not by reconciliation); the
 // duplicate request returns the same intent with no second egress; every artifact passes a redaction check or the
 // evidence is removed; the database is dropped.
+/* eslint-disable @typescript-eslint/no-explicit-any -- documented-example fixtures are mutated structurally */
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
