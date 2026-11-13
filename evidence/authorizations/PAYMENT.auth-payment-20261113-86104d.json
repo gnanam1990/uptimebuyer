@@ -1,0 +1,21 @@
+{
+  "schema": "release-authorization.v1",
+  "gate": "PAYMENT",
+  "authorizationId": "auth-payment-20261113-86104d",
+  "authorizedBy": "repository-owner",
+  "authorizedAt": "2026-11-13T06:47:46.000Z",
+  "expiresAt": "2026-11-13T08:47:46.000Z",
+  "statement": "I authorize exactly one payment through the UptimeBuyer Kite broker of at most 1 minor unit(s) of USD (USD 0.01) to lionx402.com for REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP in kite-passport-prod, valid from 2026-11-13T06:47:46.000Z until 2026-11-13T08:47:46.000Z, usable only once.",
+  "scope": {
+    "merchant": "lionx402.com",
+    "amountMinor": 1,
+    "currency": "USD",
+    "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+    "environment": "kite-passport-prod"
+  },
+  "signature": {
+    "algorithm": "ED25519",
+    "keyId": "owner-195587c58bb1180e",
+    "value": "8a-KgDXvihDDsEXXeoy6ckS75_Ks969H8Udl20ifzdzSWLSDsKZ0liQFHuqdTx6tDukkvbzoKbWY3SLaf_9-BA"
+  }
+}

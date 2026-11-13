@@ -1,0 +1,78 @@
+{
+  "schema": "journey-merchant-response.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "origin": "PROVIDER_LIVE",
+  "merchant": "lionx402.com",
+  "url": "https://lionx402.com/api/x402/poi-business-search-json?q=refrigeration%20repair",
+  "statusCode": 200,
+  "responseSha256": "4af0b56c39eccf02b8f0c71ce5a70095dd053d259cd5e341e9ac78d490d98ee2",
+  "resultCount": 7,
+  "results": [
+    {
+      "name": "A & E Refrigeration and Appliance Repair, 29, North MacQuesten Parkway, West Mount Vernon, City of Mount Vernon, Westchester County, New York, 10550, United States",
+      "lat": 40.9135939,
+      "lon": -73.8478699,
+      "type": "appliance",
+      "category": "shop",
+      "osm_type": "node",
+      "osm_id": 11015526303
+    },
+    {
+      "name": "Zon Electronics Refrigeration & Airconditioning Repair Shop, Binitayan Road, Purok 5, Purok 7, Binitayan, Tahao Road, Malobago, Daraga, Albay, Bicol Region, 4501, Philippines",
+      "lat": 13.154632,
+      "lon": 123.7113351,
+      "type": "electronics_repair",
+      "category": "craft",
+      "osm_type": "node",
+      "osm_id": 3912679363
+    },
+    {
+      "name": "National Refrigeration Repair Center, NH66, Chengala, Kasaragod, Kerala, 671545, India",
+      "lat": 12.5101894,
+      "lon": 75.0441617,
+      "type": "repair",
+      "category": "shop",
+      "osm_type": "node",
+      "osm_id": 9786568142
+    },
+    {
+      "name": "OJ Refrigeration Sales and Repair, Japhta K. Masemola Road, Umrhabulo Triangle (Makhaza), Cape Town Ward 96, Khayelitsha, City of Cape Town, Western Cape, 7748, South Africa",
+      "lat": -34.0463079,
+      "lon": 18.702307,
+      "type": "electronics",
+      "category": "shop",
+      "osm_type": "node",
+      "osm_id": 915478837
+    },
+    {
+      "name": "Mohammed Refrigeration Repair, 1948 Military Street, Alogboshie, Achimota, Accra, Okaikwei North Municipal District, Greater Accra Region, Ghana",
+      "lat": 5.6279721,
+      "lon": -0.2333033,
+      "type": "electrician",
+      "category": "craft",
+      "osm_type": "way",
+      "osm_id": 615390827
+    },
+    {
+      "name": "تركيب و تصليح أجهزة التبريد, Ali Mendjeli-El Khroub, Cité Kadri Ibrahim, علي منجلي ⵄⵍⵉ ⵎⵏⵊⵍⵉ, El Khroub ⵍⴻⵅⵔⵓⴱ الخروب, دائرة الخروب ⴰⴷⴷⴰⵢⵔⵜ ⵏ ⵍⵅⵔⵔⵓⴱ, قسنطينة ⵇⵙⵏⵟⵉⵏⴰ, 25000, ⵍⵣⵣⴰⵢⴻⵔ الجزائر",
+      "lat": 36.2588277,
+      "lon": 6.5879539,
+      "type": "car_repair",
+      "category": "shop",
+      "osm_type": "way",
+      "osm_id": 1180820686
+    },
+    {
+      "name": "Ремонт холодильного обладнання, провулок Зимоліна, Гайворон, Гайворонська міська громада, Голованівський район, Кіровоградська область, 26300, Україна",
+      "lat": 48.3443616,
+      "lon": 29.8652195,
+      "type": "electronics_repair",
+      "category": "craft",
+      "osm_type": "node",
+      "osm_id": 11124385596
+    }
+  ],
+  "body": "{\"asset_id\":\"LION_POI_BUSINESS_SEARCH_001\",\"product\":\"LION POI / Business Search\",\"as_of\":\"2026-11-13T07:02:24.040Z\",\"resolved\":true,\"query\":\"refrigeration repair\",\"count\":7,\"results\":[{\"name\":\"A & E Refrigeration and Appliance Repair, 29, North MacQuesten Parkway, West Mount Vernon, City of Mount Vernon, Westchester County, New York, 10550, United States\",\"lat\":40.9135939,\"lon\":-73.8478699,\"type\":\"appliance\",\"category\":\"shop\",\"osm_type\":\"node\",\"osm_id\":11015526303},{\"name\":\"Zon Electronics Refrigeration & Airconditioning Repair Shop, Binitayan Road, Purok 5, Purok 7, Binitayan, Tahao Road, Malobago, Daraga, Albay, Bicol Region, 4501, Philippines\",\"lat\":13.154632,\"lon\":123.7113351,\"type\":\"electronics_repair\",\"category\":\"craft\",\"osm_type\":\"node\",\"osm_id\":3912679363},{\"name\":\"National Refrigeration Repair Center, NH66, Chengala, Kasaragod, Kerala, 671545, India\",\"lat\":12.5101894,\"lon\":75.0441617,\"type\":\"repair\",\"category\":\"shop\",\"osm_type\":\"node\",\"osm_id\":9786568142},{\"name\":\"OJ Refrigeration Sales and Repair, Japhta K. Masemola Road, Umrhabulo Triangle (Makhaza), Cape Town Ward 96, Khayelitsha, City of Cape Town, Western Cape, 7748, South Africa\",\"lat\":-34.0463079,\"lon\":18.702307,\"type\":\"electronics\",\"category\":\"shop\",\"osm_type\":\"node\",\"osm_id\":915478837},{\"name\":\"Mohammed Refrigeration Repair, 1948 Military Street, Alogboshie, Achimota, Accra, Okaikwei North Municipal District, Greater Accra Region, Ghana\",\"lat\":5.6279721,\"lon\":-0.2333033,\"type\":\"electrician\",\"category\":\"craft\",\"osm_type\":\"way\",\"osm_id\":615390827},{\"name\":\"تركيب و تصليح أجهزة التبريد, Ali Mendjeli-El Khroub, Cité Kadri Ibrahim, علي منجلي ⵄⵍⵉ ⵎⵏⵊⵍⵉ, El Khroub ⵍⴻⵅⵔⵓⴱ الخروب, دائرة الخروب ⴰⴷⴷⴰⵢⵔⵜ ⵏ ⵍⵅⵔⵔⵓⴱ, قسنطينة ⵇⵙⵏⵟⵉⵏⴰ, 25000, ⵍⵣⵣⴰⵢⴻⵔ الجزائر\",\"lat\":36.2588277,\"lon\":6.5879539,\"type\":\"car_repair\",\"category\":\"shop\",\"osm_type\":\"way\",\"osm_id\":1180820686},{\"name\":\"Ремонт холодильного обладнання, провулок Зимоліна, Гайворон, Гайворонська міська громада, Голованівський район, Кіровоградська область, 26300, Україна\",\"lat\":48.3443616,\"lon\":29.8652195,\"type\":\"electronics_repair\",\"category\":\"craft\",\"osm_type\":\"node\",\"osm_id\":11124385596}],\"confidence\":0.75,\"attribution\":[\"OpenStreetMap Nominatim (ODbL)\"],\"disclaimer\":\"Place search only. No person PII. Not a maps product license for bulk scrape.\",\"attestation\":{\"alg\":\"ed25519\",\"signer\":\"H9jfKtGS3G8mGzA2fH7KSzyvEhk0j-j9gvmqMrjQt7w\",\"payload_sha256\":\"779a7fed6fc4e9cfc515c62c67aeef40f2924c103b02bf013f6c25a825bb0cf1\",\"signature\":\"rs6xKBpuP5WsWOINHgYvOMVMLNc0dL0YvVkLVWVKo54TPfeBFJMoN1DGRb7YMO-X7xyrWLw3jd28WbZ2szZxAw\",\"signed_at\":\"2026-11-13T07:02:24.040Z\",\"scheme\":\"Ed25519(SHA-256(canonical sorted-key JSON of this body WITHOUT the attestation field)). Tamper-evident + verifiable offline.\"}}",
+  "note": "OpenStreetMap business and POI search results (public data) delivered for the paid call.",
+  "observedAt": "2026-11-13T07:02:25.895Z"
+}

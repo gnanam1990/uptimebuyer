@@ -29,8 +29,11 @@ Journey j-2026-11-12-serv-document-2 then made one more serv-mini call over the 
 Kite track (agents with verifiable identity and spending limits) is the proposed track. The Kite integration is a
 separate broker workload: an approved, signed execution authority bounds amount, merchant, purpose and expiry, and the
 broker alone holds the paid credential and paid egress <!-- C-005 C-006 -->.
-A real Kite-paid action is NOT_RUN <!-- C-022 -->: no Kite credential exists here and no PAYMENT authorization was
-given; every payment in the demo is RECORDED_CONTRACT.
+A real Kite-paid action inside a complete real-input journey is NOT_RUN <!-- C-022 -->. Under the owner's signed PAYMENT
+authorization, journey kite-payment-2 made one USD 0.01 call through the broker; its outcome stayed UNKNOWN (an
+unexpected settlement chain id, an open question) until the owner, as finance approver, resolved it CAPTURED from
+read-only evidence, so the gate reads payment, fulfillment and duplicate PASS while the journey stays NOT_RUN
+<!-- C-022 -->. Every payment in the demo is RECORDED_CONTRACT.
 
 ## What has been shown (local evidence)
 
@@ -54,7 +57,7 @@ given; every payment in the demo is RECORDED_CONTRACT.
 
 - Real authenticated physical sensor: NOT_RUN <!-- C-020 -->.
 - Real SERV Reasoning run with a validated cited proposal inside a complete real-input journey: NOT_RUN; journey 2 recorded one accepted serv-mini proposal (reasoning part PASS), journey 1 one REJECTED <!-- C-021 -->.
-- Real bounded Kite-paid action with downstream fulfillment: NOT_RUN <!-- C-022 -->.
+- Real bounded Kite-paid action with downstream fulfillment: NOT_RUN as a full journey; journey kite-payment-2 recorded one USD 0.01 call (payment, fulfillment and duplicate PASS after a manual CAPTURED resolution) <!-- C-022 -->.
 - Independent physical recovery evidence: NOT_RUN <!-- C-023 -->.
 - Hosted deployment: NOT_RUN <!-- C-024 -->.
 - Public repository, video, X post and submission: NOT_RUN <!-- C-025 -->.

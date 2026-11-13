@@ -1,0 +1,80 @@
+{
+  "schema": "real-input-journey.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "sourceSha": "60bc5c59609b3e7c04abbe77b5d66948c5f7fdc5",
+  "startedAt": "2026-11-13T07:01:37.404Z",
+  "endedAt": "2026-11-13T07:02:26.909Z",
+  "parts": {
+    "payment": {
+      "origin": "KITE_PASSPORT",
+      "journeyId": "j-2026-11-13-kite-payment-2",
+      "capturedAt": "2026-11-13T07:02:25.980Z",
+      "authorizationId": "auth-payment-20261113-86104d",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/payment.json",
+          "sha256": "c0f2cfdd392c5b216b0558bd05646ec0c7d6707c3ff01355c83d7bed2c3cb903"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/gate-decision.json",
+          "sha256": "9fda4be80cba36c554638524dfe6b2271b0653aa692913c6a02af06ed7831575"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/redaction-check.json",
+          "sha256": "4a1bdb192400a33f2cb34acd60977bdf305c529ec3281dddfaf05478007526c6"
+        }
+      ],
+      "facts": {
+        "state": "UNKNOWN",
+        "reconciled": false,
+        "amountMinor": 0,
+        "capMinor": 1,
+        "currency": "USD",
+        "merchant": "lionx402.com",
+        "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+        "request": {
+          "merchant": "lionx402.com",
+          "amountMinor": 1,
+          "currency": "USD",
+          "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+          "environment": "kite-passport-prod",
+          "journeyId": "j-2026-11-13-kite-payment-2"
+        },
+        "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+        "settlementReference": null
+      }
+    },
+    "duplicate": {
+      "origin": "KITE_PASSPORT",
+      "journeyId": "j-2026-11-13-kite-payment-2",
+      "capturedAt": "2026-11-13T07:02:26.004Z",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/duplicate.json",
+          "sha256": "907080d1776c3d1ba1a97a58389280035720519162e3a828309e2a87f520aa54"
+        }
+      ],
+      "facts": {
+        "sameIntentReturned": true,
+        "secondEgress": false,
+        "basis": "PRODUCT_DUPLICATE_PROTECTION"
+      }
+    }
+  },
+  "notRecorded": [
+    "sensor",
+    "document",
+    "reasoning",
+    "fulfillment",
+    "recovery",
+    "timeout"
+  ],
+  "context": {
+    "incidentTrigger": "SIMULATED_INPUT (labelled SIMULATOR device in a throwaway database; the sensor part is NOT_RUN)",
+    "tenant": "synthetic tenant in a throwaway database, dropped after the gate ran",
+    "runner": "apps/kite-broker/test/support/journey-kite-payment.ts",
+    "mode": "LIVE",
+    "timeout": "NOT_RUN: Kite documents no payment lookup by client key, so an injected timeout after egress could only be resolved manually; the timeout part is not attempted (docs/adr/0003-kite-broker.md).",
+    "duplicate": "product duplicate protection (same intent, no second egress); Kite same-key replay is not documented as returning the original result"
+  }
+}

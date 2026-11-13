@@ -4,7 +4,7 @@
 // scope exactly, and every preflight check of that gate passed. An authorization is not transferable between gates.
 // The gate script decides and records; it contains no code that performs any external action.
 import { generateKeyPairSync } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { repoRoot, run } from '../m00/helpers.js';
@@ -185,20 +185,27 @@ describe('T-060 release gates are separate and explicit', () => {
 });
 
 describe('T-060 repository state: no external action is authorized', () => {
-  it('registers only the owner key; the one PAYMENT record is already used, so every gate is REFUSED', () => {
+  it('registers only the owner key; both PAYMENT records are already used, so every gate is REFUSED', () => {
     const r = run('node', ['scripts/release/release-gate.mjs', 'status', '--json']);
     expect(r.code).toBe(0);
     const status = JSON.parse(r.stdout);
     expect(status.gates.map((g: { gate: string }) => g.gate).sort()).toEqual([...rg.GATES].sort());
     for (const g of status.gates) {
       expect(g.decision, g.gate).toBe('REFUSED');
-      // The only record in the repository is the owner's PAYMENT authorization for the first live T-058 attempt
-      // (auth-payment-20261113-cacd36). That attempt consumed it, so it can never open the gate again; every other gate
-      // has no record at all.
+      // The only records in the repository are the owner's two PAYMENT authorizations, one per live T-058 attempt
+      // (auth-payment-20261113-cacd36, auth-payment-20261113-86104d). Each attempt consumed its record, so neither can
+      // open the gate again; every other gate has no record at all.
       expect(g.reasons, g.gate).toContain(g.gate === 'PAYMENT' ? 'AUTHORIZATION_ALREADY_USED' : 'NO_AUTHORIZATION');
     }
     // A registered key alone opens nothing: each gate still needs its own signed, unused record.
     expect(status.authorizers).toEqual(['owner-195587c58bb1180e']);
+    const dir = path.join(repoRoot, 'evidence', 'authorizations');
+    const records = readdirSync(dir)
+      .filter((f) => /^[A-Z_]+\..+\.json$/.test(f))
+      .sort();
+    expect(records).toEqual(['PAYMENT.auth-payment-20261113-86104d.json', 'PAYMENT.auth-payment-20261113-cacd36.json']);
+    const consumed = JSON.parse(readFileSync(path.join(dir, 'consumed.json'), 'utf8')).consumed;
+    expect([...consumed].sort()).toEqual(['auth-payment-20261113-86104d', 'auth-payment-20261113-cacd36']);
   });
 
   it('a check against the repository refuses and exits non-zero', () => {

@@ -1,0 +1,58 @@
+{
+  "schema": "journey-gate-result.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "sourceSha": "758a1ae4a3a136a55d6ab3d005cb420ed15bdf6c",
+  "result": "NOT_RUN",
+  "parts": [
+    {
+      "part": "sensor",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "document",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "reasoning",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "payment",
+      "status": "PASS",
+      "reasons": []
+    },
+    {
+      "part": "fulfillment",
+      "status": "PASS",
+      "reasons": []
+    },
+    {
+      "part": "recovery",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    },
+    {
+      "part": "duplicate",
+      "status": "PASS",
+      "reasons": []
+    },
+    {
+      "part": "timeout",
+      "status": "NOT_RUN",
+      "reasons": [
+        "NOT_PROVIDED"
+      ]
+    }
+  ]
+}

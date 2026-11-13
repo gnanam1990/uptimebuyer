@@ -1,9 +1,9 @@
 {
   "schema": "coverage-report.v1",
   "generatedFrom": {
-    "commit": "ef3ffb0",
+    "commit": "6acf7e6",
     "resultFiles": 3,
-    "testFilesWithResults": 188
+    "testFilesWithResults": 194
   },
   "statusVocabulary": [
     "PASS",
@@ -159,7 +159,10 @@
         "packages/evidence/src/retrieval.ts",
         "packages/evidence/src/revisions.ts",
         "packages/data/migrations/0010_m05_evidence_reasoning.sql",
-        "packages/data/migrations/0024_m05_parser_rederivation.sql"
+        "packages/data/migrations/0024_m05_parser_rederivation.sql",
+        "packages/data/migrations/0025_m05_rederivation_lineage.sql",
+        "packages/data/migrations/0026_m05_withheld_unreadable_part.sql",
+        "packages/data/migrations/0027_m05_consent_withdrawals.sql"
       ],
       "testRefs": [
         "packages/evidence/test/t021-citation-provenance.int.test.ts",
@@ -1724,7 +1727,9 @@
         "packages/providers/test/t032-timeout-unknown.int.test.ts",
         "packages/resilience/test/t054-bounds.test.ts",
         "apps/kite-broker/test/t043-restart-safe-reconciliation.int.test.ts",
-        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts"
+        "apps/kite-broker/test/t056-chaos-commerce.int.test.ts",
+        "apps/kite-broker/test/t058-journey-kite-payment.int.test.ts",
+        "tests/m14/t058-payment-resolution-gate.test.ts"
       ],
       "governingTests": [
         "T-029",
@@ -2527,7 +2532,7 @@
       ],
       "codeRefs": [],
       "results": {
-        "passed": 53,
+        "passed": 59,
         "failed": 0
       }
     },
@@ -2583,7 +2588,7 @@
       ],
       "codeRefs": [],
       "results": {
-        "passed": 11,
+        "passed": 21,
         "failed": 0
       }
     },
@@ -2876,6 +2881,7 @@
         "apps/kite-broker/test/t040-crash-processes.int.test.ts",
         "apps/kite-broker/test/t040-execution-paths.test.ts",
         "apps/kite-broker/test/t040-kite-passport-adapter.test.ts",
+        "apps/kite-broker/test/t040-kite-passport-contract.test.ts",
         "apps/kite-broker/test/t040-no-effect-producers.test.ts",
         "apps/kite-broker/test/t040-reconciliation.int.test.ts",
         "apps/kite-broker/test/t040-replay-preconditions.int.test.ts",
@@ -2883,7 +2889,7 @@
       ],
       "codeRefs": [],
       "results": {
-        "passed": 37,
+        "passed": 80,
         "failed": 0
       }
     },
@@ -3224,14 +3230,18 @@
       "externalEvidence": "NOT_RUN",
       "testRefs": [
         "apps/kite-broker/test/t058-journey-gate-db.int.test.ts",
+        "apps/kite-broker/test/t058-journey-kite-payment.int.test.ts",
+        "apps/kite-broker/test/t058-kite-payment-preflight.test.ts",
         "tests/m14/t058-journey-evidence.test.ts",
         "tests/m14/t058-journey-gate.test.ts",
         "tests/m14/t058-journey-serv-document-2.test.ts",
-        "tests/m14/t058-journey-serv-document.test.ts"
+        "tests/m14/t058-journey-serv-document.test.ts",
+        "tests/m14/t058-payment-journey-gate.test.ts",
+        "tests/m14/t058-payment-resolution-gate.test.ts"
       ],
       "codeRefs": [],
       "results": {
-        "passed": 56,
+        "passed": 125,
         "failed": 0
       },
       "journeyRecords": [
@@ -3266,6 +3276,22 @@
             "duplicate": "NOT_RUN",
             "timeout": "NOT_RUN"
           }
+        },
+        {
+          "journeyId": "j-2026-11-13-kite-payment-2",
+          "sourceSha": "758a1ae4a3a136a55d6ab3d005cb420ed15bdf6c",
+          "gateRecord": "docs/release/evidence/t058-journey-j-2026-11-13-kite-payment-2.gate.json",
+          "result": "NOT_RUN",
+          "parts": {
+            "sensor": "NOT_RUN",
+            "document": "NOT_RUN",
+            "reasoning": "NOT_RUN",
+            "payment": "PASS",
+            "fulfillment": "PASS",
+            "recovery": "NOT_RUN",
+            "duplicate": "PASS",
+            "timeout": "NOT_RUN"
+          }
         }
       ]
     },
@@ -3296,12 +3322,14 @@
       "localStatus": "PASS",
       "externalEvidence": "NOT_RUN",
       "testRefs": [
+        "tests/m14/t058-payment-journey-gate.test.ts",
+        "tests/m14/t060-authorize-script.test.ts",
         "tests/m14/t060-release-gates.test.ts",
         "tests/m14/t060-restore-verification.int.test.ts"
       ],
       "codeRefs": [],
       "results": {
-        "passed": 27,
+        "passed": 56,
         "failed": 0
       }
     }

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "journey-note",
+  "project": "UptimeBuyer",
+  "ids": ["T-058", "T-060", "FR-12", "FR-22", "INV-08", "INV-12"],
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "branch": "docs/t058-kite-payment-2-resolution",
+  "startingCommit": "60bc5c5",
+  "runSourceSha": "60bc5c59609b3e7c04abbe77b5d66948c5f7fdc5",
+  "resolutionSourceSha": "758a1ae4a3a136a55d6ab3d005cb420ed15bdf6c",
+  "localCommits": [
+    "1bb02cb docs(t058): record live run j-2026-11-13-kite-payment-2 as produced (payment UNKNOWN)",
+    "658f8c7 test(t058): manual resolution of an UNKNOWN Kite payment and its journey record (red)",
+    "758a1ae feat(t058): record a manually resolved payment as part of its journey",
+    "b89f998 docs(t058): record the manual resolution of j-2026-11-13-kite-payment-2 (CAPTURED, 1 cent)",
+    "docs(t058): resolution of journey kite-payment-2 in the ADR, release docs, claims, T-060 state and this note (this commit)",
+    "docs(coverage): regenerate with the recorded payment journey"
+  ],
+  "redEvidence": {
+    "658f8c7": "detached worktree: 2 files failed, 18 tests failed / 1 passed (the passing one is the 'every rule holds' case, which must pass before and after); the integration test failed on the missing resolution runner",
+    "correctedAfterRed": "the unit test recorded the cited digests after its mutations, so an edit after recording could not be expressed; it now applies post-recording tampering separately (committed with the implementation)"
+  },
+  "run": {
+    "authorizationId": "auth-payment-20261113-86104d",
+    "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+    "externalAttemptId": "att_5882d37f-fdad-499d-bd9d-0732defecc01",
+    "brokerOutcome": "UNKNOWN, reasonCode KITE_UNEXPECTED_CHAIN (kpass x402.chain_id 2366), capability UNSUPPORTED, 1 minor unit reserved",
+    "duplicate": "same intent returned, no second egress",
+    "gateAtRun": "payment UNKNOWN, duplicate PASS, everything else NOT_RUN (docs/release/evidence/t058-journey-j-2026-11-13-kite-payment-2.run-gate*.json)"
+  },
+  "reconciliationFacts": {
+    "readBy": "the agent, read-only, in the broker state root with HOME set to it: kpass wallet balance, activity, session list (2026-11-13T07:56Z)",
+    "walletBaseUsdc": "after 1.090000 (re-read); before 1.100000 (operator's read before the run and the first attempt's record; not re-read)",
+    "activity": "x402_payment completed, 'API call — lionx402.com', 2026-11-13T07:02:25.367514Z, 10000 raw USDC (0x8335...2913), chain_id 2366, tx 0x9d5af32b...97c0db, after session_approval at 07:02:17.588829Z",
+    "session": "recorded as sha256 cc71e498...0007; active until 08:02:16Z; spent_total 0.01 (10000 raw), reserved_total 0; policy 0.01 per call, 0.01 total",
+    "merchant": "HTTP 200, 7 results (merchant-response.json, response sha256 4af0b56c...98ee2)",
+    "evidenceDigest": "sha256:c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a"
+  },
+  "ownerDecision": "CAPTURED of exactly 1 minor unit USD, by the owner as finance approver, in chat on 2026-11-13 (relayed by the coordinator; exact time not relayed)",
+  "resolution": {
+    "path": "apps/kite-broker/test/support/journey-kite-resolution.ts at 758a1ae (clean tracked tree) -> resolveUnknownIntentManually as the world's finance approver (authenticateHuman + resolveTenantContext with the test identity provider)",
+    "result": "intent CONFIRMED; CAPTURE 1; nothing released (the reservation was exactly 1); open reserved 0; net settled 1; ledger conservation holds; receipt PAYMENT_SETTLEMENT (KITE_PASSPORT) with the evidence digest; nothing re-sent",
+    "resolvedAt": "2026-11-13T08:04:50.278Z",
+    "database": "ub_j058kite_14511_1794553297406 dropped after the export"
+  },
+  "gate": {
+    "sourceSha": "758a1ae",
+    "fileOnly": "payment PASS, fulfillment PASS, duplicate PASS; sensor, document, reasoning, recovery, timeout NOT_RUN; result NOT_RUN",
+    "withDatabase": "same"
+  },
+  "openQuestions": [
+    "Which chain is 2366? kpass execute and Kite's activity both report it for a payment the merchant advertised on Base (8453); the Base USDC balance fell by exactly 0.01. Ask Kite; the adapter keeps refusing to confirm it automatically."
+  ],
+  "notRun": [
+    "T-058 as a whole: the sensor, recovery and timeout parts (and document/reasoning in this journey) are NOT_RUN"
+  ],
+  "secrets": "No token, JWT, key, account e-mail, user id or raw session id was printed or committed; the redaction checks compared artifacts with those values by name only."
+}

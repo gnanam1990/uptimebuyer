@@ -1,0 +1,130 @@
+{
+  "schema": "real-input-journey.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "sourceSha": "758a1ae4a3a136a55d6ab3d005cb420ed15bdf6c",
+  "runSourceSha": "60bc5c59609b3e7c04abbe77b5d66948c5f7fdc5",
+  "startedAt": "2026-11-13T07:01:37.404Z",
+  "endedAt": "2026-11-13T08:04:50.284Z",
+  "parts": {
+    "payment": {
+      "origin": "KITE_PASSPORT",
+      "journeyId": "j-2026-11-13-kite-payment-2",
+      "capturedAt": "2026-11-13T08:04:50.278Z",
+      "authorizationId": "auth-payment-20261113-86104d",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/payment-resolved.json",
+          "sha256": "da414ac52d69fad11c63ab87387a9b8dd28fa25e9b1096bf8a6eaee292946d33"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/reconciliation.json",
+          "sha256": "c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/redaction-check-resolution.json",
+          "sha256": "387b25979dc22dbff0cc8c5d98d0d39df3c0434b97e39c3c89fe8c4737f03df2"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/payment.json",
+          "sha256": "c0f2cfdd392c5b216b0558bd05646ec0c7d6707c3ff01355c83d7bed2c3cb903"
+        },
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/gate-decision.json",
+          "sha256": "9fda4be80cba36c554638524dfe6b2271b0653aa692913c6a02af06ed7831575"
+        }
+      ],
+      "facts": {
+        "state": "CONFIRMED",
+        "reconciled": true,
+        "amountMinor": 1,
+        "capMinor": 1,
+        "currency": "USD",
+        "merchant": "lionx402.com",
+        "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+        "request": {
+          "merchant": "lionx402.com",
+          "amountMinor": 1,
+          "currency": "USD",
+          "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+          "environment": "kite-passport-prod",
+          "journeyId": "j-2026-11-13-kite-payment-2"
+        },
+        "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+        "settlementReference": "0x9d5af32b42f9b6306cff90249d3fa232c04e8a05aec2d01faecf57d16b97c0db",
+        "resolution": {
+          "kind": "MANUAL_FINANCE_RESOLUTION",
+          "resolution": "CAPTURED",
+          "evidenceDigest": "sha256:c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a",
+          "resolvedAt": "2026-11-13T08:04:50.278Z"
+        }
+      }
+    },
+    "fulfillment": {
+      "origin": "PROVIDER_LIVE",
+      "journeyId": "j-2026-11-13-kite-payment-2",
+      "capturedAt": "2026-11-13T07:02:25.895Z",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/merchant-response.json",
+          "sha256": "98a32138a4d965ceb5bfeb6d8e721fed454212d302b06a7d31c789a46c92329c"
+        }
+      ],
+      "facts": {
+        "statusCode": 200,
+        "resultCount": 7,
+        "responseSha256": "4af0b56c39eccf02b8f0c71ce5a70095dd053d259cd5e341e9ac78d490d98ee2"
+      }
+    },
+    "duplicate": {
+      "origin": "KITE_PASSPORT",
+      "journeyId": "j-2026-11-13-kite-payment-2",
+      "capturedAt": "2026-11-13T07:02:26.004Z",
+      "artifacts": [
+        {
+          "path": "evidence/journeys/j-2026-11-13-kite-payment-2/duplicate.json",
+          "sha256": "907080d1776c3d1ba1a97a58389280035720519162e3a828309e2a87f520aa54"
+        }
+      ],
+      "facts": {
+        "sameIntentReturned": true,
+        "secondEgress": false,
+        "basis": "PRODUCT_DUPLICATE_PROTECTION"
+      }
+    }
+  },
+  "notRecorded": [
+    "sensor",
+    "document",
+    "reasoning",
+    "recovery",
+    "timeout"
+  ],
+  "context": {
+    "incidentTrigger": "SIMULATED_INPUT (labelled SIMULATOR device in a throwaway database; the sensor part is NOT_RUN)",
+    "tenant": "synthetic tenant in a throwaway database, dropped after the gate ran",
+    "runner": "apps/kite-broker/test/support/journey-kite-payment.ts",
+    "mode": "LIVE",
+    "timeout": "NOT_RUN: Kite documents no payment lookup by client key, so an injected timeout after egress could only be resolved manually; the timeout part is not attempted (docs/adr/0003-kite-broker.md).",
+    "duplicate": "product duplicate protection (same intent, no second egress); Kite same-key replay is not documented as returning the original result",
+    "resolution": "The paid outcome stayed UNKNOWN in the run (KITE_UNEXPECTED_CHAIN); the owner, as finance approver, resolved it CAPTURED from read-only evidence (reconciliation.json). The run manifest is manifest-run.journey.json.",
+    "resolutionRunner": "apps/kite-broker/test/support/journey-kite-resolution.ts"
+  },
+  "resolution": {
+    "kind": "MANUAL_FINANCE_RESOLUTION",
+    "resolution": "CAPTURED",
+    "capturedMinor": 1,
+    "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+    "sourceSha": "758a1ae4a3a136a55d6ab3d005cb420ed15bdf6c",
+    "resolvedAt": "2026-11-13T08:04:50.278Z",
+    "reasonCode": "OWNER_REVIEW_KITE_SETTLEMENT_CHAIN_UNVERIFIED",
+    "evidence": {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/reconciliation.json",
+      "sha256": "c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a"
+    },
+    "evidenceDigest": "sha256:c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a",
+    "runManifest": {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/manifest-run.journey.json",
+      "sha256": "a54b2e8bf37b0ed8761527c7c05fd03246b35e9318590660d708668635751420"
+    }
+  }
+}

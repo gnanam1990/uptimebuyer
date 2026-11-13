@@ -1,0 +1,90 @@
+{
+  "schema": "journey-kite-payment-record.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "origin": "KITE_PASSPORT",
+  "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+  "externalAttemptId": "att_5882d37f-fdad-499d-bd9d-0732defecc01",
+  "authorizationId": "auth-payment-20261113-86104d",
+  "state": "CONFIRMED",
+  "amountMinor": "1",
+  "releasedMinor": "0",
+  "money": {
+    "maxAmountMinor": "1",
+    "openReservedMinor": "0",
+    "capturedGrossMinor": "1",
+    "refundedMinor": "0",
+    "reversedMinor": "0",
+    "netSettledMinor": "1",
+    "currency": "USD"
+  },
+  "attempt": {
+    "externalAttemptId": "att_5882d37f-fdad-499d-bd9d-0732defecc01",
+    "tenantId": "ten_001ad843-4dfb-4123-b03a-6a3677a967a5",
+    "commercialIntentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+    "providerAccountRevisionId": "par_c1cc6a04-c1fa-4e76-b73e-f46de66894e4",
+    "clientOperationId": "op_69a27a80-0c66-410b-874d-8bfd131fc950",
+    "idempotencyKey": "cin-op.cecd73c8-c3a0-45ec-960b-6ed17ef68b0a",
+    "requestDigest": "sha256:b374a5312fe5aeed47b79b8018389dca9003d28d747db7b5f019ec013690bede",
+    "transportState": "UNKNOWN",
+    "externalOutcomeState": "CONFIRMED",
+    "adapterCapability": "UNSUPPORTED",
+    "providerRef": null,
+    "rawProviderStatus": "exit_0",
+    "nextReconcileAt": null
+  },
+  "receipts": [
+    {
+      "kind": "PAYMENT_SETTLEMENT",
+      "resultOrigin": "KITE_PASSPORT",
+      "normalizedDigest": "sha256:7629864dc810630e985bfcffd235705eff03b52d967c2f1a2cf5c2bedf35dbc8",
+      "observedAt": "2026-11-13T08:04:50.174Z"
+    }
+  ],
+  "transitions": [
+    {
+      "sequence": 1,
+      "from": null,
+      "to": "CREATED",
+      "reasonCode": "CREATED",
+      "at": "2026-11-13T07:02:21.190Z"
+    },
+    {
+      "sequence": 2,
+      "from": "CREATED",
+      "to": "RESERVED",
+      "reasonCode": "RESERVE_AND_SEND_STARTED",
+      "at": "2026-11-13T07:02:21.249Z"
+    },
+    {
+      "sequence": 3,
+      "from": "RESERVED",
+      "to": "UNKNOWN",
+      "reasonCode": "EXECUTE_UNKNOWN",
+      "at": "2026-11-13T07:02:25.547Z"
+    },
+    {
+      "sequence": 4,
+      "from": "UNKNOWN",
+      "to": "CONFIRMED",
+      "reasonCode": "OWNER_REVIEW_KITE_SETTLEMENT_CHAIN_UNVERIFIED",
+      "at": "2026-11-13T08:04:50.199Z"
+    }
+  ],
+  "ledgerConservation": "HOLDS",
+  "resolution": {
+    "kind": "MANUAL_FINANCE_RESOLUTION",
+    "resolution": "CAPTURED",
+    "capturedMinor": "1",
+    "evidenceDigest": "sha256:c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a",
+    "reasonCode": "OWNER_REVIEW_KITE_SETTLEMENT_CHAIN_UNVERIFIED",
+    "resolvedBy": "finance_approver of the synthetic tenant (product path resolveUnknownIntentManually)",
+    "resolvedAt": "2026-11-13T08:04:50.278Z"
+  },
+  "settlement": {
+    "reference": "0x9d5af32b42f9b6306cff90249d3fa232c04e8a05aec2d01faecf57d16b97c0db",
+    "reportedChainId": 2366,
+    "payTo": "lionx402.com"
+  },
+  "reconciled": true,
+  "reSent": false
+}

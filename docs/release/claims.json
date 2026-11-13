@@ -151,11 +151,19 @@
     },
     {
       "id": "C-022",
-      "text": "A real bounded Kite-paid action with downstream fulfillment: NOT_RUN (no Kite credential and no PAYMENT authorization; every payment shown is RECORDED_CONTRACT).",
+      "text": "A real bounded Kite-paid action with downstream fulfillment, as part of a complete real-input journey: NOT_RUN (the claim maps to T-058, which stays NOT_RUN until one journey passes every part). Recorded so far: journey j-2026-11-13-kite-payment-2 (run at 60bc5c5, owner-signed PAYMENT authorization auth-payment-20261113-86104d) made one paid call of USD 0.01 through the broker to lionx402.com, whose OpenStreetMap search answered HTTP 200 with 7 results; the broker recorded the outcome UNKNOWN because kpass reported a settlement chain id (2366) other than the merchant's Base (8453), and the owner as finance approver resolved it CAPTURED from read-only Kite and wallet evidence (recorded at 758a1ae). The journey gate reads payment PASS, fulfillment PASS and duplicate PASS (the duplicate request returned the same intent with no second payment). The chain id 2366 is an open question. The first attempt (j-2026-11-13-kite-payment) made no payment. Sensor, recovery and timeout parts are NOT_RUN. Local tests still use the RECORDED_CONTRACT adapter.",
       "status": "NOT_RUN",
       "layer": "REAL_WORLD",
       "coverageIds": ["T-058", "FR-22"],
-      "evidence": []
+      "evidence": [
+        "evidence/journeys/j-2026-11-13-kite-payment-2/manifest.journey.json",
+        "evidence/journeys/j-2026-11-13-kite-payment-2/reconciliation.json",
+        "evidence/journeys/j-2026-11-13-kite-payment-2/payment-resolved.json",
+        "evidence/journeys/j-2026-11-13-kite-payment-2/merchant-response.json",
+        "docs/release/evidence/t058-journey-j-2026-11-13-kite-payment-2.gate.json",
+        "docs/release/evidence/t058-journey-j-2026-11-13-kite-payment-2.gate-database.json",
+        "evidence/journeys/j-2026-11-13-kite-payment/resolution.json"
+      ]
     },
     {
       "id": "C-023",

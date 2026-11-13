@@ -1,0 +1,41 @@
+{
+  "schema": "journey-redaction-check.v1",
+  "checkedAt": "2026-11-13T08:04:50.282Z",
+  "rules": [
+    "SECRET_VALUE",
+    "AUTHORIZATION_HEADER",
+    "BEARER_TOKEN",
+    "CREDENTIALED_URL",
+    "ENV_DUMP",
+    "SECRET_PATTERN:aws-access-key",
+    "SECRET_PATTERN:github-token",
+    "SECRET_PATTERN:private-key",
+    "SECRET_PATTERN:slack-token",
+    "SECRET_PATTERN:stripe-live-key",
+    "SECRET_PATTERN:anthropic-key",
+    "SECRET_PATTERN:openai-key",
+    "SECRET_PATTERN:generic-assigned-secret"
+  ],
+  "secretValuesChecked": [
+    "KPASS_JWT",
+    "KPASS_AGENT_TOKEN",
+    "KPASS_ACCOUNT_EMAIL",
+    "KPASS_USER_ID"
+  ],
+  "files": [
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/reconciliation.json",
+      "sha256": "c2d1a6f2814ef8259f74d48fe526c2a97a97820e4d73c57b391fa5a2db03983a",
+      "bytes": 5394,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/payment-resolved.json",
+      "sha256": "da414ac52d69fad11c63ab87387a9b8dd28fa25e9b1096bf8a6eaee292946d33",
+      "bytes": 2936,
+      "binary": false
+    }
+  ],
+  "findings": [],
+  "result": "PASS"
+}
