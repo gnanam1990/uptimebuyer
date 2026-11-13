@@ -2,22 +2,49 @@
 // "as of" time (stale data is never aggregated into a healthy count — INV-11), the asset freshness table with input
 // origin labels, the active incident board and the action queue.
 import { api, useResource } from '../api';
-import { AxisBadge } from '../components/AxisBadge';
+import { AxisBadge, Icon } from '../components/AxisBadge';
+import { describeAxis, type Shape, type Tone } from '../status/axes';
 import { formatDuration, formatUtc } from '../format';
 import { Link } from '../router';
 import { useSession } from '../session';
 import { Code, Loadable } from './common';
 
-const STATS: [string, string][] = [
-  ['assetsFresh', 'Assets fresh'],
-  ['assetsStale', 'Assets stale'],
-  ['assetsOffline', 'Assets offline'],
-  ['assetsInvalid', 'Assets invalid'],
-  ['assetsNoSignal', 'Assets with no signal'],
-  ['activeIncidents', 'Active incidents'],
-  ['criticalIncidents', 'Critical incidents'],
-  ['unresolvedExternalOutcomes', 'Unresolved external outcomes'],
+type Stat = [key: string, label: string, shape: Shape, tone: Tone];
+// Icon shape and tone come from the freshness axis mapping, so a count never looks healthier than its state.
+const fresh = (value: string): [Shape, Tone] => {
+  const d = describeAxis('freshness', value);
+  return [d.shape, d.tone];
+};
+const SIGNAL_STATS: Stat[] = [
+  ['assetsFresh', 'Assets fresh', ...fresh('FRESH')],
+  ['assetsStale', 'Assets stale', ...fresh('STALE')],
+  ['assetsOffline', 'Assets offline', ...fresh('OFFLINE')],
+  ['assetsInvalid', 'Assets invalid', ...fresh('INVALID')],
+  ['assetsNoSignal', 'Assets with no signal', ...fresh('NO_SIGNAL')],
 ];
+const INCIDENT_STATS: Stat[] = [
+  ['activeIncidents', 'Active incidents', 'circle', 'neutral'],
+  ['criticalIncidents', 'Critical incidents', 'octagon', 'critical'],
+  ['unresolvedExternalOutcomes', 'Unresolved external outcomes', 'question', 'unknown'],
+];
+
+function StatList({ stats, counts }: { stats: Stat[]; counts: Record<string, number> }) {
+  return (
+    <ul className="stats">
+      {stats.map(([key, label, shape, tone]) => (
+        <li key={key} className="stat">
+          <span className={`stat-icon tone-${tone}`}>
+            <Icon shape={shape} />
+          </span>
+          <span className="stat-value" data-testid={`count-${key}`}>
+            {String(counts[key])}
+          </span>
+          <span className="stat-label">{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function CommandCenter() {
   const { session } = useSession();
@@ -26,27 +53,33 @@ export function CommandCenter() {
   const notes = useResource(() => api.notifications(), []);
   return (
     <>
-      <h1 tabIndex={-1}>Command Center — {session.tenant.name}</h1>
-      <section aria-labelledby="fleet-h" className="panel">
+      <h1 tabIndex={-1}>Command Center</h1>
+      <p className="page-intro">
+        Refrigeration assets and open incidents for {session.tenant.name}. Fleet data refreshes every 15 seconds.
+      </p>
+      <section aria-labelledby="fleet-h" className="panel controller fleet">
         <h2 id="fleet-h">Fleet health</h2>
         <Loadable res={fleet} what="fleet health">
-          {(f) => (
-            <>
-              <ul className="stats">
-                {STATS.map(([key, label]) => (
-                  <li key={key} className="stat">
-                    <span className="stat-label">{label}</span>
-                    <span className="stat-value" data-testid={`count-${key}`}>
-                      {String(f.counts[key as keyof typeof f.counts])}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="muted">
-                As of {formatUtc(f.asOf)}. Stale, offline, invalid and no-signal assets are never counted as fresh.
-              </p>
-            </>
-          )}
+          {(f) => {
+            const counts = f.counts as unknown as Record<string, number>;
+            return (
+              <>
+                <div className="fleet-groups">
+                  <div className="fleet-group">
+                    <h3>Sensor signal</h3>
+                    <StatList stats={SIGNAL_STATS} counts={counts} />
+                  </div>
+                  <div className="fleet-group">
+                    <h3>Incidents and outcomes</h3>
+                    <StatList stats={INCIDENT_STATS} counts={counts} />
+                  </div>
+                </div>
+                <p className="asof">
+                  As of {formatUtc(f.asOf)}. Stale, offline, invalid and no-signal assets are never counted as fresh.
+                </p>
+              </>
+            );
+          }}
         </Loadable>
       </section>
 
@@ -83,7 +116,9 @@ export function CommandCenter() {
                         <td data-label="Site">{s.name}</td>
                         <td data-label="Freshness">
                           <AxisBadge axis="freshness" value={a.freshness} />
-                          {a.freshnessReason ? <span className="muted small"> {a.freshnessReason}</span> : null}
+                          {a.freshnessReason ? (
+                            <span className="muted small code-text"> {a.freshnessReason}</span>
+                          ) : null}
                         </td>
                         <td data-label="Newest reading">
                           {formatUtc(a.sourceTime)}
@@ -105,7 +140,7 @@ export function CommandCenter() {
                             ? 'None'
                             : a.activeIncidentIds.map((id) => (
                                 <Link key={id} to={`/incidents/${id}`} className="link-button">
-                                  Open incident {id}
+                                  Open incident <span className="id-text">{id}</span>
                                 </Link>
                               ))}
                         </td>
@@ -146,7 +181,7 @@ export function CommandCenter() {
                     <tr key={i.incidentId}>
                       <td data-label="Incident">
                         <Link to={`/incidents/${i.incidentId}`} className="link-button">
-                          Open incident {i.incidentId}
+                          Open incident <span className="id-text">{i.incidentId}</span>
                         </Link>
                       </td>
                       <td data-label="Severity and state">

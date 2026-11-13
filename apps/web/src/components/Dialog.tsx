@@ -8,12 +8,15 @@ export function Dialog({
   onClose,
   children,
   describedBy,
+  variant = 'modal',
 }: {
   title: string;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
   describedBy?: string;
+  /** 'drawer' docks the same modal dialog to the right edge on wide screens (the citation drawer). */
+  variant?: 'modal' | 'drawer';
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const returnTo = useRef<Element | null>(null);
@@ -43,7 +46,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className="dialog"
+      className={variant === 'drawer' ? 'dialog dialog-drawer' : 'dialog'}
       aria-labelledby={titleId}
       {...(describedBy ? { 'aria-describedby': describedBy } : {})}
       onCancel={(e) => {
