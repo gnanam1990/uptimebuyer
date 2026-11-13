@@ -208,7 +208,10 @@ describe('T-040 kpass 6.13.2 real session request ids (format observed 2026-11-1
     k.script('session create', { exitCode: 0, json: withId(KPASS.sessionCreateRequested.json) });
     k.script('session status', { exitCode: 0, json: withId(KPASS.sessionStatusPending.json) });
     const { adapter } = make(k);
-    expect(await adapter.activateSession(scope(), op, {})).toMatchObject({ kind: 'ACCEPTED', providerRef: REAL_ID });
+    expect(await adapter.activateSession(scope(), op, { onHandoff: () => {} })).toMatchObject({
+      kind: 'ACCEPTED',
+      providerRef: REAL_ID,
+    });
     expect(
       await adapter.lookupSession({
         clientOperationId: op.clientOperationId,
@@ -229,7 +232,7 @@ describe('T-040 kpass 6.13.2 real session request ids (format observed 2026-11-1
       const k = fakeKpass();
       k.script('session create', { exitCode: 0, json: { ...KPASS.sessionCreateRequested.json, request_id: bad } });
       const { adapter } = make(k);
-      expect((await adapter.activateSession(scope(), op, {})).kind, bad).toBe('UNKNOWN');
+      expect((await adapter.activateSession(scope(), op, { onHandoff: () => {} })).kind, bad).toBe('UNKNOWN');
     }
   });
 });
