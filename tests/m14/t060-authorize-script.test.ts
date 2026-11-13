@@ -3,7 +3,7 @@
 // a PAYMENT authorization record from explicit arguments (validity at most the gate's 4 hours), describes it in plain
 // words and signs it only after the user types YES. Every test here uses a throwaway key in a temporary directory.
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -45,6 +45,14 @@ describe('T-060 authorize.mjs key handling', () => {
     // A key readable by others is refused rather than used.
     chmodSync(keyFile, 0o644);
     expect(() => az.ensureKey(dir)).toThrow(/0600/);
+  });
+
+  it('PR #21 review 8: refuses a key directory that reaches the repository through a symlink', () => {
+    const outside = tmp();
+    const link = path.join(outside, 'repo-link');
+    symlinkSync(path.join(repoRoot, 'tmp'), link);
+    expect(() => az.ensureKey(path.join(link, 'authorizer-via-link'), { repoRoot })).toThrow(/outside the repository/);
+    expect(existsSync(path.join(repoRoot, 'tmp', 'authorizer-via-link'))).toBe(false);
   });
 
   it('refuses a key directory inside the repository', () => {

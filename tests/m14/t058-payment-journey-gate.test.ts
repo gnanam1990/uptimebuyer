@@ -152,7 +152,16 @@ describe('T-058 payment journey manifest', () => {
       capturedAt: '2026-11-13T10:40:00.000Z',
       authorizationId: 'auth-payment-20261113-a1b2c3',
       artifacts: [art('payment.json')],
-      facts: { state: 'CONFIRMED', reconciled: true, amountMinor: 1, capMinor: 1, currency: 'USD', request: request() },
+      facts: {
+        state: 'CONFIRMED',
+        reconciled: true,
+        amountMinor: 1,
+        capMinor: 1,
+        currency: 'USD',
+        merchant: 'lionx402.com',
+        purpose: 'REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP',
+        request: request(),
+      },
     },
     fulfillment: {
       capturedAt: '2026-11-13T10:40:00.000Z',
@@ -218,5 +227,126 @@ describe('T-058 payment journey manifest', () => {
     const status = Object.fromEntries(r.parts.map((p: { part: string; status: string }) => [p.part, p.status]));
     expect(status).toMatchObject({ payment: 'PASS', fulfillment: 'PASS', duplicate: 'PASS', sensor: 'NOT_RUN' });
     expect(r.result).toBe('NOT_RUN');
+  });
+});
+
+// PR #21 review 9: the authorized request, not the manifest's own capMinor, bounds the recorded payment.
+describe('T-058 PR #21 review 9: the recorded payment stays inside the authorized request', () => {
+  const base = () => ({
+    state: 'CONFIRMED',
+    reconciled: true,
+    amountMinor: 1,
+    capMinor: 5,
+    currency: 'USD',
+    merchant: 'lionx402.com',
+    purpose: 'REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP',
+    request: request(),
+  });
+  const root = mkdtempSync(path.join(tmpdir(), 'ub-t058-pay-r9-'));
+  roots.push(root);
+  const art = () => {
+    const rel = `evidence/journeys/${window.journeyId}/payment.json`;
+    mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    writeFileSync(path.join(root, rel), '{}');
+    return { path: rel, sha256: createHash('sha256').update('{}').digest('hex') };
+  };
+  const manifest = (facts: Record<string, unknown>) => ({
+    schema: 'real-input-journey.v1',
+    journeyId: window.journeyId,
+    sourceSha: 'a'.repeat(40),
+    startedAt: window.startedAt,
+    endedAt: window.endedAt,
+    parts: {
+      payment: {
+        origin: 'KITE_PASSPORT',
+        journeyId: window.journeyId,
+        capturedAt: '2026-11-13T10:40:00.000Z',
+        authorizationId: 'auth-payment-20261113-a1b2c3',
+        artifacts: [art()],
+        facts,
+      },
+    },
+  });
+  const paymentOf = (facts: Record<string, unknown>) =>
+    gate
+      .evaluateJourney(manifest(facts), {
+        artifactRoot: root,
+        expectedSha: 'a'.repeat(40),
+        simulatedDigests: new Set(),
+        isAuthorized: () => true,
+      })
+      .parts.find((p: { part: string }) => p.part === 'payment');
+
+  it.each([
+    ['an amount above the authorized request (even under capMinor)', { amountMinor: 2 }, 'PAYMENT_OVER_AUTHORIZED'],
+    ['another currency', { currency: 'EUR' }, 'PAYMENT_OUTSIDE_AUTHORIZATION:currency'],
+    ['another merchant', { merchant: 'other.example' }, 'PAYMENT_OUTSIDE_AUTHORIZATION:merchant'],
+    ['another purpose', { purpose: 'OTHER_PURPOSE' }, 'PAYMENT_OUTSIDE_AUTHORIZATION:purpose'],
+    ['no authorized request', { request: undefined }, 'PAYMENT_REQUEST_MISSING'],
+  ])('the journey gate fails %s', (_n, over, reason) => {
+    const p = paymentOf({ ...base(), ...over });
+    expect(p.status).toBe('FAIL');
+    expect(p.reasons).toContain(reason);
+  });
+
+  it('the gate passes the payment inside the request, and the manifest builder refuses one outside it', () => {
+    expect(paymentOf(base()).status).toBe('PASS');
+    const build = (facts: Record<string, unknown>) =>
+      ev.buildJourneyManifest({
+        journeyId: window.journeyId,
+        sourceSha: 'a'.repeat(40),
+        startedAt: window.startedAt,
+        endedAt: window.endedAt,
+        recordable: ev.PAYMENT_RECORDED_PARTS,
+        parts: {
+          payment: {
+            capturedAt: '2026-11-13T10:40:00.000Z',
+            authorizationId: 'auth-payment-20261113-a1b2c3',
+            artifacts: [art()],
+            facts,
+          },
+        },
+      });
+    expect(() => build(base())).not.toThrow();
+    expect(() => build({ ...base(), amountMinor: 2 })).toThrow(/authorized request/);
+    expect(() => build({ ...base(), currency: 'EUR' })).toThrow(/authorized request/);
+    expect(() => build({ ...base(), merchant: 'other.example' })).toThrow(/authorized request/);
+    expect(() => build({ ...base(), purpose: 'X_Y' })).toThrow(/authorized request/);
+  });
+});
+
+// PR #21 review 10: completed-payment evidence counts only with the consumed, request-bound AUTHORIZED decision made
+// inside the journey window and recorded for this journey id (decision: the journey id is bound in the decision record,
+// not in the signed scope; see docs/release/RELEASE-GATES.md).
+describe('T-058 PR #21 review 10: completed-payment evidence needs the decision recorded for this journey', () => {
+  const id = 'auth-payment-20261113-a1b2c3';
+  const now = new Date('2026-11-13T10:55:00.000Z');
+
+  it('an unconsumed, valid record alone is not evidence of a completed payment', () => {
+    const root = gateRoot();
+    expect(gate.paymentAuthorized(root, id, request(), { ...window, now })).toBe(true);
+    expect(gate.paymentEvidenceAuthorized(root, id, request(), { ...window, now })).toBe(false);
+    expect(gate.evidenceAuthorizer(root, () => now)('PAYMENT', id, request(), window)).toBe(false);
+  });
+
+  it('the decision records the journey id; only that journey, inside its window, may use it', () => {
+    const root = gateRoot();
+    rg.checkAndRecord(root, 'PAYMENT', request(), { preflight, now: decidedAt });
+    const line = JSON.parse(
+      readFileSync(path.join(root, 'evidence', 'authorizations', 'decisions.jsonl'), 'utf8')
+        .trim()
+        .split('\n')[0]!,
+    );
+    expect(line.journeyId).toBe(window.journeyId);
+    expect(gate.paymentEvidenceAuthorized(root, id, request(), { ...window, now })).toBe(true);
+    expect(gate.evidenceAuthorizer(root, () => now)('PAYMENT', id, request(), window)).toBe(true);
+    expect(gate.evidenceAuthorizer(root, () => now)('DEPLOY', id, request(), window)).toBe(false);
+    expect(
+      gate.paymentEvidenceAuthorized(root, id, request(), { ...window, endedAt: '2026-11-13T10:30:30.000Z', now }),
+    ).toBe(false);
+    // A decision whose recorded journey id disagrees with the request is refused even if the digest were forged.
+    const f = path.join(root, 'evidence', 'authorizations', 'decisions.jsonl');
+    writeFileSync(f, `${JSON.stringify({ ...line, journeyId: 'j-other' })}\n`);
+    expect(gate.paymentEvidenceAuthorized(root, id, request(), { ...window, now })).toBe(false);
   });
 });

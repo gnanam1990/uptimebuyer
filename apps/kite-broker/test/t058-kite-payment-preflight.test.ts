@@ -4,7 +4,7 @@
 // The broker's KITE_PASSPORT adapter file (outside the repository, 0600) and its kpass state root (0700, outside the
 // repository) are validated before anything runs; the committed example stays valid and binds the exact merchant URL.
 /* eslint-disable @typescript-eslint/no-explicit-any -- documented-example fixtures are mutated structurally */
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -173,5 +173,56 @@ describe('T-058 security review S3: the 402 must be for the bound resource', () 
     const b = realBody();
     b.resource.url = 'https://lionx402.com/api/x402/other-endpoint';
     expect(assessX402Preflight(asCapture(b))).toEqual({ ok: false, reason: 'PREFLIGHT_RESOURCE_MISMATCH' });
+  });
+});
+
+describe('T-058 PR #21 review 1 and 3: adapter file strictness and its race-free read', () => {
+  const dir = () => {
+    const d = mkdtempSync(path.join(tmpdir(), 'ub-kite-cfg-r-'));
+    chmodSync(d, 0o700);
+    return d;
+  };
+  const body = (d: string, method = 'GET') => ({
+    schema: 'uptimebuyer-kite-broker-adapter.v1',
+    adapter: {
+      kind: 'KITE_PASSPORT',
+      kpassBinary: '/usr/local/bin/kpass',
+      stateRoot: d,
+      timeoutMs: 300_000,
+      merchantEndpoints: { [LIONX402.merchantId]: { url: LIONX402.url, method } },
+      manualReconciliationAccepted: true,
+    },
+  });
+  const failure = (fn: () => unknown) => {
+    try {
+      fn();
+      return 'ACCEPTED';
+    } catch (e) {
+      return e instanceof ConfigError ? e.reasonCode : String(e);
+    }
+  };
+
+  it('review 1: a POST endpoint is refused by the adapter file schema', () => {
+    const d = dir();
+    const f = path.join(d, 'broker.json');
+    writeFileSync(f, JSON.stringify(body(d, 'POST')), { mode: 0o600 });
+    expect(failure(() => loadKiteAdapterFile(f))).toMatch(/^SECRET_CONFIG_INVALID/);
+  });
+
+  it('review 3: a symlink to a valid 0600 file is refused, and the checks run on the opened descriptor', () => {
+    const d = dir();
+    const real = path.join(d, 'real.json');
+    writeFileSync(real, JSON.stringify(body(d)), { mode: 0o600 });
+    const link = path.join(d, 'broker.json');
+    symlinkSync(real, link);
+    expect(failure(() => loadKiteAdapterFile(link))).toBe('SECRET_FILE_NOT_REGULAR');
+    expect(failure(() => loadKiteAdapterFile(real))).toBe('ACCEPTED');
+    // The loader opens once with O_NOFOLLOW and checks owner, mode and type with fstat on that fd (no path re-read).
+    const src = readFileSync(path.join(here, '..', 'src', 'config.ts'), 'utf8');
+    const fn = src.slice(src.indexOf('export function loadKiteAdapterFile'));
+    const bodyText = fn.slice(0, fn.indexOf('\n}\n'));
+    expect(bodyText).toMatch(/O_NOFOLLOW/);
+    expect(bodyText).toMatch(/fstatSync\(|privateFd\(/);
+    expect(bodyText).not.toMatch(/\b(?:statSync|lstatSync|readFileSync)\(path\b/);
   });
 });

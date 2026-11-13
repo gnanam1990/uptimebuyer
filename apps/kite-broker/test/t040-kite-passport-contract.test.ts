@@ -616,3 +616,21 @@ describe('T-040 security review S4: kpass runs only against the broker’s own i
     expect(k.calls()).toEqual([]);
   });
 });
+
+// PR #21 review 1: only GET is executable, so a POST endpoint must be refused at configuration time; otherwise an
+// operator could approve a Kite session that execute() would then always refuse.
+describe('T-040 PR #21 review 1: POST endpoints are refused until POST is supported', () => {
+  it('the adapter refuses a POST merchant endpoint at construction', () => {
+    const k = fakeKpass();
+    expect(
+      () =>
+        new KitePassportAdapter({
+          kpassBinary: k.bin,
+          stateRoot: k.dir,
+          timeoutMs: 5_000,
+          merchantEndpoints: { [MERCHANT]: { url: URL_Q, method: 'POST' as never } },
+          manualReconciliationAccepted: true,
+        }),
+    ).toThrow();
+  });
+});

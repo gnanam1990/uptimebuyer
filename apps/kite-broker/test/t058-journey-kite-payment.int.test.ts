@@ -10,7 +10,17 @@
 // evidence is removed; the database is dropped.
 /* eslint-disable @typescript-eslint/no-explicit-any -- documented-example fixtures are mutated structurally */
 import { createHash, generateKeyPairSync } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
@@ -206,8 +216,8 @@ function build(
         now: new Date(),
         authorizationId,
       }),
-    isAuthorized: (_g, id, request, ctx) =>
-      jg.paymentAuthorized(artifactRoot, id, request, { ...ctx, now: new Date() }),
+    // Completed-payment evidence: only the consumed decision recorded for this journey (PR #21 review 10).
+    isAuthorized: (g, id, request, ctx) => jg.evidenceAuthorizer(artifactRoot, () => new Date())(g, id, request, ctx),
     onApprovalRequired: async () => {},
     approval: { timeoutMs: 20_000, pollMs: 200 },
     secrets: () => [{ name: 'KPASS_JWT', value: SYNTHETIC_JWT }],
@@ -287,6 +297,9 @@ describe('T-058 Kite payment journey: dry run over the RECORDED_CONTRACT adapter
     });
     expect(r.gate!.withDatabase.parts.payment).toBe('FAIL');
     expect(readJson(path.join(dir, 'redaction-check.json')).result).toBe('PASS');
+    // PR #21 review 5: the evidence directory is 0700 and every artifact 0600 (written private before any check).
+    expect(statSync(dir).mode & 0o777).toBe(0o700);
+    for (const f of readdirSync(dir)) expect(statSync(path.join(dir, f)).mode & 0o777, f).toBe(0o600);
     const req = readJson(path.join(dir, 'gate-request.json'));
     expect(req).toEqual({ ...SCOPE, journeyId: 'dryrun-t058-kpj-1' });
     expect(readJson(path.join(dir, 'gate-decision.json')).decision).toBe('AUTHORIZED');
@@ -526,5 +539,83 @@ describe('T-058 Kite payment journey: hard stops before any egress (no database 
     mkdirSync(evidenceDir(l), { recursive: true });
     expect(await runKitePaymentJourney(l.opts)).toMatchObject({ outcome: 'REFUSED', reason: 'EVIDENCE_EXISTS' });
     expect(recorded.executeCalls).toBe(0);
+  });
+});
+
+const dropDatabase = async (name: string | null | undefined) => {
+  if (!name) return;
+  const admin = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  try {
+    await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  } finally {
+    await admin.end();
+  }
+};
+
+describe('T-058 PR #21 review 4, 6 and 7: interrupts, unreconciled payments and an ambiguous session request', () => {
+  it('review 4: a Ctrl-C before the gate (preflight or world build) revokes the authority and nothing is sent', async () => {
+    const c = liveCase('j-t058-kpj-int-early', () => {}, { interrupted: () => true });
+    const r = await runKitePaymentJourney(c.opts);
+    expect(r).toMatchObject({
+      outcome: 'REFUSED',
+      stoppedAt: 'INTERRUPT',
+      reason: 'OPERATOR_INTERRUPT',
+      authorityStatus: 'REVOKED',
+    });
+    expect(c.k!.callsOf('session create')).toEqual([]);
+    expect(c.k!.callsOf('session execute')).toEqual([]);
+    expect(await c.databases()).toEqual([]);
+  });
+
+  it('review 4: a Ctrl-C during the passkey wait revokes the authority and the paid call never happens', async () => {
+    let interrupted = false;
+    const c = liveCase(
+      'j-t058-kpj-int-wait',
+      (k) => {
+        k.script('session create', { exitCode: 0, json: KPASS.sessionCreateRequested.json });
+        k.script('session status', approvedStatus());
+      },
+      { interrupted: () => interrupted, onApprovalRequired: () => void (interrupted = true) },
+    );
+    const r = await runKitePaymentJourney(c.opts);
+    expect(r).toMatchObject({ outcome: 'REFUSED', stoppedAt: 'INTERRUPT', authorityStatus: 'REVOKED' });
+    expect(c.k!.callsOf('session execute')).toEqual([]);
+    await dropDatabase(r.databaseKept);
+  });
+
+  it('review 6: a confirmed intent whose Kite session usage does not reconcile is UNKNOWN and the database is kept', async () => {
+    const c = liveCase(
+      'j-t058-kpj-unreconciled',
+      (k) => {
+        k.script('session create', { exitCode: 0, json: KPASS.sessionCreateRequested.json });
+        k.script('session status', approvedStatus());
+        k.script('session execute', {
+          exitCode: 0,
+          json: executeSuccessWithReference({ amount: '0.01', sessionId: 'session_xyz789', body: OSM }),
+        });
+      },
+      { sessionUsage: async () => null },
+    );
+    const r = await runKitePaymentJourney(c.opts);
+    expect(r).toMatchObject({ outcome: 'UNKNOWN', paymentState: 'CONFIRMED', reconciled: false });
+    expect(r.databaseKept).toBeTruthy();
+    expect(r.gate!.fileOnly.parts.payment).toBe('UNKNOWN');
+    await dropDatabase(r.databaseKept);
+  });
+
+  it('review 7: an ambiguous session create is UNKNOWN: the reconciliation record, evidence and database are kept', async () => {
+    const c = liveCase('j-t058-kpj-session-unknown', (k) => {
+      k.script('session create', { exitCode: 0, raw: 'not json' });
+    });
+    const r = await runKitePaymentJourney(c.opts);
+    expect(r).toMatchObject({ outcome: 'UNKNOWN', stoppedAt: 'SESSION' });
+    expect(r.databaseKept).toBeTruthy();
+    expect(c.k!.callsOf('session execute')).toEqual([]);
+    const dir = evidenceDir(c);
+    const session = readJson(path.join(dir, 'session.json'));
+    expect(session).toMatchObject({ externalOutcomeState: 'UNKNOWN' });
+    expect(session.clientOperationId).toMatch(/^op_/);
+    expect(readJson(path.join(dir, 'redaction-check.json')).result).toBe('PASS');
+    await dropDatabase(r.databaseKept);
   });
 });
