@@ -1,5 +1,7 @@
 {
   "schema": "release-authorizers.v1",
-  "note": "Ed25519 public keys (DER SPKI, base64url) of the people who may authorize an external action. The private keys never enter this repository. Empty: nobody has registered a key, so every release gate refuses.",
-  "authorizers": {}
+  "note": "Ed25519 public keys (DER SPKI, base64url) of the people who may authorize an external action. The private keys never enter this repository. owner-195587c58bb1180e is the repository owner's key, generated with scripts/release/authorize.mjs keygen on the owner's machine (2026-11-13).",
+  "authorizers": {
+    "owner-195587c58bb1180e": "MCowBQYDK2VwAyEAkCLjVXtXRZ1pfgr5Av3nZ-YGH8u3_LHr3MeJbIuuBmg"
+  }
 }
