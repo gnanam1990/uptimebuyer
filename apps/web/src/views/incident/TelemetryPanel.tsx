@@ -11,6 +11,7 @@ import type { Resource } from '../../api';
 import { useAnnounce } from '../../announce';
 import { AxisBadge } from '../../components/AxisBadge';
 import { formatMilliCelsius, formatUtc } from '../../format';
+import { gridTicks } from './chartTicks.js';
 
 const PAD = { l: 52, r: 14, t: 14, b: 30 };
 
@@ -63,9 +64,8 @@ export function TelemetryPanel({
     .join(' ');
   const anomalyCount = samples.filter((s) => isAnomaly(s.valueInt)).length;
   const name = `Temperature chart, last 30 minutes, ${samples.length} samples, threshold ${threshold ? formatMilliCelsius(threshold.thresholdInt) : 'not pinned'}, ${anomalyCount} above threshold, current ${last ? formatMilliCelsius(last.valueInt) : 'not reported'}`;
-  // Horizontal grid every 2 °C (milli-degrees), labelled on the left.
-  const ticks: number[] = [];
-  for (let v = Math.ceil(vmin / 2000) * 2000; v <= vmax; v += 2000) ticks.push(v);
+  // Horizontal grid every 2 °C or more (milli-degrees), labelled on the left; bounded for any reported value.
+  const ticks = gridTicks(vmin, vmax);
   const plotTop = PAD.t;
   const plotBottom = H - PAD.b;
   const ty = threshold ? y(threshold.thresholdInt) : null;
