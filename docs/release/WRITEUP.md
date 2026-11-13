@@ -1,70 +1,81 @@
 # UptimeBuyer: hackathon write-up (DRAFT, not submitted)
 
-> DRAFT for SERV Hackathon Edition 02. Not submitted: the hackathon submission is NOT_RUN and needs its own explicit
-> authorization (`RELEASE-GATES.md`). Every claim below is tagged with its ledger id (`claims.json`); anything that
-> needs a real sensor, provider, payment or deployment is marked NOT_RUN. Screenshots come from a local SIMULATED demo.
+> DRAFT for SERV Hackathon 02, Track 02 (Kite). Not submitted: the submission needs its own explicit authorization
+> (`RELEASE-GATES.md`, `GATE-REQUESTS.md`). Every claim carries its ledger id (`claims.json`). The console walk-through
+> in the demo is SIMULATED; the evidence segments show committed records of real runs; what is not yet proven is NOT_RUN.
 
 ## What it does
 
-UptimeBuyer coordinates commercial-refrigeration recovery for multi-site restaurants, grocers and dark stores. A
-cooler's temperature signal opens an incident; bounded reasoning gathers cited evidence from manuals and work orders;
-deterministic policy blocks incompatible or unsafe actions; an operator approves a bounded spend; an isolated broker
-executes the paid action; and the incident closes only on independent recovery evidence (a stable sensor window plus
-an authoritative sign-off), never on a provider's say-so.
+UptimeBuyer coordinates commercial-refrigeration recovery for multi-site restaurants, grocers and dark stores. A cooler's
+temperature signal opens one incident; SERV Reasoning reads the equipment manual and proposes cited facts and candidate
+actions; deterministic code decides compatibility, safety, authority and budget; an operator approves a bounded spend; an
+isolated broker makes the paid call; and the incident closes only on independent recovery evidence (a stable sensor
+window plus an authoritative sign-off), never on a provider's say-so <!-- C-002 C-004 C-005 C-008 -->.
 
 ## How it uses SERV Reasoning
 
-SERV Reasoning (OpenServ) is the evidence and proposal layer: it extracts cited facts from the exact document revision
-and proposes recovery candidates. Its output is advisory. Compatibility, safety, authority, budget and closure
-decisions are deterministic code over recorded evidence, and every citation is re-checked against the stored document.
-Local tests use a contract-fake adapter with synthetic documents.
-A real SERV Reasoning run with a validated cited proposal inside a complete real-input journey is NOT_RUN <!-- C-021 -->.
-Journey j-2026-11-12-serv-document ingested the published Dixell XR60CX manual (journey gate document part PASS) and made one serv-mini call.
-SERV answered; the product REJECTED the proposal (two citations did not match their spans), so that part is not counted (NOT_RUN).
-Text in the manual's Identity-H fonts had been extracted as shifted glyph codes; the parser now decodes it through each font's ToUnicode CMap.
-Journey j-2026-11-12-serv-document-2 then made one more serv-mini call over the same manual: the product accepted the cited proposal (reasoning part PASS; the journey overall is NOT_RUN).
+- SERV Reasoning is the evidence and proposal layer. It receives the exact manual revision and the incident packet,
+  calls two product tools (asset snapshot, candidate schema) and returns fault hypotheses, extracted fields with
+  citations, candidate actions with evidence for and against, and its uncertainty.
+- The answer is a MODEL PROPOSAL with authority NONE. The product re-opens every citation against the stored document
+  and rejects the whole proposal on any mismatch; injected document instructions are isolated <!-- C-003 -->.
+- Decisions stay deterministic code over recorded evidence: compatibility ALLOW, HOLD or REJECT, safety, budget and
+  closure <!-- C-004 C-008 -->.
+- Recorded run (the full journey stays NOT_RUN): journey `j-2026-11-12-serv-document-2`, one serv-mini call over the published Dixell XR60CX manual from Copeland, run `rsn_49008919…` COMPLETED, $0.024365, 7 of 7 citations re-opened and verified; journey gate document PASS and reasoning PASS <!-- C-021 -->.
+- The run before it, `j-2026-11-12-serv-document`, was REJECTED by the citation validator (PDF font decoding, since fixed) and is recorded as such, not counted (NOT_RUN) <!-- C-021 -->.
 
-## Track
+## Kite track (Track 02)
 
-Kite track (agents with verifiable identity and spending limits) is the proposed track. The Kite integration is a
-separate broker workload: an approved, signed execution authority bounds amount, merchant, purpose and expiry, and the
-broker alone holds the paid credential and paid egress <!-- C-005 C-006 -->.
-A real Kite-paid action inside a complete real-input journey is NOT_RUN <!-- C-022 -->. Under the owner's signed PAYMENT
-authorization, journey kite-payment-2 made one USD 0.01 call through the broker; its outcome stayed UNKNOWN (an
-unexpected settlement chain id, an open question) until the owner, as finance approver, resolved it CAPTURED from
-read-only evidence, so the gate reads payment, fulfillment and duplicate PASS while the journey stays NOT_RUN
-<!-- C-022 -->. Every payment in the demo is RECORDED_CONTRACT.
+Agents with verifiable identity and spending limits you control:
 
-## What has been shown (local evidence)
+- Exclusive broker: only `kite-broker` holds the paid credential and the paid egress; the API and worker reach it through
+  signed, single-use references <!-- C-006 -->.
+- Signed bounded authority: amount, merchant, purpose and expiry, with hard caps in code (1 cent per call, 5 cents per
+  session) <!-- C-005 -->. Any payment outside local tests also needs the owner's single-use, Ed25519-signed PAYMENT gate
+  record <!-- C-013 C-018 -->.
+- Recorded payment (the full journey stays NOT_RUN): journey `j-2026-11-13-kite-payment-2`, a passkey-approved Kite Passport session of one cent, one x402 payment of 0.01 USDC to lionx402.com (OpenStreetMap business search), debited from the broker wallet's Base USDC <!-- C-022 -->.
+- Recorded fulfillment and duplicate (the full journey stays NOT_RUN): the merchant answered HTTP 200 with 7 refrigeration-repair businesses; a duplicate request returned the same intent with no second charge <!-- C-022 -->.
+- Honest UNKNOWN (recorded; the full journey stays NOT_RUN): kpass reported settlement chain id 2366, not Base (8453), so the broker recorded UNKNOWN, kept the reservation and retried nothing <!-- C-007 C-022 -->.
+- Manual resolution (recorded; the full journey stays NOT_RUN): the owner, as finance approver, resolved it CAPTURED through the product's manual resolution from out-of-band evidence (wallet 1.10 to 1.09 USDC, Kite activity, session spent 0.01) <!-- C-022 -->.
+- Open question, NOT_RUN as verified: what chain id 2366 denotes; the adapter still refuses to confirm any chain but Base automatically <!-- C-022 -->.
+- The first attempt, `j-2026-11-13-kite-payment`, made no payment (the session was never approved) and is recorded as such (NOT_RUN) <!-- C-022 -->.
 
-- Telemetry ingestion with freshness and deduplication <!-- C-001 C-002 -->.
-- Cited evidence with injected-instruction isolation (synthetic documents) <!-- C-003 -->.
-- Deterministic compatibility: exact parts allowed, ambiguity held, substitutes need a named engineer <!-- C-004 -->.
-- Bounded spending, credential isolation and UNKNOWN-before-retry reconciliation against a recorded-contract broker
-  <!-- C-005 C-006 C-007 -->.
-- Provider completion cannot close an incident <!-- C-008 -->.
-- An accessible console that shows stale, unknown and unsupported states honestly <!-- C-009 -->.
-- A worker that schedules every runner with per-runner locks and graceful shutdown <!-- C-010 -->.
-- A clean clone built, migrated, started and smoke-tested in a local compose stack, with backup, restore and image
-  rollback exercised locally <!-- C-011 C-012 -->.
-- The published Dixell XR60CX manual ingested through the product with exact provenance, and one SERV Reasoning run over it
-  whose cited proposal the product accepted (journey gate document and reasoning parts PASS; the journey overall is
-  NOT_RUN) <!-- C-021 -->.
-- Release gates for every external action, all REFUSED; a real-input journey gate that refuses simulated evidence; a
-  claim check over these drafts <!-- C-013 C-014 -->.
+## What was built during the hackathon
 
-## Limits (NOT_RUN)
+Everything in this repository, from the build pack imported on 2026-11-04 to 2026-11-13 <!-- C-015 -->: the workspace and
+secret scan (M00), contracts and domain (M01), storage, auth, RBAC and tenancy (M02), sensor gateway (M03), incident
+engine (M04), evidence and bounded SERV reasoning (M05), compatibility and safety policy (M06), provider discovery (M07),
+cost-to-recovery planning (M08), the Kite broker and ledger (M09), orders and reconciliation (M10), recovery verification
+and CMMS closeout (M11), the operator console (M12), security and observability (M13), deployment definitions, release
+gates and claim checks (M14), the real-input journey runners and records (T-058), and this submission's video, drafts
+and authorization tooling <!-- C-017 C-018 -->.
 
-- Real authenticated physical sensor: NOT_RUN <!-- C-020 -->.
-- Real SERV Reasoning run with a validated cited proposal inside a complete real-input journey: NOT_RUN; journey 2 recorded one accepted serv-mini proposal (reasoning part PASS), journey 1 one REJECTED <!-- C-021 -->.
-- Real bounded Kite-paid action with downstream fulfillment: NOT_RUN as a full journey; journey kite-payment-2 recorded one USD 0.01 call (payment, fulfillment and duplicate PASS after a manual CAPTURED resolution) <!-- C-022 -->.
+## Evidence ladder
+
+| Level | What                                        | Status                                                                                                                       |
+| ----- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| E1    | Unit and contract tests                     | PASS locally <!-- C-016 -->                                                                                                  |
+| E2    | Integrated and browser tests, compose smoke | PASS locally; backup, restore and rollback exercised locally <!-- C-011 C-012 -->                                            |
+| E3    | Live sponsor response                       | recorded: one SERV run accepted, reasoning PASS; the full journey is NOT_RUN <!-- C-021 -->                                  |
+| E4    | Real bounded payment plus fulfilled action  | recorded once: payment, fulfillment and duplicate PASS after a manual resolution; the full journey is NOT_RUN <!-- C-022 --> |
+| E5    | Independent physical recovery evidence      | NOT_RUN <!-- C-023 -->                                                                                                       |
+
+Local suites in `pnpm verify` on this branch: 1,327 unit tests, 626 integration tests and 10
+browser tests <!-- C-016 -->.
+
+## Not yet proven (NOT_RUN)
+
+- A real authenticated physical sensor: NOT_RUN <!-- C-020 -->.
 - Independent physical recovery evidence: NOT_RUN <!-- C-023 -->.
-- Hosted deployment: NOT_RUN <!-- C-024 -->.
-- Public repository, video, X post and submission: NOT_RUN <!-- C-025 -->.
+- The timeout case after a real payment: NOT_RUN (Kite has no lookup by client key) <!-- C-022 -->.
+- A hosted deployment: NOT_RUN <!-- C-024 -->.
+- One complete real-input journey with every part in a single run (T-058): NOT_RUN <!-- C-021 C-022 -->.
+- Uploaded video, X post and submission: NOT_RUN until each is authorized <!-- C-025 -->.
 - Production load, SLOs, edge/WAF and enforced network policy: NOT_RUN <!-- C-026 -->.
 
-The demo is SIMULATED end to end: SIMULATOR sensors (SIMULATED_INPUT), a RECORDED_CONTRACT broker, contract-fake
-reasoning and CMMS, synthetic data and a local test identity provider. It is not the real-input journey and is never
-presented as one.
+## Demo
 
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md). Event page: [SERV Hackathon](https://www.openserv.ai/hackathon-2).
+The video (`docs/release/video/`, 2 min 56 s) has a SIMULATED console walk-through (SIMULATOR sensors, a recorded-contract
+broker, contract-fake reasoning and CMMS, synthetic data) and REAL evidence segments rendered from the committed
+journey records <!-- C-017 -->. Code: [github.com/gnanam1990/uptimebuyer](https://github.com/gnanam1990/uptimebuyer).
+Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md). Event: [SERV Hackathon](https://www.openserv.ai/hackathon-2).

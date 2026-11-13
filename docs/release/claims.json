@@ -8,7 +8,10 @@
     "docs/release/SUBTITLES.srt",
     "docs/release/X-DRAFT.md",
     "docs/release/ARCHITECTURE.md",
-    "docs/release/RELEASE-GATES.md"
+    "docs/release/RELEASE-GATES.md",
+    "docs/release/SUBMISSION.md",
+    "docs/release/RELEASE-NOTES-v1.0.0.md",
+    "docs/release/GATE-REQUESTS.md"
   ],
   "claims": [
     {
@@ -127,6 +130,43 @@
       "evidence": ["tests/m14/t058-journey-gate.test.ts", "apps/kite-broker/test/t058-journey-gate-db.int.test.ts"]
     },
     {
+      "id": "C-015",
+      "text": "Everything in the repository was built during the hackathon: the build pack was imported on 2026-11-04 (first commit e915555) and modules M00..M14, the real-input journey records (T-058) and the release tooling followed through 2026-11-13, each with its handoff record (repository history; local layer).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["NFR-12"],
+      "evidence": ["docs/handoffs/M00.json", "docs/handoffs/M14.json", "docs/handoffs/T058-journey-kite-payment-2.json"]
+    },
+    {
+      "id": "C-016",
+      "text": "The local suites (vitest unit and integration projects, Playwright browser tests) pass in pnpm verify against a throwaway database and contract fakes (local tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-004"],
+      "evidence": ["package.json", "docs/coverage/coverage.json"]
+    },
+    {
+      "id": "C-017",
+      "text": "The demo video is built reproducibly by scripts/release/demo-video.mjs: a SIMULATED console walk-through recorded with Playwright against the local e2e stack (SIMULATOR sensors, recorded-contract broker, contract-fake reasoning and CMMS) and REAL evidence slides rendered only from the committed journey records; its captions are SUBTITLES.srt (local tests check the timeline, the labels and the file digest).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-059"],
+      "evidence": [
+        "scripts/release/demo-video.mjs",
+        "apps/web/e2e/release-video.video.ts",
+        "docs/release/video/video-manifest.json",
+        "tests/m14/t059-demo-video.test.ts"
+      ]
+    },
+    {
+      "id": "C-018",
+      "text": "scripts/release/authorize.mjs builds and signs, only after the exact answer YES, single-use records for the X_POST, VIDEO_UPLOAD, RELEASE_TAG, HACKATHON_SUBMISSION and PAYMENT gates, binding files by a sha256 it computes (local tests).",
+      "status": "EVIDENCED",
+      "layer": "LOCAL_TEST",
+      "coverageIds": ["T-060"],
+      "evidence": ["scripts/release/authorize.mjs", "tests/m14/t060-authorize-script.test.ts"]
+    },
+    {
       "id": "C-020",
       "text": "A real authenticated physical sensor opening an incident: NOT_RUN (no device, no authorization).",
       "status": "NOT_RUN",
@@ -183,7 +223,7 @@
     },
     {
       "id": "C-025",
-      "text": "Public repository, uploaded video, X post and hackathon submission: NOT_RUN (each needs its own explicit authorization).",
+      "text": "Uploaded video, X post and hackathon submission: NOT_RUN (each needs its own explicit authorization; GATE-REQUESTS.md lists the exact scopes). The repository itself is public (the owner changed its visibility outside the release-gate tooling, so REPO_PUBLICATION holds no record of it).",
       "status": "NOT_RUN",
       "layer": "REAL_WORLD",
       "coverageIds": ["T-059", "T-060"],

@@ -13,10 +13,12 @@ All evidence in this repository is local: unit and integration tests against a t
 tests, and a production-like compose bring-up on one machine. Every local run uses SIMULATOR sensors (SIMULATED_INPUT),
 a recorded-contract broker, contract-fake reasoning and CMMS, synthetic data and a local test identity provider.
 
-Two journey records go beyond the local layer, both over the published Dixell XR60CX manual; the real-input journey as a whole is NOT_RUN.
+Four journey records go beyond the local layer; the real-input journey as a whole is NOT_RUN. Two are over the published Dixell XR60CX manual:
 j-2026-11-12-serv-document made one SERV Reasoning call (serv-mini, $0.027444) whose proposal the product rejected; the PDF font decoder was then fixed.
 j-2026-11-12-serv-document-2 made one more call (serv-mini, $0.024365): the product accepted its cited proposal, so the journey gate reads reasoning PASS (the journey and T-058 stay NOT_RUN).
-Records: [evidence/journeys/j-2026-11-12-serv-document](evidence/journeys/j-2026-11-12-serv-document), [evidence/journeys/j-2026-11-12-serv-document-2](evidence/journeys/j-2026-11-12-serv-document-2) and [COVERAGE.md](docs/coverage/COVERAGE.md).
+Two are Kite Passport payment attempts: j-2026-11-13-kite-payment made no payment (the session was never approved); j-2026-11-13-kite-payment-2 made one 0.01 USDC x402 payment to lionx402.com (HTTP 200, 7 results, no second charge on the duplicate), recorded UNKNOWN on settlement chain id 2366 and resolved CAPTURED by the owner, so payment, fulfillment and duplicate read PASS (the journey and T-058 stay NOT_RUN; chain 2366 is an open question).
+Records: [evidence/journeys/j-2026-11-12-serv-document](evidence/journeys/j-2026-11-12-serv-document), [evidence/journeys/j-2026-11-12-serv-document-2](evidence/journeys/j-2026-11-12-serv-document-2), [evidence/journeys/j-2026-11-13-kite-payment-2](evidence/journeys/j-2026-11-13-kite-payment-2) and [COVERAGE.md](docs/coverage/COVERAGE.md).
+The demo video and the submission drafts are in [docs/release](docs/release) (WRITEUP.md, SUBMISSION.md, X-DRAFT.md, RELEASE-NOTES-v1.0.0.md); its console part is SIMULATED.
 
 | Claim                                                                                                                | Status                                                                                                                                         |
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,7 +30,7 @@ Records: [evidence/journeys/j-2026-11-12-serv-document](evidence/journeys/j-2026
 | Real bounded Kite-paid action with downstream fulfillment                                                            | **NOT_RUN** as a full journey (journey kite-payment-2: payment, fulfillment and duplicate parts PASS after a manual resolution) <!-- C-022 --> |
 | Independent physical recovery evidence                                                                               | **NOT_RUN** <!-- C-023 -->                                                                                                                     |
 | Hosted deployment                                                                                                    | **NOT_RUN** <!-- C-024 -->                                                                                                                     |
-| Public repository, video, X post, hackathon submission                                                               | **NOT_RUN** (each needs explicit authorization) <!-- C-025 -->                                                                                 |
+| Uploaded video, X post, hackathon submission (the repository itself is public)                                       | **NOT_RUN** (each needs explicit authorization) <!-- C-025 -->                                                                                 |
 | Production load, SLOs, edge/WAF, enforced network policy, penetration test, SBOM                                     | **NOT_RUN** <!-- C-026 -->                                                                                                                     |
 
 The full status of every requirement, invariant and test is in [docs/coverage/COVERAGE.md](docs/coverage/COVERAGE.md);
@@ -79,6 +81,7 @@ pnpm release:smoke
 | `pnpm release:smoke`                                    | T-057 local clean-environment bring-up; result in `docs/release/evidence/t057-release-smoke.json`                               |
 | `pnpm demo:local`                                       | the SIMULATED demo walk-through and its screenshots (`docs/release/screenshots`)                                                |
 | `pnpm release:check`                                    | claim, link and secret checks over the release drafts                                                                           |
+| `pnpm release:video`                                    | rebuild the demo video (`docs/release/video/`) and `SUBTITLES.srt`: SIMULATED console recording plus the committed evidence     |
 | `pnpm release:gates`                                    | status of the seven release gates (all REFUSED: nothing is authorized)                                                          |
 | `pnpm release:journey`                                  | the real-input journey gate (NOT_RUN: no real journey exists)                                                                   |
 | `pnpm coverage:report`                                  | regenerate `docs/coverage` from test result files                                                                               |

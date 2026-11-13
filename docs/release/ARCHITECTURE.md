@@ -22,8 +22,8 @@ flowchart LR
     B["signed references only<br/>unix socket 0600<br/>sole paid egress"]
   end
   DB[("PostgreSQL<br/>append-only evidence,<br/>outbox, ledger")]
-  SERV["SERV Reasoning (OpenServ)<br/>proposals only<br/>contract fake locally"]
-  KITE["Kite Passport and paid merchants<br/>NOT_RUN"]
+  SERV["SERV Reasoning (OpenServ)<br/>proposals only<br/>contract fake in local tests"]
+  KITE["Kite Passport and paid merchants<br/>one 1-cent journey recorded"]
   CMMS["CMMS<br/>contract fake locally"]
   S --> E --> G --> DB
   E --> A --> DB
@@ -62,10 +62,12 @@ flowchart TD
 flowchart LR
   E0["E0 specification and diagrams<br/>this document"] --> E1["E1 unit and contract tests<br/>PASS locally"]
   E1 --> E2["E2 integrated tests, local compose smoke<br/>PASS locally"]
-  E2 --> E3["E3 live sponsor response without payment<br/>NOT_RUN"]
-  E3 --> E4["E4 real bounded payment plus fulfilled action<br/>NOT_RUN"]
+  E2 --> E3["E3 live sponsor response<br/>one SERV run recorded<br/>(reasoning PASS)"]
+  E3 --> E4["E4 bounded payment plus fulfilled action<br/>one 1-cent Kite payment recorded<br/>(payment, fulfillment, duplicate PASS)"]
   E4 --> E5["E5 independent physical recovery evidence<br/>NOT_RUN"]
 ```
 
-The product claim needs E4 and E5; both are NOT_RUN <!-- C-022 C-023 -->. The highest level reached is E2: local
-integrated tests and a local production-like compose bring-up <!-- C-011 -->.
+E3 and E4 were each reached once, in separate journeys and with parts missing (no physical sensor, no recovery, no
+timeout case), so no single journey is complete and the real-input journey stays NOT_RUN <!-- C-021 C-022 -->. E5 is
+NOT_RUN <!-- C-023 -->. Everything at E1 and E2 is local: integrated tests and a local production-like compose bring-up
+<!-- C-011 -->.
