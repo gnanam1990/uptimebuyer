@@ -619,3 +619,131 @@ describe('T-058 PR #21 review 4, 6 and 7: interrupts, unreconciled payments and 
     await dropDatabase(r.databaseKept);
   });
 });
+
+// T-058 manual resolution of an UNKNOWN paid outcome (INV-08): the run keeps its database; a finance approver, through
+// the real authentication path, records CAPTURED for exactly the reserved amount citing a reconciliation evidence
+// digest; the payment evidence is re-exported from the database, the journey re-recorded with a resolution section and
+// the gate run file-only and with the database; the database is dropped only after the export. Nothing is re-sent.
+describe('T-058 manual resolution of an UNKNOWN Kite payment (kpass stand-in, documented shapes)', () => {
+  const facts = (spent = '0.01') => ({
+    walletBaseUsdc: {
+      before: '1.100000',
+      beforeSource: 'operator read before the run',
+      after: '1.090000',
+      afterReadAt: new Date().toISOString(),
+    },
+    activity: {
+      id: 'activity_synthetic-0001',
+      kind: 'x402_payment',
+      status: 'completed',
+      title: 'API call — lionx402.com',
+      occurredAt: new Date().toISOString(),
+      chainId: 137,
+      amountRaw: '10000',
+      assetSymbol: 'USDC',
+      assetAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      txHash: `0x${'cd'.repeat(32)}`,
+      merchantHost: 'lionx402.com',
+      requestUrl: LIONX402.url,
+      sessionApprovalAt: new Date().toISOString(),
+    },
+    session: {
+      idSha256: 'e'.repeat(64),
+      status: 'active',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      spentTotal: spent,
+      spentTotalRaw: '10000',
+      reservedTotal: '0',
+    },
+    chainDiscrepancy: {
+      reportedChainId: 137,
+      expectedChainId: 8453,
+      docCitation: 'x402-execute references/commands.md:110',
+      note: 'test',
+    },
+  });
+
+  it('records CAPTURED of the reserved cent, re-exports, re-runs the gate, drops the database and never re-sends', async () => {
+    const { resolveKitePayment } = await import('./support/kite-payment-resolution.js');
+    const c = liveCase('j-t058-kpj-resolve', (k) => {
+      k.script('session create', { exitCode: 0, json: KPASS.sessionCreateRequested.json });
+      k.script('session status', approvedStatus());
+      const paid = executeSuccessWithReference({ amount: '0.01', sessionId: 'session_xyz789', body: OSM }) as Record<
+        string,
+        any
+      >;
+      paid.x402 = { ...paid.x402, chain_id: 137 };
+      k.script('session execute', { exitCode: 0, json: paid });
+    });
+    const run = await runKitePaymentJourney(c.opts);
+    expect(run).toMatchObject({ outcome: 'UNKNOWN', paymentState: 'UNKNOWN' });
+    expect(run.attempt).toMatchObject({ adapterCapability: 'UNSUPPORTED' });
+    const dir = evidenceDir(c);
+    const runManifestSha = createHash('sha256')
+      .update(readFileSync(path.join(dir, 'manifest.journey.json')))
+      .digest('hex');
+    const opts = {
+      databaseName: run.databaseKept!,
+      journeyId: c.opts.journeyId,
+      artifactRoot: c.artifactRoot,
+      gateEvidenceDir: c.opts.gateEvidenceDir,
+      sourceSha: 'b'.repeat(40),
+      intentId: run.intentId!,
+      capturedMinor: 1n,
+      reasonCode: 'OWNER_REVIEW_KITE_SETTLEMENT_CHAIN_UNVERIFIED',
+      facts: facts(),
+      ownerDecision: {
+        decidedBy: 'repository-owner',
+        role: 'finance_approver',
+        decidedOn: '2026-11-13',
+        statement: 'Record the payment as captured.',
+      },
+      isAuthorized: (
+        g: string,
+        id: string,
+        req: unknown,
+        w: { journeyId: string; startedAt: string; endedAt: string },
+      ) => jg.evidenceAuthorizer(c.artifactRoot, () => new Date())(g, id, req, w),
+      secrets: () => [{ name: 'KPASS_JWT', value: SYNTHETIC_JWT }],
+      log: () => {},
+    };
+    // Facts that do not reconcile with the capture are refused before anything is written.
+    await expect(resolveKitePayment({ ...opts, facts: facts('0.02') })).rejects.toThrow(/do not reconcile/);
+    const r = await resolveKitePayment(opts);
+    expect(r).toMatchObject({ intentState: 'CONFIRMED', capturedMinor: 1n, releasedMinor: 0n, openReservedMinor: 0n });
+    expect(r.gate.fileOnly.parts).toMatchObject({
+      payment: 'PASS',
+      fulfillment: 'PASS',
+      duplicate: 'PASS',
+      timeout: 'NOT_RUN',
+    });
+    expect(r.gate.withDatabase.parts).toMatchObject({ payment: 'PASS', fulfillment: 'PASS', duplicate: 'PASS' });
+    expect(r.databaseDropped).toBe(true);
+    expect(await c.databases()).toEqual([]);
+    // The run's manifest is preserved byte for byte and cited; the new manifest carries the resolution.
+    expect(
+      createHash('sha256')
+        .update(readFileSync(path.join(dir, 'manifest-run.journey.json')))
+        .digest('hex'),
+    ).toBe(runManifestSha);
+    const m = readJson(path.join(dir, 'manifest.journey.json'));
+    expect(m).toMatchObject({ sourceSha: 'b'.repeat(40), runSourceSha: 'a'.repeat(40) });
+    expect(m.resolution).toMatchObject({ resolution: 'CAPTURED', capturedMinor: 1, intentId: run.intentId });
+    const recon = readFileSync(path.join(dir, 'reconciliation.json'));
+    expect(m.resolution.evidenceDigest).toBe(`sha256:${createHash('sha256').update(recon).digest('hex')}`);
+    expect(readJson(path.join(dir, 'payment-resolved.json'))).toMatchObject({
+      state: 'CONFIRMED',
+      money: { capturedGrossMinor: '1', openReservedMinor: '0' },
+    });
+    for (const f of [
+      'reconciliation.json',
+      'payment-resolved.json',
+      'manifest.journey.json',
+      'redaction-check-resolution.json',
+    ])
+      expect(statSync(path.join(dir, f)).mode & 0o777, f).toBe(0o600);
+    expect(c.k!.callsOf('session execute')).toHaveLength(1);
+    // A journey is resolved once.
+    await expect(resolveKitePayment(opts)).rejects.toThrow(/already/);
+  });
+});
