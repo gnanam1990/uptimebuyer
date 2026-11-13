@@ -942,6 +942,23 @@ main {
   background: var(--critical-fill);
   color: var(--critical-text);
 }
+/* Freshness that cannot be stated (the latest refresh failed): unknown tone, dashed, never healthy. */
+.tag-unknown {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-tag);
+  border: 1px dashed var(--unknown-line);
+  background: var(--unknown-fill);
+  color: var(--unknown-text);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.5;
+}
+.readout-error {
+  font-size: var(--text-sm);
+  margin: var(--space-2) 0 0;
+}
 .label-phys {
   font-size: var(--text-sm);
 }

@@ -8,6 +8,7 @@ import { formatMilliCelsius, formatUtc } from '../../format';
 import { INCIDENT_TABS, Link, type IncidentTab } from '../../router';
 import { Code, Loadable } from '../common';
 import { EvidenceTab } from './EvidenceTab';
+import { readoutModel } from './readout';
 import { OverviewTab } from './OverviewTab';
 import { PlanTab } from './PlanTab';
 import { SpendTab } from './SpendTab';
@@ -25,7 +26,11 @@ const TAB_LABEL: Record<IncidentTab, string> = {
 };
 
 /** Blocker and next safe action derived only from server state (UI-SPEC §7.2, §8). */
-export function guidance(d: IncidentDetail, freshness: string | null): { blocker: string; next: string } {
+export function guidance(
+  d: IncidentDetail,
+  freshness: string | null,
+  telemetryFailed = false,
+): { blocker: string; next: string } {
   const i = d.incident;
   const a = i.currentAssignment;
   if (i.state === 'RECOVERED')
@@ -34,6 +39,12 @@ export function guidance(d: IncidentDetail, freshness: string | null): { blocker
   if (!a.acceptedAt) return { blocker: 'Assignment not accepted', next: 'The assignee accepts ownership' };
   if (i.deadlineStatus === 'EXPIRED')
     return { blocker: 'Response deadline expired', next: 'Escalate or contain under the pinned procedure' };
+  // A failed telemetry refresh means the retained freshness is not current: never reason from it as if it were.
+  if (telemetryFailed)
+    return {
+      blocker: 'Telemetry refresh failed',
+      next: 'Restore the telemetry connection before relying on the last loaded reading',
+    };
   if (freshness === 'NO_SIGNAL')
     return { blocker: 'No bound sensor signal', next: 'Bind a sensor or record an authorized manual observation' };
   if (freshness && freshness !== 'FRESH')
@@ -91,11 +102,16 @@ export function IncidentWorkspace({ id, tab, context }: { id: string; tab: Incid
       <Loadable res={detail} what="incident">
         {(d) => {
           const i = d.incident;
-          const g = guidance(d, freshness);
+          const g = guidance(d, freshness, telemetry.error !== null);
           return (
             <>
               <section className="incident-status controller" role="region" aria-label="Incident status">
-                <Readout telemetry={telemetry.data} freshness={freshness} paused={paused} />
+                <Readout
+                  telemetry={telemetry.data}
+                  freshness={freshness}
+                  paused={paused}
+                  refreshError={telemetry.error}
+                />
                 <div className="plate-main">
                   <div className="badges">
                     <AxisBadge axis="incident-state" value={i.state} />
@@ -211,62 +227,53 @@ function UtcSplit({ iso }: { iso: string | null | undefined }) {
 }
 
 /**
- * The controller readout: the asset's newest temperature from the telemetry the workspace already loads. It reads as
- * the newest reading only while the signal is FRESH; otherwise it says "last known, not live" next to the freshness
- * tag, so a stale number never looks current.
+ * The controller readout: the asset's newest temperature from the telemetry the workspace already loads (selection and
+ * honesty rules in ./readout.ts). It reads as the newest reading only while the signal is FRESH and the latest refresh
+ * succeeded; otherwise it says "last known, not live", and after a failed refresh it shows the error instead of the
+ * retained freshness. The faceplate heads every incident section, so the failure is visible on every tab.
  */
 function Readout({
   telemetry,
   freshness,
   paused,
+  refreshError,
 }: {
   telemetry: Telemetry | null;
   freshness: string | null;
   paused: boolean;
+  refreshError: string | null;
 }) {
-  const device = telemetry?.devices[0];
-  const series = device?.series.find((s) => s.kind === 'TEMPERATURE') ?? device?.series[0];
-  const last = series?.samples.at(-1);
-  const threshold = telemetry?.threshold ?? null;
-  const fresh = freshness === 'FRESH';
-  const over =
-    last && threshold
-      ? threshold.comparator === 'ABOVE'
-        ? last.valueInt > threshold.thresholdInt
-        : last.valueInt < threshold.thresholdInt
-      : false;
-  const label = !last
-    ? 'Temperature'
-    : !fresh
-      ? 'Last known temperature, not live'
-      : paused
-        ? 'Newest temperature, live updates paused'
-        : 'Newest temperature';
+  const m = readoutModel({ telemetry, freshness, paused, refreshError });
   return (
     <div className="readout">
-      <p className="readout-label">{label}</p>
-      {freshness === null ? (
-        <p className="readout-value readout-none">Signal freshness loading…</p>
-      ) : last ? (
-        <p className="readout-value" data-live={String(fresh)}>
-          {formatMilliCelsius(last.valueInt)}
+      <p className="readout-label">{m.label}</p>
+      {m.last ? (
+        <p className="readout-value" data-live={String(m.live)}>
+          {formatMilliCelsius(m.last.valueInt)}
         </p>
+      ) : freshness === null && refreshError === null ? (
+        <p className="readout-value readout-none">Signal freshness loading…</p>
       ) : (
         <p className="readout-value readout-none">No reading</p>
       )}
       <div className="readout-meta">
-        {freshness ? <AxisBadge axis="freshness" value={freshness} /> : null}
-        {last ? <span>at {formatUtc(last.eventAt).slice(11)}</span> : null}
-        {over && threshold ? (
+        {m.freshness ? <AxisBadge axis="freshness" value={m.freshness} /> : null}
+        {m.last ? <span>at {formatUtc(m.last.eventAt).slice(11)}</span> : null}
+        {m.beyond ? (
           <span className="tag-alert">
             <Icon shape="triangle" />
-            {threshold.comparator === 'ABOVE' ? 'Above threshold' : 'Below threshold'}
+            {m.beyond === 'ABOVE' ? 'Above threshold' : 'Below threshold'}
           </span>
         ) : null}
       </div>
-      {threshold ? (
+      {m.refreshError ? (
+        <p className="notice notice-error readout-error">
+          Telemetry refresh failed: {m.refreshError} The value shown is the last one loaded.
+        </p>
+      ) : null}
+      {m.threshold ? (
         <p className="readout-meta">
-          Pinned threshold {formatMilliCelsius(threshold.thresholdInt)} ({threshold.comparator.toLowerCase()})
+          Pinned threshold {formatMilliCelsius(m.threshold.thresholdInt)} ({m.threshold.comparator.toLowerCase()})
         </p>
       ) : null}
     </div>

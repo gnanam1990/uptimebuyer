@@ -12,6 +12,7 @@ import { useAnnounce } from '../../announce';
 import { AxisBadge } from '../../components/AxisBadge';
 import { formatMilliCelsius, formatUtc } from '../../format';
 import { gridTicks } from './chartTicks.js';
+import { selectReading } from './readout';
 
 const PAD = { l: 52, r: 14, t: 14, b: 30 };
 
@@ -44,13 +45,12 @@ export function TelemetryPanel({
   const [frameRef, W] = useWidth<HTMLDivElement>(640);
   const H = W < 480 ? 200 : 240;
   const t = telemetry.data;
-  const device = t?.devices[0];
-  const series = device?.series.find((s) => s.kind === 'TEMPERATURE') ?? device?.series[0];
-  const samples = series?.samples ?? [];
-  const threshold = t?.threshold ?? null;
+  // Same device and series as the incident faceplate (./readout.ts).
+  const { device, samples, last, threshold } = selectReading(t);
+  // After a failed refresh the retained freshness is not current and is not shown as if it were.
+  const failed = telemetry.error !== null;
   const isAnomaly = (v: number) =>
     threshold !== null && (threshold.comparator === 'ABOVE' ? v > threshold.thresholdInt : v < threshold.thresholdInt);
-  const last = samples.at(-1);
 
   const t0 = t ? Date.parse(t.windowStart) : 0;
   const t1 = t ? Date.parse(t.asOf) : 1;
@@ -103,14 +103,19 @@ export function TelemetryPanel({
             <span className="muted small">
               {paused ? 'Live updates paused' : 'Updating every 5 s while this tab is visible'}
             </span>
-            <AxisBadge axis="freshness" value={device.freshness} />
+            {failed ? (
+              <span className="tag-unknown">Freshness not current: the latest refresh failed</span>
+            ) : (
+              <AxisBadge axis="freshness" value={device.freshness} />
+            )}
             {device.inputClass === 'SIMULATOR' ? <span className="label-sim">SIMULATED_INPUT</span> : null}
           </div>
           <div data-testid="current-value" className="current-value">
             {last ? (
               <>
                 <span className="cv-primary">
-                  Current value: <strong>{formatMilliCelsius(last.valueInt)}</strong> at {formatUtc(last.eventAt)}
+                  {failed ? 'Last loaded value' : 'Current value'}: <strong>{formatMilliCelsius(last.valueInt)}</strong>{' '}
+                  at {formatUtc(last.eventAt)}
                 </span>
                 <span className="cv-fact">
                   <span>Ingestion</span> {last.ingestionClass}
@@ -119,7 +124,7 @@ export function TelemetryPanel({
                   <span>Quality</span> {last.qualityFlags.length ? last.qualityFlags.join(', ') : 'GOOD'}
                 </span>
                 <span className="cv-fact">
-                  <span>Freshness</span> {freshLabel(device.freshness)}
+                  <span>Freshness</span> {failed ? 'Not current (latest refresh failed)' : freshLabel(device.freshness)}
                 </span>
                 {device.inputClass === 'SIMULATOR' ? (
                   <span className="cv-fact">
@@ -134,7 +139,10 @@ export function TelemetryPanel({
                 ) : null}
               </>
             ) : (
-              <span className="cv-primary">No reading in the last 30 minutes · {freshLabel(device.freshness)}</span>
+              <span className="cv-primary">
+                No reading in the last 30 minutes ·{' '}
+                {failed ? 'Freshness not current (latest refresh failed)' : freshLabel(device.freshness)}
+              </span>
             )}
           </div>
           <figure className="chart">
