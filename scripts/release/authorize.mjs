@@ -358,9 +358,35 @@ export function signRecord(record, dir = DEFAULT_KEY_DIR) {
   return signAuthorization(record, privateKey, describeKey(privateKey).keyId);
 }
 
-export function writeRecord(signed, outDir = path.join(repo, 'evidence', 'authorizations')) {
+const DEFAULT_OUT = path.join(repo, 'evidence', 'authorizations');
+/** Where writeRecord puts a record. */
+export const recordPath = (record, outDir = DEFAULT_OUT) =>
+  path.join(outDir, `${record.gate}.${record.authorizationId}.json`);
+
+/**
+ * Every output conflict, checked before any key is read or anything is signed or written (PR #26 review). The request
+ * file may already exist only with exactly this request (a preview written it); then it is kept as it is.
+ * Returns { requestBody, reuseRequest }.
+ */
+export function checkOutputs(record, { outDir = DEFAULT_OUT, requestOut } = {}) {
+  const requestBody = `${JSON.stringify(record.scope, null, 2)}\n`;
+  let reuseRequest = false;
+  if (requestOut) {
+    if (existsSync(requestOut)) {
+      if (!statSync(requestOut).isFile() || readFileSync(requestOut, 'utf8') !== requestBody)
+        throw new Error(`request-out ${requestOut} already exists with a different request; nothing was signed`);
+      reuseRequest = true;
+    } else if (!existsSync(path.dirname(requestOut)) || !statSync(path.dirname(requestOut)).isDirectory())
+      throw new Error(`request-out directory ${path.dirname(requestOut)} does not exist; nothing was signed`);
+  }
+  if (existsSync(recordPath(record, outDir)))
+    throw new Error(`record ${recordPath(record, outDir)} already exists; nothing was signed`);
+  return { requestBody, reuseRequest };
+}
+
+export function writeRecord(signed, outDir = DEFAULT_OUT) {
   mkdirSync(outDir, { recursive: true });
-  const file = path.join(outDir, `${signed.gate}.${signed.authorizationId}.json`);
+  const file = recordPath(signed, outDir);
   writeFileSync(file, `${JSON.stringify(signed, null, 2)}\n`, { flag: 'wx', mode: 0o644 });
   return file;
 }
@@ -426,15 +452,20 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       const gate = COMMANDS[cmd];
       const record = buildGateAuthorization(gate, argsFor(gate, val), new Date());
       const requestOut = val('--request-out') ? path.resolve(val('--request-out')) : undefined;
+      const outDir = val('--out') ? path.resolve(val('--out')) : DEFAULT_OUT;
+      // Conflicts first: before the key is read, the question is asked or anything is signed or written.
+      const { requestBody, reuseRequest } = checkOutputs(record, { outDir, requestOut });
+      // The request (the record's scope, harmless on its own) is written before the signed record, so a failure to
+      // write it can never leave a signed record behind; a failure to write the record is reported with what exists.
       const writeRequest = () => {
-        if (requestOut) writeFileSync(requestOut, `${JSON.stringify(record.scope, null, 2)}\n`, { flag: 'wx' });
+        if (requestOut && !reuseRequest) writeFileSync(requestOut, requestBody, { flag: 'wx' });
+        if (requestOut) console.log(`Request ${reuseRequest ? 'kept (identical)' : 'written'}: ${requestOut}`);
       };
       if (rest.includes('--preview')) {
         console.log('PREVIEW (nothing is signed; no key is read):');
         console.log(describeAuthorization(record));
         console.log(`Gate request (scope): ${JSON.stringify(record.scope)}`);
         writeRequest();
-        if (requestOut) console.log(`Request written: ${requestOut}`);
       } else {
         const k = ensureKey(keyDir);
         console.log(describeAuthorization(record));
@@ -444,10 +475,19 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
           console.log('\nNot signed. Nothing was written.');
           process.exitCode = 3;
         } else {
-          const file = writeRecord(signRecord(record, keyDir), val('--out') ? path.resolve(val('--out')) : undefined);
+          const signed = signRecord(record, keyDir);
+          console.log('');
           writeRequest();
-          console.log(`\nSigned and written: ${file}`);
-          if (requestOut) console.log(`Request written: ${requestOut}`);
+          let file;
+          try {
+            file = writeRecord(signed, outDir);
+          } catch (e) {
+            throw new Error(
+              `the signed record was NOT written (${e instanceof Error ? e.message : String(e)}); no usable authorization exists`,
+              { cause: e },
+            );
+          }
+          console.log(`Signed and written: ${file}`);
           console.log(`authorizationId: ${record.authorizationId}`);
         }
       }
