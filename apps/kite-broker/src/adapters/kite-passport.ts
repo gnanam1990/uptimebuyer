@@ -107,7 +107,9 @@ const sha = (s: string) => `sha256:${createHash('sha256').update(s).digest('hex'
 const hex = (s: string) => createHash('sha256').update(s).digest('hex');
 const nowIso = () => new Date().toISOString();
 const MAX_OUTPUT = 512 * 1024;
-const REQUEST_ID = /^req_[A-Za-z0-9_-]{1,120}$/;
+// Kite session request ids: real kpass 6.13.2 ids are agent_session_req_<uuid> (observed 2026-11-13); the req_<id>
+// form is the documentation's placeholder. Both start with a letter, so neither can be read as a flag.
+const REQUEST_ID = /^(?:agent_session_)?req_[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 /** Broker-generated operation keys; never starting with '-' so kpass cannot read one as a flag. */
 const OP_KEY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
