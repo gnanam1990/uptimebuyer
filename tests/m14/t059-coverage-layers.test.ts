@@ -35,7 +35,10 @@ describe('T-059 coverage layers', () => {
           'tests/m14/t058-journey-evidence.test.ts': 'passed',
           'tests/m14/t058-journey-serv-document.test.ts': 'passed',
           'tests/m14/t058-journey-serv-document-2.test.ts': 'passed',
+          'tests/m14/t058-payment-journey-gate.test.ts': 'passed',
           [`${BROKER_TESTS}/t058-journey-gate-db.int.test.ts`]: 'passed',
+          [`${BROKER_TESTS}/t058-kite-payment-preflight.test.ts`]: 'passed',
+          [`${BROKER_TESTS}/t058-journey-kite-payment.int.test.ts`]: 'passed',
         }),
       ],
     });

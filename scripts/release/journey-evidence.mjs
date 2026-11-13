@@ -198,12 +198,34 @@ export function enforceRedaction(check, paths, label) {
 
 /** Parts a document + reasoning run may record; anything else stays out of the manifest (NOT_RUN at the gate). */
 export const RECORDED_PARTS = Object.freeze({ document: 'PUBLISHED_DOCUMENT', reasoning: 'SERV_REASONING' });
+/** Parts a Kite payment run may record (the broker app's payment journey runner, test/support/kite-payment-journey.ts). */
+export const PAYMENT_RECORDED_PARTS = Object.freeze({
+  payment: 'KITE_PASSPORT',
+  fulfillment: 'PROVIDER_LIVE',
+  duplicate: 'KITE_PASSPORT',
+});
+/** Labels a dry run may put on its parts instead of the real origin (each is refused by the journey gate). */
+const DRY_RUN_ORIGINS = Object.freeze(['RECORDED_CONTRACT', 'CONTRACT_FAKE', 'LOCAL_STAND_IN']);
+const ALL_PARTS = ['sensor', 'document', 'reasoning', 'payment', 'fulfillment', 'recovery', 'duplicate', 'timeout'];
 
 /**
- * Build the journey-gate manifest. Only `document` and `reasoning` may be supplied; each needs capturedAt inside the
- * run window and artifacts under evidence/journeys/<journeyId>/ with a sha256. The reasoning part needs facts.runId.
+ * Build the journey-gate manifest. Only the `recordable` parts may be supplied (default: `document` and `reasoning`;
+ * a payment run passes PAYMENT_RECORDED_PARTS); each needs capturedAt inside the run window and artifacts under
+ * evidence/journeys/<journeyId>/ with a sha256. The reasoning part needs facts.runId; the payment part needs its
+ * authorizationId and payment facts. `originOverride` (dry runs) may only be a non-real label.
  */
-export function buildJourneyManifest({ journeyId, sourceSha, startedAt, endedAt, parts, context = {} }) {
+export function buildJourneyManifest({
+  journeyId,
+  sourceSha,
+  startedAt,
+  endedAt,
+  parts,
+  context = {},
+  recordable = RECORDED_PARTS,
+  originOverride,
+}) {
+  if (originOverride !== undefined && !DRY_RUN_ORIGINS.includes(originOverride))
+    throw new Error('originOverride must be a non-real origin label');
   if (!JOURNEY_ID.test(String(journeyId))) throw new Error('journeyId must match ^[a-z0-9][a-z0-9-]{0,63}$');
   if (!HEX40.test(String(sourceSha))) throw new Error('sourceSha must be a 40-hex commit');
   const start = iso(startedAt, 'startedAt');
@@ -211,7 +233,7 @@ export function buildJourneyManifest({ journeyId, sourceSha, startedAt, endedAt,
   if (end < start) throw new Error('endedAt precedes startedAt');
   const out = {};
   for (const [name, part] of Object.entries(parts ?? {})) {
-    if (!(name in RECORDED_PARTS)) throw new Error(`part ${name} cannot be recorded by this run`);
+    if (!Object.hasOwn(recordable, name)) throw new Error(`part ${name} cannot be recorded by this run`);
     const t = iso(part.capturedAt, `${name}.capturedAt`);
     if (t < start || t > end) throw new Error(`${name}.capturedAt is outside the run window`);
     const artifacts = part.artifacts ?? [];
@@ -230,10 +252,28 @@ export function buildJourneyManifest({ journeyId, sourceSha, startedAt, endedAt,
         !part.facts.proposalId.trim())
     )
       throw new Error('reasoning needs a COMPLETED run with facts.proposalId');
+    if (name === 'payment') {
+      const f = part.facts ?? {};
+      if (typeof part.authorizationId !== 'string' || !part.authorizationId)
+        throw new Error('payment needs its authorizationId');
+      if (
+        typeof f.state !== 'string' ||
+        typeof f.reconciled !== 'boolean' ||
+        !Number.isSafeInteger(f.amountMinor) ||
+        !Number.isSafeInteger(f.capMinor) ||
+        typeof f.currency !== 'string' ||
+        !f.request ||
+        typeof f.request !== 'object'
+      )
+        throw new Error('payment needs state, reconciled, amountMinor, capMinor, currency and request facts');
+    }
+    if (name === 'duplicate' && typeof part.facts?.sameIntentReturned !== 'boolean')
+      throw new Error('duplicate needs facts.sameIntentReturned');
     out[name] = {
-      origin: RECORDED_PARTS[name],
+      origin: originOverride ?? recordable[name],
       journeyId,
       capturedAt: part.capturedAt,
+      ...(name === 'payment' ? { authorizationId: part.authorizationId } : {}),
       artifacts: artifacts.map((a) => ({ path: a.path, sha256: a.sha256 })),
       ...(part.facts ? { facts: part.facts } : {}),
     };
@@ -245,7 +285,10 @@ export function buildJourneyManifest({ journeyId, sourceSha, startedAt, endedAt,
     startedAt,
     endedAt,
     parts: out,
-    notRecorded: ['sensor', 'payment', 'fulfillment', 'recovery', 'duplicate', 'timeout'].filter((p) => !(p in out)),
+    notRecorded: (recordable === RECORDED_PARTS
+      ? ['sensor', 'payment', 'fulfillment', 'recovery', 'duplicate', 'timeout']
+      : ALL_PARTS
+    ).filter((p) => !(p in out)),
     context,
   };
 }

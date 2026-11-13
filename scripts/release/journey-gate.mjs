@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as rg from './release-gate.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -83,7 +84,11 @@ function factReasons(part, p, ctx) {
     case 'payment': {
       // The cap is the signed authorization's scope (merchant, amount, currency, purpose, environment), checked by the
       // release-gate tooling; the manifest's own cap is only a consistency check.
-      if (typeof p.authorizationId !== 'string' || !ctx.isAuthorized?.('PAYMENT', p.authorizationId, f.request ?? f))
+      const window = { journeyId: ctx.journeyId, startedAt: ctx.startedAt, endedAt: ctx.endedAt };
+      if (
+        typeof p.authorizationId !== 'string' ||
+        !ctx.isAuthorized?.('PAYMENT', p.authorizationId, f.request ?? f, window)
+      )
         r.push('PAYMENT_NOT_AUTHORIZED');
       if (!Number.isSafeInteger(f.amountMinor) || !Number.isSafeInteger(f.capMinor) || f.amountMinor > f.capMinor)
         r.push('PAYMENT_OVER_CAP');
@@ -197,7 +202,12 @@ function classifyPart(part, manifest, ctx) {
   const art = artifactReasons(p, ctx, manifest.journeyId);
   fail.push(...art.fail);
   unknown.push(...art.unknown);
-  const facts = factReasons(part, p, ctx);
+  const facts = factReasons(part, p, {
+    ...ctx,
+    journeyId: manifest.journeyId,
+    startedAt: manifest.startedAt,
+    endedAt: manifest.endedAt,
+  });
   // A missing artifact is UNKNOWN (above); the record is compared only once every listed artifact is present.
   if (part === 'reasoning' && art.unknown.length === 0)
     facts.push(...reasoningRecordReasons(p, ctx, manifest.journeyId));
@@ -221,6 +231,21 @@ export function evaluateJourney(manifest, ctx) {
     result: worst(parts.map((p) => p.status)),
     parts,
   };
+}
+
+/**
+ * A PAYMENT authorization covers this journey's payment when the request names this journey and either (a) the record
+ * verifies now and is unused (release-gate authorizationVerifies), or (b) it was consumed by the one AUTHORIZED decision
+ * the release gate recorded for exactly this request (canonical digest), made inside the journey window. A decision for
+ * another journey, request or time never counts.
+ */
+export function paymentAuthorized(root, authorizationId, request, { journeyId, startedAt, endedAt, now = new Date() }) {
+  if (!request || typeof request !== 'object' || request.journeyId !== journeyId) return false;
+  if (rg.authorizationVerifies(root, 'PAYMENT', authorizationId, now, request)) return true;
+  const d = rg.authorizationDecidedFor(root, 'PAYMENT', authorizationId, request);
+  if (!d.ok) return false;
+  const t = Date.parse(d.decidedAt);
+  return Date.parse(startedAt) <= t && t <= Date.parse(endedAt);
 }
 
 /** Digests of every artifact the local simulated demo produced (docs/release/demo/simulated-artifacts.json). */
@@ -396,10 +421,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       await pool.end();
     }
   }
-  // No authorization registry is consulted for payments here: scripts/release/release-gate.mjs owns it, and with no
-  // registered authorizer no PAYMENT authorization can verify.
-  const rg = await import('./release-gate.mjs');
-  const isAuthorized = (gate, id, request) => rg.authorizationVerifies(repo, gate, id, new Date(), request);
+  // The authorization registry is scripts/release/release-gate.mjs's; with no registered authorizer no PAYMENT
+  // authorization can verify.
+  const isAuthorized = (gate, id, request, window) =>
+    gate === 'PAYMENT' && paymentAuthorized(repo, id, request, { ...window, now: new Date() });
   const r = evaluateJourney(manifest, {
     artifactRoot: repo,
     expectedSha: headSha(repo),
