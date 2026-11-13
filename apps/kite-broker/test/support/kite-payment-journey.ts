@@ -128,6 +128,10 @@ export function assessX402Preflight(
     return { ok: false, reason: 'PREFLIGHT_UNREADABLE' };
   const version = Number(doc.x402Version);
   if (version !== 1 && version !== 2) return { ok: false, reason: 'PREFLIGHT_UNREADABLE' };
+  // The challenge must be for exactly the bound resource (no other endpoint's price can stand in for it).
+  const resource = (doc.resource ?? null) as { url?: unknown } | null;
+  if (resource && resource.url !== undefined && resource.url !== LIONX402.url)
+    return { ok: false, reason: 'PREFLIGHT_RESOURCE_MISMATCH' };
   let first: Extract<PreflightAssessment, { ok: true }> | null = null;
   for (const raw of doc.accepts as unknown[]) {
     const a = (raw ?? {}) as Record<string, unknown>;

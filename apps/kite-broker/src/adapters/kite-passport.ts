@@ -150,6 +150,23 @@ export function minorToDecimal(minor: bigint): string {
   return `${s.slice(0, -2)}.${s.slice(-2)}`;
 }
 
+/** Kite's Passport web host (request-session docs: the CLI opens approval pages on it only). */
+const PASSPORT_WEB_HOST = 'agentpassport.ai';
+function isPassportApprovalUrl(v: string): boolean {
+  try {
+    const u = new URL(v);
+    return (
+      u.protocol === 'https:' &&
+      !u.username &&
+      !u.password &&
+      u.port === '' &&
+      (u.hostname === PASSPORT_WEB_HOST || u.hostname.endsWith(`.${PASSPORT_WEB_HOST}`))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function assertEndpoint(merchantId: string, e: KitePassportEndpoint) {
   let u: URL;
   try {
@@ -286,6 +303,7 @@ export class KitePassportAdapter implements PaidAdapter {
     // Resolve the bound session from its approval request (a non-paying status read) and require it active, unexpired
     // and capped inside the hard caps before any paid command.
     const st = await this.run(['session', 'status', '--request-id', bound], null, this.readTimeout);
+    if (!this.answersFor(st, bound)) return this.notSent('KITE_BOUND_SESSION_UNRESOLVED');
     const session = obj(st.json?.session);
     const sessionId = str(session?.id) ?? str(st.json?.session_id);
     if (st.timedOut || st.exitCode !== 0 || !sessionId || !SESSION_ID.test(sessionId))
@@ -441,7 +459,7 @@ export class KitePassportAdapter implements PaidAdapter {
     const out = this.sessionOutcome(r);
     const j = r.json ?? {};
     const approvalUrl = str(j.approval_url);
-    if (out.kind === 'ACCEPTED' && out.providerRef && approvalUrl && /^https:\/\//.test(approvalUrl))
+    if (out.kind === 'ACCEPTED' && out.providerRef && approvalUrl && isPassportApprovalUrl(approvalUrl))
       this.#taps.onApprovalRequired?.({ requestId: out.providerRef, approvalUrl, expiresAt: str(j.expires_at) });
     return out;
   }
@@ -449,16 +467,23 @@ export class KitePassportAdapter implements PaidAdapter {
   async lookupSession(locator: ReconciliationLocator): Promise<AdapterOutcome> {
     if (!locator.providerRef || !REQUEST_ID.test(locator.providerRef))
       return unsupported('KITE_NO_SESSION_LOOKUP_WITHOUT_REQUEST_ID');
-    return this.sessionOutcome(
-      await this.run(['session', 'status', '--request-id', locator.providerRef], null, this.readTimeout),
-    );
+    const r = await this.run(['session', 'status', '--request-id', locator.providerRef], null, this.readTimeout);
+    // An answer about another approval request is never taken for this one.
+    if (!this.answersFor(r, locator.providerRef)) return this.unknown('KPASS_SESSION_UNRESOLVED', r);
+    return this.sessionOutcome(r);
+  }
+
+  /** A status answer names no request id, or exactly the one asked about. */
+  private answersFor(r: Run, requestId: string): boolean {
+    const named = r.json?.request_id;
+    return named === undefined || named === requestId;
   }
 
   /** Read-only: the bound session's status and Kite's own spent total (for reconciliation evidence). */
   async sessionUsage(requestRef: string): Promise<{ status: string | null; spentTotal: string | null } | null> {
     if (!REQUEST_ID.test(requestRef)) return null;
     const r = await this.run(['session', 'status', '--request-id', requestRef], null, this.readTimeout);
-    if (r.timedOut || r.exitCode !== 0 || !r.json) return null;
+    if (r.timedOut || r.exitCode !== 0 || !r.json || !this.answersFor(r, requestRef)) return null;
     const s = obj(r.json.session);
     return { status: str(s?.status), spentTotal: str(obj(s?.usage)?.spent_total) };
   }
