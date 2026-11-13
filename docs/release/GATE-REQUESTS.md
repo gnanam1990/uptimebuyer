@@ -8,7 +8,8 @@
 Each record is built by `scripts/release/authorize.mjs` from explicit arguments: it computes every file digest itself,
 prints the record in plain words (the X text in full) and signs only after the exact answer `YES`. `--preview` prints the
 same record without reading the key or signing. `--request-out` writes the gate request (the record's exact scope) that
-`release-gate.mjs check` needs; it refuses to overwrite an existing file <!-- C-018 -->.
+`release-gate.mjs check` needs; an existing file is kept only when it holds exactly that request (a preview's), and any
+other output conflict is refused before anything is signed <!-- C-018 -->.
 
 ## Scopes (from `config/release/gates.json`)
 
@@ -46,11 +47,14 @@ node scripts/release/authorize.mjs release-tag --tag v1.0.0 --source-sha "$SOURC
 
 Preflight, each established before it is written as `true`: `verify-green` (`pnpm verify` at `SOURCE`), `smoke-local`
 (`pnpm release:smoke`), `backup-restore-verified` and `rollback-exercised` (the smoke record
-`docs/release/evidence/t057-release-smoke.json`), `clean-tree` (`git status --short` empty at `SOURCE`). Then, with
-`AUTH_ID` set to the printed `authorizationId`:
+`docs/release/evidence/t057-release-smoke.json`). For `clean-tree`, set `AUTH_ID` to the printed `authorizationId`
+and run the check below with `main` checked out at `SOURCE`: it requires HEAD to be `SOURCE` and tolerates exactly one
+untracked file, the RELEASE_TAG record just signed; anything else (another file, a modified or staged path, another
+record) makes it print `"clean-tree":false` and exit 1. Write the preflight file only when every check passed:
 
 ```sh
 cd /Users/kratos/uptimebuyer
+node scripts/release/preflight-clean-tree.mjs --source-sha "$SOURCE" --allow-record "evidence/authorizations/RELEASE_TAG.$AUTH_ID.json"
 printf '%s\n' '{"verify-green":true,"smoke-local":true,"backup-restore-verified":true,"rollback-exercised":true,"clean-tree":true}' > /Users/kratos/uptimebuyer-release/RELEASE_TAG.preflight.json
 node scripts/release/release-gate.mjs check RELEASE_TAG --request /Users/kratos/uptimebuyer-release/RELEASE_TAG.request.json --preflight /Users/kratos/uptimebuyer-release/RELEASE_TAG.preflight.json --authorization "$AUTH_ID"
 ```
