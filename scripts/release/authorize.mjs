@@ -8,7 +8,7 @@
 //   node scripts/release/authorize.mjs payment --merchant <host> --amount-minor <n> --currency <ISO> \
 //     --purpose <CODE> --environment <env> --valid-hours <h> [--authorized-by <name>] [--key-dir <dir>] [--out <dir>]
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes } from 'node:crypto';
-import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -21,10 +21,26 @@ const KEY_FILE = 'authorizer-ed25519.pem';
 /** The most this repository's Kite wiring can pay per session (the broker adapter's KITE_HARD_CAPS), in minor units. */
 const MAX_PAYMENT_MINOR = 5;
 
-const inside = (child, parent) => {
-  const rel = path.relative(path.resolve(parent), path.resolve(child));
+const lexicallyInside = (child, parent) => {
+  const rel = path.relative(parent, child);
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 };
+/** The real path of `p`, resolved through its nearest existing ancestor (the rest may not exist yet). */
+function realpathOfNearest(p) {
+  let cur = path.resolve(p);
+  const rest = [];
+  while (!existsSync(cur)) {
+    const up = path.dirname(cur);
+    if (up === cur) break;
+    rest.unshift(path.basename(cur));
+    cur = up;
+  }
+  return path.join(realpathSync(cur), ...rest);
+}
+/** True when `child` is inside `parent`, compared by real path so a symlink into the repository cannot hide it. */
+const inside = (child, parent) =>
+  lexicallyInside(path.resolve(child), path.resolve(parent)) ||
+  lexicallyInside(realpathOfNearest(child), realpathSync(parent));
 
 function ownedPrivate(p, kind) {
   const st = lstatSync(p);

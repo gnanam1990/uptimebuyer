@@ -266,6 +266,15 @@ export function buildJourneyManifest({
         typeof f.request !== 'object'
       )
         throw new Error('payment needs state, reconciled, amountMinor, capMinor, currency and request facts');
+      const req = f.request;
+      if (
+        !Number.isSafeInteger(req.amountMinor) ||
+        f.amountMinor > req.amountMinor ||
+        f.currency !== req.currency ||
+        f.merchant !== req.merchant ||
+        f.purpose !== req.purpose
+      )
+        throw new Error('payment facts must stay inside the authorized request (amount, currency, merchant, purpose)');
     }
     if (name === 'duplicate' && typeof part.facts?.sameIntentReturned !== 'boolean')
       throw new Error('duplicate needs facts.sameIntentReturned');

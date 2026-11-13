@@ -92,6 +92,20 @@ function factReasons(part, p, ctx) {
         r.push('PAYMENT_NOT_AUTHORIZED');
       if (!Number.isSafeInteger(f.amountMinor) || !Number.isSafeInteger(f.capMinor) || f.amountMinor > f.capMinor)
         r.push('PAYMENT_OVER_CAP');
+      // The boundary is the authorized request (the one the PAYMENT decision was bound to), never the manifest's own
+      // capMinor: the recorded amount may not exceed it and currency, merchant and purpose must be the authorized ones.
+      const req = f.request;
+      if (!req || typeof req !== 'object') r.push('PAYMENT_REQUEST_MISSING');
+      else {
+        if (
+          !Number.isSafeInteger(f.amountMinor) ||
+          !Number.isSafeInteger(req.amountMinor) ||
+          f.amountMinor > req.amountMinor
+        )
+          r.push('PAYMENT_OVER_AUTHORIZED');
+        for (const k of ['currency', 'merchant', 'purpose'])
+          if (typeof f[k] !== 'string' || f[k] !== req[k]) r.push(`PAYMENT_OUTSIDE_AUTHORIZATION:${k}`);
+      }
       break;
     }
     case 'recovery':
@@ -246,6 +260,28 @@ export function paymentAuthorized(root, authorizationId, request, { journeyId, s
   if (!d.ok) return false;
   const t = Date.parse(d.decidedAt);
   return Date.parse(startedAt) <= t && t <= Date.parse(endedAt);
+}
+
+/**
+ * Evidence of a COMPLETED payment counts only with the consumed, request-bound decision: the one AUTHORIZED decision the
+ * release gate recorded for exactly this request (canonical digest, which includes the journey id), whose recorded
+ * journey id is this journey and whose time falls inside the journey window. An unconsumed record proves nothing
+ * happened under it, so it never counts here (PR #21 review 10). The journey id is bound in the decision record, not in
+ * the signed scope, because the authorization is signed before a run (and its id) exists and single use already ties
+ * one record to one decision.
+ */
+export function paymentEvidenceAuthorized(root, authorizationId, request, { journeyId, startedAt, endedAt }) {
+  if (!request || typeof request !== 'object' || request.journeyId !== journeyId) return false;
+  const d = rg.authorizationDecidedFor(root, 'PAYMENT', authorizationId, request);
+  if (!d.ok || d.journeyId !== journeyId) return false;
+  const t = Date.parse(d.decidedAt);
+  return Date.parse(startedAt) <= t && t <= Date.parse(endedAt);
+}
+
+/** The journey gate's payment authorizer over a repository root (the CLI's). */
+export function evidenceAuthorizer(root, now = () => new Date()) {
+  return (gate, id, request, window) =>
+    gate === 'PAYMENT' && paymentEvidenceAuthorized(root, id, request, { ...window, now: now() });
 }
 
 /** Digests of every artifact the local simulated demo produced (docs/release/demo/simulated-artifacts.json). */
@@ -423,8 +459,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   // The authorization registry is scripts/release/release-gate.mjs's; with no registered authorizer no PAYMENT
   // authorization can verify.
-  const isAuthorized = (gate, id, request, window) =>
-    gate === 'PAYMENT' && paymentAuthorized(repo, id, request, { ...window, now: new Date() });
+  const isAuthorized = evidenceAuthorizer(repo);
   const r = evaluateJourney(manifest, {
     artifactRoot: repo,
     expectedSha: headSha(repo),

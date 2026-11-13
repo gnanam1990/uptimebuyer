@@ -187,7 +187,7 @@ export function checkAndRecord(root, gate, request, { preflight = {}, now = new 
     // tied to this request only (journey gate, payment part).
     appendFileSync(
       path.join(dir, 'decisions.jsonl'),
-      `${JSON.stringify({ at: now.toISOString(), gate, decision: d.decision, reasons: d.reasons, authorizationId: d.authorizationId, requestSha256: requestDigest(request) })}\n`,
+      `${JSON.stringify({ at: now.toISOString(), gate, decision: d.decision, reasons: d.reasons, authorizationId: d.authorizationId, requestSha256: requestDigest(request), journeyId: typeof request?.journeyId === 'string' ? request.journeyId : null })}\n`,
     );
   }
   if (d.decision === 'AUTHORIZED') {
@@ -258,7 +258,7 @@ export function authorizationDecidedFor(root, gate, authorizationId, request) {
   if (decided.length !== 1 || decided[0].requestSha256 !== want) return { ok: false };
   const at = Date.parse(decided[0].at);
   if (!(Date.parse(record.authorizedAt) <= at && at <= Date.parse(record.expiresAt))) return { ok: false };
-  return { ok: true, decidedAt: new Date(at).toISOString() };
+  return { ok: true, decidedAt: new Date(at).toISOString(), journeyId: decided[0].journeyId ?? null };
 }
 
 /** The repository's current decision for every gate (no request, no preflight). */

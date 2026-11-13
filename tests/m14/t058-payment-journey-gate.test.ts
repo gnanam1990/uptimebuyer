@@ -87,6 +87,7 @@ describe('T-060 PAYMENT decisions are bound to the exact request they authorized
     expect(rg.authorizationDecidedFor(root, 'PAYMENT', 'auth-payment-20261113-a1b2c3', request())).toEqual({
       ok: true,
       decidedAt: decidedAt.toISOString(),
+      journeyId: 'j-2026-11-13-kite-payment',
     });
     expect(
       rg.authorizationDecidedFor(root, 'PAYMENT', 'auth-payment-20261113-a1b2c3', request({ journeyId: 'other' })).ok,
