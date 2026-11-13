@@ -3,7 +3,7 @@
 // performs no network I/O at all.
 import { importAuthorityPublicKey } from '@uptimebuyer/commerce';
 import type { Db } from '@uptimebuyer/data';
-import { KitePassportAdapter } from './adapters/kite-passport.js';
+import { KitePassportAdapter, type KitePassportTaps } from './adapters/kite-passport.js';
 import { UnconfiguredAdapter, type PaidAdapter } from './adapters/port.js';
 import { LocalStandInAdapter } from './adapters/standin.js';
 import { KiteBroker, type BrokerHooks } from './broker.js';
@@ -14,7 +14,12 @@ const bytes = (b64: string) => new Uint8Array(Buffer.from(b64, 'base64url'));
 const ring = (r: Record<string, string>) =>
   Object.freeze(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, bytes(v)])));
 
-export function adapterFrom(cfg: BrokerSecretConfig['adapter'], log: BrokerLog): PaidAdapter {
+/** `taps` (operator-terminal callbacks: approval link, paid-call record) apply to KITE_PASSPORT only. */
+export function adapterFrom(
+  cfg: BrokerSecretConfig['adapter'],
+  log: BrokerLog,
+  taps: KitePassportTaps = {},
+): PaidAdapter {
   switch (cfg.kind) {
     case 'NONE':
       return new UnconfiguredAdapter();
@@ -33,14 +38,19 @@ export function adapterFrom(cfg: BrokerSecretConfig['adapter'], log: BrokerLog):
         { capability: cfg.reconciliation, timeoutMs: cfg.timeoutMs },
       );
     case 'KITE_PASSPORT':
-      return new KitePassportAdapter({
-        kpassBinary: cfg.kpassBinary,
-        stateRoot: cfg.stateRoot,
-        ...(cfg.baseUrl ? { baseUrl: cfg.baseUrl } : {}),
-        timeoutMs: cfg.timeoutMs,
-        merchantEndpoints: cfg.merchantEndpoints,
-        sameKeyReplayVerified: cfg.sameKeyReplayVerified === true,
-      });
+      return new KitePassportAdapter(
+        {
+          kpassBinary: cfg.kpassBinary,
+          stateRoot: cfg.stateRoot,
+          ...(cfg.baseUrl ? { baseUrl: cfg.baseUrl } : {}),
+          timeoutMs: cfg.timeoutMs,
+          ...(cfg.readTimeoutMs ? { readTimeoutMs: cfg.readTimeoutMs } : {}),
+          merchantEndpoints: cfg.merchantEndpoints,
+          sameKeyReplayVerified: cfg.sameKeyReplayVerified === true,
+          manualReconciliationAccepted: cfg.manualReconciliationAccepted === true,
+        },
+        taps,
+      );
   }
 }
 

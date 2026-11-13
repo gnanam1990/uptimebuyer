@@ -1,0 +1,18 @@
+{
+  "schema": "uptimebuyer-kite-broker-adapter.v1",
+  "adapter": {
+    "kind": "KITE_PASSPORT",
+    "kpassBinary": "/ABSOLUTE/PATH/TO/kpass",
+    "stateRoot": "/ABSOLUTE/PATH/OUTSIDE/THE/REPO/kite-broker",
+    "timeoutMs": 300000,
+    "readTimeoutMs": 30000,
+    "merchantEndpoints": {
+      "mer_lionx402-com": {
+        "url": "https://lionx402.com/api/x402/poi-business-search-json?q=refrigeration%20repair",
+        "method": "GET"
+      }
+    },
+    "sameKeyReplayVerified": false,
+    "manualReconciliationAccepted": true
+  }
+}

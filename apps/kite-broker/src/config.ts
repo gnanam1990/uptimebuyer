@@ -2,13 +2,41 @@
 // URL and its verification keys: a JSON document read once from an inherited file descriptor (a pipe the launcher or
 // secret manager writes and closes) or from a 0600 secret file owned by the broker's uid. Never from env, argv or a
 // log line. The parsed values are frozen and the raw bytes are zeroed after parsing.
-import { closeSync, fstatSync, openSync, readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, lstatSync, openSync, readFileSync, statSync } from 'node:fs';
 import { z } from 'zod';
 
 const B64 = z.string().regex(/^[A-Za-z0-9_-]{16,4096}$/);
 const KeyId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 
 const Capability = z.strictObject({ lookupByClientOperation: z.boolean(), sameKeyReplay: z.boolean() });
+const MerchantId = z.string().regex(/^mer_[A-Za-z0-9][A-Za-z0-9-]{3,63}$/);
+
+/**
+ * The KITE_PASSPORT adapter section: paths and policy only. No Kite credential is ever in it (kpass keeps its login in
+ * `<stateRoot>/.kite-passport`). Merchant endpoints map the product's merchant id to the exact URL (query included)
+ * and method; nothing else is ever paid.
+ */
+export const KitePassportAdapterSchema = z.strictObject({
+  kind: z.literal('KITE_PASSPORT'),
+  kpassBinary: z.string().min(1).max(1024).startsWith('/'),
+  stateRoot: z.string().min(1).max(1024).startsWith('/'),
+  baseUrl: z.string().url().optional(),
+  timeoutMs: z.int().min(1_000).max(300_000),
+  readTimeoutMs: z.int().min(1_000).max(120_000).optional(),
+  merchantEndpoints: z.record(
+    MerchantId,
+    z.strictObject({ url: z.string().url().max(2048), method: z.enum(['GET', 'POST']) }),
+  ),
+  sameKeyReplayVerified: z.boolean().optional(),
+  manualReconciliationAccepted: z.boolean().optional(),
+});
+export type KitePassportAdapterConfig = z.output<typeof KitePassportAdapterSchema>;
+
+/** The operator's KITE_PASSPORT adapter file (outside the repository, 0600): see config/broker.kite-passport.example.json. */
+export const KiteAdapterFileSchema = z.strictObject({
+  schema: z.literal('uptimebuyer-kite-broker-adapter.v1'),
+  adapter: KitePassportAdapterSchema,
+});
 
 export const BrokerSecretConfigSchema = z.strictObject({
   databaseUrl: z.string().min(1).max(2048),
@@ -28,18 +56,7 @@ export const BrokerSecretConfigSchema = z.strictObject({
       reconciliation: Capability,
       timeoutMs: z.int().min(100).max(120_000),
     }),
-    z.strictObject({
-      kind: z.literal('KITE_PASSPORT'),
-      kpassBinary: z.string().min(1).max(1024),
-      stateRoot: z.string().min(1).max(1024),
-      baseUrl: z.string().url().optional(),
-      timeoutMs: z.int().min(1_000).max(300_000),
-      merchantEndpoints: z.record(
-        z.string(),
-        z.strictObject({ url: z.string().url(), method: z.enum(['GET', 'POST']) }),
-      ),
-      sameKeyReplayVerified: z.boolean().optional(),
-    }),
+    KitePassportAdapterSchema,
   ]),
   sendLeaseMs: z.int().min(100).max(3_600_000).optional(),
   reconcileBaseMs: z.int().min(50).max(3_600_000).optional(),
@@ -89,17 +106,39 @@ export function loadSecretFromFd(fd: number): BrokerSecretConfig {
   return parse(buf);
 }
 
-/** Read a 0600 secret file owned by this uid (group/other bits refused). */
-export function loadSecretFromFile(path: string): BrokerSecretConfig {
-  const st = statSync(path);
+function assertPrivateFile(path: string, statFn: typeof statSync | typeof lstatSync = statSync) {
+  const st = statFn(path);
   if (!st.isFile()) throw new ConfigError('SECRET_FILE_NOT_REGULAR');
   if ((st.mode & 0o077) !== 0) throw new ConfigError('SECRET_FILE_MODE_TOO_OPEN');
   if (typeof process.getuid === 'function' && st.uid !== process.getuid())
     throw new ConfigError('SECRET_FILE_NOT_OWNED');
+}
+
+/** Read a 0600 secret file owned by this uid (group/other bits refused). */
+export function loadSecretFromFile(path: string): BrokerSecretConfig {
+  assertPrivateFile(path);
   const fd = openSync(path, 'r');
   try {
     return parse(readFileSync(fd));
   } finally {
     closeSync(fd);
   }
+}
+
+/** Read the operator's KITE_PASSPORT adapter file: a regular 0600 file of this uid (never a symlink), strictly parsed. */
+export function loadKiteAdapterFile(path: string): KitePassportAdapterConfig {
+  assertPrivateFile(path, lstatSync);
+  const buf = readFileSync(path);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(buf.toString('utf8'));
+  } catch {
+    throw new ConfigError('SECRET_CONFIG_NOT_JSON');
+  } finally {
+    buf.fill(0);
+  }
+  const r = KiteAdapterFileSchema.safeParse(raw);
+  if (!r.success)
+    throw new ConfigError(`SECRET_CONFIG_INVALID:${r.error.issues.map((i) => i.path.join('.')).join(',')}`);
+  return Object.freeze(r.data.adapter);
 }
