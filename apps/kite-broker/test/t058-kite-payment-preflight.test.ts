@@ -222,7 +222,10 @@ describe('T-058 PR #21 review 1 and 3: adapter file strictness and its race-free
     const fn = src.slice(src.indexOf('export function loadKiteAdapterFile'));
     const bodyText = fn.slice(0, fn.indexOf('\n}\n'));
     expect(bodyText).toMatch(/O_NOFOLLOW/);
-    expect(bodyText).toMatch(/fstatSync\(|privateFd\(/);
+    expect(bodyText).toMatch(/openPrivate\(/);
+    const helper = src.slice(src.indexOf('function openPrivate'));
+    expect(helper.slice(0, helper.indexOf('\n}\n'))).toMatch(/assertPrivateFd\(fd\)/);
+    expect(src.slice(src.indexOf('function assertPrivateFd'))).toMatch(/^[^]*?fstatSync\(fd\)/);
     expect(bodyText).not.toMatch(/\b(?:statSync|lstatSync|readFileSync)\(path\b/);
   });
 });

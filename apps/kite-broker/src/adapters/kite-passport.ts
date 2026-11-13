@@ -32,7 +32,8 @@ import { unsupported } from './port.js';
 export interface KitePassportEndpoint {
   /** The exact paid URL, query string included (GET parameters travel in the URL; nothing else is sent). */
   url: string;
-  method: 'GET' | 'POST';
+  /** Only GET is executable today (no request body is ever sent); POST is refused at configuration time. */
+  method: 'GET';
 }
 
 export interface KitePassportConfig {
@@ -111,7 +112,8 @@ const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 /** Broker-generated operation keys; never starting with '-' so kpass cannot read one as a flag. */
 const OP_KEY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const PROVIDER_REF = /^[\x21-\x7E]{1,256}$/;
-const READ_TIMEOUT_MS = 30_000;
+/** Default hard timeout of the non-paying kpass commands (status reads, session create). */
+export const DEFAULT_KPASS_READ_TIMEOUT_MS = 30_000;
 /** A kpass value must never be readable as a flag. */
 const plainArg = (v: string) => v.length > 0 && !v.startsWith('-');
 
@@ -186,9 +188,11 @@ function assertEndpoint(merchantId: string, e: KitePassportEndpoint) {
     !host.includes('.') ||
     host === 'localhost' ||
     host.endsWith('.localhost') ||
-    !['GET', 'POST'].includes(e.method)
+    false
   )
     throw new Error(`Kite merchant endpoint for ${merchantId} must be a plain public https URL`);
+  // Only GET can be executed (no body is ever sent): a POST endpoint would let an operator approve an unusable session.
+  if (e.method !== 'GET') throw new Error(`Kite merchant endpoint for ${merchantId} must use GET`);
 }
 
 type Run = {
@@ -548,7 +552,7 @@ export class KitePassportAdapter implements PaidAdapter {
   }
 
   private get readTimeout() {
-    return this.#cfg.readTimeoutMs ?? READ_TIMEOUT_MS;
+    return this.#cfg.readTimeoutMs ?? DEFAULT_KPASS_READ_TIMEOUT_MS;
   }
 
   private sessionOutcome(r: Run): AdapterOutcome {

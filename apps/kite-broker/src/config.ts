@@ -2,7 +2,8 @@
 // URL and its verification keys: a JSON document read once from an inherited file descriptor (a pipe the launcher or
 // secret manager writes and closes) or from a 0600 secret file owned by the broker's uid. Never from env, argv or a
 // log line. The parsed values are frozen and the raw bytes are zeroed after parsing.
-import { closeSync, fstatSync, lstatSync, openSync, readFileSync, statSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
+import { DEFAULT_KPASS_READ_TIMEOUT_MS } from './adapters/kite-passport.js';
 import { z } from 'zod';
 
 const B64 = z.string().regex(/^[A-Za-z0-9_-]{16,4096}$/);
@@ -25,7 +26,8 @@ export const KitePassportAdapterSchema = z.strictObject({
   readTimeoutMs: z.int().min(1_000).max(120_000).optional(),
   merchantEndpoints: z.record(
     MerchantId,
-    z.strictObject({ url: z.string().url().max(2048), method: z.enum(['GET', 'POST']) }),
+    // Only GET is executable today; POST is refused until a body contract exists (PR #21 review 1).
+    z.strictObject({ url: z.string().url().max(2048), method: z.literal('GET') }),
   ),
   sameKeyReplayVerified: z.boolean().optional(),
   manualReconciliationAccepted: z.boolean().optional(),
@@ -76,6 +78,17 @@ export class ConfigError extends Error {
   }
 }
 
+/**
+ * The shortest send lease for an adapter: everything one send may take, plus a 1 s margin. A KITE_PASSPORT send is a
+ * session-status read (readTimeoutMs) followed by the paid call (timeoutMs).
+ */
+export function minimumSendLeaseMs(adapter: BrokerSecretConfig['adapter']): number {
+  if (adapter.kind === 'NONE') return 1_000;
+  if (adapter.kind === 'KITE_PASSPORT')
+    return adapter.timeoutMs + (adapter.readTimeoutMs ?? DEFAULT_KPASS_READ_TIMEOUT_MS) + 1_000;
+  return adapter.timeoutMs + 1_000;
+}
+
 function parse(buf: Buffer): BrokerSecretConfig {
   let raw: unknown;
   try {
@@ -91,8 +104,7 @@ function parse(buf: Buffer): BrokerSecretConfig {
     throw new ConfigError(`SECRET_CONFIG_INVALID:${r.error.issues.map((i) => i.path.join('.')).join(',')}`);
   if (r.data.mode === 'PRODUCTION' && r.data.testFaults?.length) throw new ConfigError('TEST_FAULTS_IN_PRODUCTION');
   // A send lease shorter than the adapter timeout would let a sweep relabel a still-running send as UNKNOWN.
-  const timeout = r.data.adapter.kind === 'NONE' ? 0 : r.data.adapter.timeoutMs;
-  if (r.data.mode === 'PRODUCTION' && (r.data.sendLeaseMs ?? 60_000) < timeout + 1_000)
+  if (r.data.mode === 'PRODUCTION' && (r.data.sendLeaseMs ?? 60_000) < minimumSendLeaseMs(r.data.adapter))
     throw new ConfigError('SEND_LEASE_SHORTER_THAN_ADAPTER_TIMEOUT');
   return Object.freeze(r.data);
 }
@@ -106,18 +118,37 @@ export function loadSecretFromFd(fd: number): BrokerSecretConfig {
   return parse(buf);
 }
 
-function assertPrivateFile(path: string, statFn: typeof statSync | typeof lstatSync = statSync) {
-  const st = statFn(path);
+/** Owner, mode and type checks on an OPEN descriptor (never on a path that could be swapped afterwards). */
+function assertPrivateFd(fd: number) {
+  const st = fstatSync(fd);
   if (!st.isFile()) throw new ConfigError('SECRET_FILE_NOT_REGULAR');
   if ((st.mode & 0o077) !== 0) throw new ConfigError('SECRET_FILE_MODE_TOO_OPEN');
   if (typeof process.getuid === 'function' && st.uid !== process.getuid())
     throw new ConfigError('SECRET_FILE_NOT_OWNED');
 }
 
-/** Read a 0600 secret file owned by this uid (group/other bits refused). */
+function openPrivate(path: string, flags: number): number {
+  let fd: number;
+  try {
+    fd = openSync(path, flags);
+  } catch (e) {
+    // O_NOFOLLOW on a symlink fails with ELOOP: a symlink is not the regular file this must be.
+    throw new ConfigError(
+      (e as NodeJS.ErrnoException).code === 'ELOOP' ? 'SECRET_FILE_NOT_REGULAR' : 'SECRET_FILE_UNREADABLE',
+    );
+  }
+  try {
+    assertPrivateFd(fd);
+  } catch (e) {
+    closeSync(fd);
+    throw e;
+  }
+  return fd;
+}
+
+/** Read a 0600 secret file owned by this uid (group/other bits refused); checked and read through one descriptor. */
 export function loadSecretFromFile(path: string): BrokerSecretConfig {
-  assertPrivateFile(path);
-  const fd = openSync(path, 'r');
+  const fd = openPrivate(path, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
     return parse(readFileSync(fd));
   } finally {
@@ -125,10 +156,18 @@ export function loadSecretFromFile(path: string): BrokerSecretConfig {
   }
 }
 
-/** Read the operator's KITE_PASSPORT adapter file: a regular 0600 file of this uid (never a symlink), strictly parsed. */
+/**
+ * Read the operator's KITE_PASSPORT adapter file: opened once with O_NOFOLLOW (a symlink is refused), owner, mode and
+ * type checked with fstat on that descriptor, and read from the same descriptor (no check-then-reopen race).
+ */
 export function loadKiteAdapterFile(path: string): KitePassportAdapterConfig {
-  assertPrivateFile(path, lstatSync);
-  const buf = readFileSync(path);
+  const fd = openPrivate(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  let buf: Buffer;
+  try {
+    buf = readFileSync(fd);
+  } finally {
+    closeSync(fd);
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(buf.toString('utf8'));
