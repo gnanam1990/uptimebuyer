@@ -25,7 +25,7 @@ import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { KitePassportAdapter } from '../../src/adapters/kite-passport.js';
 import { RecordedContractAdapter } from '../../src/adapters/recorded.js';
-import { loadKiteAdapterFile } from '../../src/config.js';
+import { loadKiteAdapterFile, minimumSendLeaseMs } from '../../src/config.js';
 import {
   LIONX402,
   checkStateRoot,
@@ -232,8 +232,8 @@ async function main() {
         outsideRepository: !inside(configFile, repo),
       }),
       checkGate: async (files, id) => gateCheckCli(files, id),
-      isAuthorized: (_g, id, request, window) =>
-        jg.paymentAuthorized(repo, id, request, { ...window, now: new Date() }),
+      // Completed-payment evidence: only the consumed decision recorded for this journey (PR #21 review 10).
+      isAuthorized: (g, id, request, window) => jg.evidenceAuthorizer(repo)(g, id, request, window),
       onApprovalRequired: (a) => {
         console.error('');
         console.error('==> Approve the Kite spending session with your passkey:');
@@ -248,7 +248,16 @@ async function main() {
       killSwitchInstalled: true,
       registerKillSwitch: (fn) => {
         revoke = fn;
+        // A Ctrl-C that came before the authority existed (preflight, world build) revokes it the moment it exists.
+        if (interrupted)
+          void fn().then(
+            () => log('authority REVOKED (interrupt before it was issued)'),
+            () => log('revoke failed; the authority still expires on its own'),
+          );
       },
+      interrupted: () => interrupted,
+      // The lease outlasts the status read plus the paid call (PR #21 review 2), with a minute of margin.
+      sendLeaseMs: minimumSendLeaseMs(cfg) + 60_000,
       runGateCli: journeyGateCli,
     };
   } else {
@@ -322,8 +331,8 @@ async function main() {
           now: new Date(),
           authorizationId: id,
         }),
-      isAuthorized: (_g, id, request, window) =>
-        jg.paymentAuthorized(root, id, request, { ...window, now: new Date() }),
+      // Completed-payment evidence: only the consumed decision recorded for this journey (PR #21 review 10).
+      isAuthorized: (g, id, request, window) => jg.evidenceAuthorizer(root)(g, id, request, window),
       onApprovalRequired: () => {
         log('DRY RUN: simulating the passkey approval of the RECORDED_CONTRACT session');
         for (const key of recorded.sessions.keys()) recorded.activate(key);

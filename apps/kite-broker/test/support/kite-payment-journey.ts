@@ -16,7 +16,7 @@
 // After any egress an ambiguous step stops the run as UNKNOWN; nothing is ever retried. The timeout part stays
 // NOT_RUN: Kite has no payment lookup by client key, so an injected timeout cannot be reconciled safely.
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { money, type AssetId, type IncidentId } from '@uptimebuyer/contracts';
 import { createProviderAccount } from '@uptimebuyer/data';
@@ -228,6 +228,10 @@ export interface JourneyOptions {
   sessionUsage?(requestRef: string): Promise<{ status: string | null; spentTotal: string | null } | null>;
   /** The operator's kill switch (SIGINT revokes the authority) is installed by the caller. */
   killSwitchInstalled: boolean;
+  /** True once the operator interrupted the run (Ctrl-C): checked before the gate, the session and the paid call. */
+  interrupted?(): boolean;
+  /** Broker send lease (must outlast the adapter's status read plus the paid call). Default 360 s. */
+  sendLeaseMs?: number;
   /** Called with a function that revokes the authority (the CLI wires it to SIGINT). */
   registerKillSwitch?(revoke: () => Promise<void>): void;
   /** Optional extra gate run through the CLI (the real run also spawns scripts/release/journey-gate.mjs). */
@@ -264,6 +268,8 @@ export interface JourneyReport {
   };
   evidenceDir?: string;
   databaseKept?: string | null;
+  /** The execution authority's status when the run stopped after it was issued (REVOKED after an interrupt). */
+  authorityStatus?: string;
 }
 
 /** Counts every adapter call that can leave the process (session create, paid execute, session status). */
@@ -362,10 +368,20 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
   const startedAt = new Date().toISOString();
   const w = await createBrokerWorld(o.databaseLabel);
   const broker = inProcessBroker(w, counting, {
-    sendLeaseMs: 360_000,
+    sendLeaseMs: o.sendLeaseMs ?? 360_000,
     reconcileBaseMs: 3_600_000,
   });
   let keepDatabase = false;
+  let authorityId: string | null = null;
+  const authorityStatus = async () =>
+    authorityId
+      ? ((
+          await w.db.pool.query(`SELECT status FROM execution_authorities WHERE tenant_id = $1 AND id = $2`, [
+            w.tenant.tenantId,
+            authorityId,
+          ])
+        ).rows[0]?.status as string | undefined)
+      : undefined;
   try {
     // ---- the product world: incident, candidate, decision, plan, approval, authority
     const world = await buildWorld(
@@ -386,19 +402,50 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
       preflight.priceMinor > authority.perActionLimit.amountMinor
     )
       throw new Refused('AUTHORITY', 'AUTHORITY_OUTSIDE_CAPS');
-    if (o.registerKillSwitch)
-      o.registerKillSwitch(async () => {
-        await changeExecutionAuthorityStatus(w.db.pool, w.operator, {
-          executionAuthorityId: authority.executionAuthorityId,
-          to: 'REVOKED',
-          reasonCode: 'OPERATOR_KILL_SWITCH',
-        });
+    authorityId = authority.executionAuthorityId;
+    const revoke = async () => {
+      // Operators may not suspend or revoke (commerce.authority_manage); the maintenance approver may.
+      await changeExecutionAuthorityStatus(w.db.pool, w.approver, {
+        executionAuthorityId: authority.executionAuthorityId,
+        to: 'REVOKED',
+        reasonCode: 'OPERATOR_KILL_SWITCH',
       });
+    };
+    // The kill switch is registered as soon as the authority exists; an interrupt that came earlier (preflight, world
+    // build) or comes at any later checkpoint revokes it and stops the run before anything else is sent.
+    o.registerKillSwitch?.(revoke);
+    const stopIfInterrupted = async () => {
+      if (!o.interrupted?.()) return;
+      await revoke();
+      throw new Refused('INTERRUPT', 'OPERATOR_INTERRUPT');
+    };
+    await stopIfInterrupted();
 
     // ---- PAYMENT release gate before any egress
-    mkdirSync(outDir, { recursive: true });
+    // Evidence is private from the first byte (0700 directory, 0600 files), before any redaction check runs.
+    mkdirSync(outDir, { recursive: true, mode: 0o700 });
+    chmodSync(outDir, 0o700);
     const rel = (f: string) => `${relDir}/${f}`;
-    const write = (f: string, v: unknown) => writeFileSync(path.join(outDir, f), json(v));
+    const write = (f: string, v: unknown) => writePrivate(path.join(outDir, f), json(v));
+    const ev = (await import(path.join(repo, 'scripts', 'release', 'journey-evidence.mjs'))) as any;
+    const secretValues = (sessionRefValue: string | null) => [
+      ...o.secrets(),
+      ...o.taps.approvals.flatMap((a, n) => [
+        { name: `APPROVAL_URL_${n}`, value: a.approvalUrl },
+        { name: `APPROVAL_TOKEN_${n}`, value: new URL(a.approvalUrl).searchParams.get('token') ?? '' },
+        { name: `KITE_REQUEST_ID_${n}`, value: a.requestId },
+      ]),
+      ...(sessionRefValue ? [{ name: 'KITE_REQUEST_REF', value: sessionRefValue }] : []),
+    ];
+    const redactAll = (sessionRefValue: string | null) => {
+      const files = readdirSync(outDir).filter((f) => f.endsWith('.json') && f !== 'redaction-check.json');
+      const check = ev.redactionCheck(
+        files.map((f) => ({ path: rel(f), bytes: readFileSync(path.join(outDir, f)) })),
+        secretValues(sessionRefValue),
+      );
+      write('redaction-check.json', check);
+      ev.enforceRedaction(check, [outDir], 'exported artifacts');
+    };
     const request = {
       merchant: new URL(LIONX402.url).hostname,
       amountMinor: Number(authority.perActionLimit.amountMinor),
@@ -444,6 +491,7 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
     o.log(`PAYMENT gate AUTHORIZED (${o.authorizationId})`);
 
     // ---- Kite session: the broker creates the approval request; the operator approves with a passkey.
+    await stopIfInterrupted();
     keepDatabase = o.mode === 'LIVE';
     const sRef = () => sessionRef(w, authority.executionAuthorityId);
     let session = (await broker.activateSession(sRef())).session;
@@ -452,14 +500,62 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
       await o.onApprovalRequired({ approvalUrl: link?.approvalUrl ?? null, expiresAt: link?.expiresAt ?? null });
       const until = Date.now() + o.approval.timeoutMs;
       while (session.externalOutcomeState === 'ACCEPTED' && Date.now() < until) {
+        await stopIfInterrupted();
         await new Promise((r) => setTimeout(r, o.approval.pollMs));
         session = await broker.reconcileAuthoritySession(sRef());
       }
     }
-    if (session.externalOutcomeState === 'ACCEPTED') throw new Refused('SESSION_APPROVAL', 'SESSION_APPROVAL_TIMEOUT');
-    if (session.externalOutcomeState !== 'CONFIRMED')
+    if (session.externalOutcomeState === 'ACCEPTED') {
+      // No approval arrived: revoke, so a late approval leaves a Kite session nothing can pay from.
+      await revoke();
+      throw new Refused('SESSION_APPROVAL', 'SESSION_APPROVAL_TIMEOUT');
+    }
+    if (session.externalOutcomeState === 'FAILED' || session.externalOutcomeState === 'CANCELLED')
       throw new Refused('SESSION_APPROVAL', `SESSION_${session.externalOutcomeState}`);
+    if (session.externalOutcomeState !== 'CONFIRMED') {
+      // Ambiguous: Kite may have created a session request. Keep the reconciliation record (its pre-egress operation
+      // identity), the evidence and the database; nothing is retried (PR #21 review 7).
+      const row = (
+        await w.db.pool.query(
+          `SELECT * FROM execution_authority_sessions WHERE tenant_id = $1 AND execution_authority_id = $2`,
+          [w.tenant.tenantId, authority.executionAuthorityId],
+        )
+      ).rows[0];
+      write('session.json', {
+        schema: 'journey-kite-session-record.v1',
+        journeyId: o.journeyId,
+        origin: o.adapter.resultOrigin,
+        executionAuthorityId: authority.executionAuthorityId,
+        kiteSessionId: row?.id ?? null,
+        clientOperationId: row?.client_operation_id ?? null,
+        idempotencyKeySha256: row?.idempotency_key ? sha256(String(row.idempotency_key)) : null,
+        requestDigest: row?.request_digest ?? null,
+        transportState: row?.transport_state ?? null,
+        externalOutcomeState: session.externalOutcomeState,
+        adapterCapability: row?.adapter_capability ?? null,
+        reasonCode: row?.reason_code ?? null,
+        rawResponseDigest: row?.raw_response_digest ?? null,
+        requestRefSha256: session.providerSessionRef ? sha256(session.providerSessionRef) : null,
+        observedAt: new Date().toISOString(),
+        note: "The session request outcome is ambiguous; resolve it manually against the owner's Kite activity. Not retried.",
+      });
+      redactAll(session.providerSessionRef ?? null);
+      keepDatabase = true;
+      return {
+        ...base,
+        outcome: 'UNKNOWN',
+        stoppedAt: 'SESSION',
+        reason: `SESSION_${session.externalOutcomeState}`,
+        resultOrigin: o.adapter.resultOrigin,
+        preflight,
+        gateDecision: decision,
+        evidenceDir: outDir,
+        databaseKept: dbName(w),
+        ...(await statusField(authorityStatus)),
+      };
+    }
     o.log('Kite session approved');
+    await stopIfInterrupted();
 
     // ---- ONE paid call through the broker
     const intentRequest = intentRequestFor(auth, w.operator, w.key('intent'));
@@ -597,31 +693,7 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
     });
 
     // ---- redaction: every artifact, against the credential values and every Kite session/approval identifier
-    const secretValues = [
-      ...o.secrets(),
-      ...o.taps.approvals.flatMap((a, n) => [
-        { name: `APPROVAL_URL_${n}`, value: a.approvalUrl },
-        { name: `APPROVAL_TOKEN_${n}`, value: new URL(a.approvalUrl).searchParams.get('token') ?? '' },
-        { name: `KITE_REQUEST_ID_${n}`, value: a.requestId },
-      ]),
-      ...(session.providerSessionRef ? [{ name: 'KITE_REQUEST_REF', value: session.providerSessionRef }] : []),
-    ];
-    const ev = (await import(path.join(repo, 'scripts', 'release', 'journey-evidence.mjs'))) as any;
-    const files = [
-      'preflight-402.json',
-      'gate-request.json',
-      'gate-preflight.json',
-      'gate-decision.json',
-      'payment.json',
-      'merchant-response.json',
-      'duplicate.json',
-    ];
-    const redaction = ev.redactionCheck(
-      files.map((f) => ({ path: rel(f), bytes: readFileSync(path.join(outDir, f)) })),
-      secretValues,
-    );
-    write('redaction-check.json', redaction);
-    ev.enforceRedaction(redaction, [outDir], 'exported artifacts');
+    redactAll(session.providerSessionRef ?? null);
 
     // ---- manifest and journey gate
     const art = (f: string) => ({ path: rel(f), sha256: sha256(readFileSync(path.join(outDir, f))) });
@@ -632,6 +704,8 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
       amountMinor: Number(captured),
       capMinor: Number(authority.perActionLimit.amountMinor),
       currency: authority.perActionLimit.currency,
+      merchant: request.merchant,
+      purpose: request.purpose,
       request,
       intentId,
       settlementReference: exec?.paymentReference ?? null,
@@ -683,7 +757,7 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
       },
     });
     const manifestRel = rel('manifest.journey.json');
-    writeFileSync(path.join(o.artifactRoot, manifestRel), json(manifest));
+    writePrivate(path.join(o.artifactRoot, manifestRel), json(manifest));
     const jg = (await import(path.join(repo, 'scripts', 'release', 'journey-gate.mjs'))) as any;
     const gateCtx = {
       artifactRoot: o.artifactRoot,
@@ -709,15 +783,17 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
     mkdirSync(o.gateEvidenceDir, { recursive: true });
     const gateFile = path.join(o.gateEvidenceDir, `t058-journey-${o.journeyId}.gate.json`);
     const gateDbFile = path.join(o.gateEvidenceDir, `t058-journey-${o.journeyId}.gate-database.json`);
-    writeFileSync(gateFile, json(cli?.fileOnly.report ?? fileOnly));
-    writeFileSync(gateDbFile, json(cli?.withDatabase.report ?? withDatabase));
+    writePrivate(gateFile, json(cli?.fileOnly.report ?? fileOnly));
+    writePrivate(gateDbFile, json(cli?.withDatabase.report ?? withDatabase));
     const leak = ev.redactionCheck(
       [gateFile, gateDbFile, path.join(o.artifactRoot, manifestRel)].map((f) => ({ path: f, bytes: readFileSync(f) })),
-      secretValues,
+      secretValues(session.providerSessionRef ?? null),
     );
     ev.enforceRedaction(leak, [gateFile, gateDbFile, outDir], 'gate artifacts');
     const statusOf = (r: GateReport) => Object.fromEntries(r.parts.map((p) => [p.part, p.status]));
-    const outcome = state === 'CONFIRMED' ? 'COMPLETED' : state === 'FAILED' ? 'FAILED' : 'UNKNOWN';
+    // A paid outcome counts as COMPLETED only when it reconciled (ledger, captured amount and Kite's own spent total);
+    // a confirmed but unreconciled payment is UNKNOWN (PR #21 review 6).
+    const outcome = state === 'CONFIRMED' && reconciled ? 'COMPLETED' : state === 'FAILED' ? 'FAILED' : 'UNKNOWN';
     // An ambiguous paid outcome keeps the throwaway database for manual resolution; a settled run drops it.
     keepDatabase = outcome === 'UNKNOWN';
     return {
@@ -758,7 +834,13 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
         keepDatabase = false;
         rmSync(outDir, { recursive: true, force: true });
       }
-      return { ...base, stoppedAt: e.stoppedAt, reason: e.reason, databaseKept: keepDatabase ? dbName(w) : null };
+      return {
+        ...base,
+        stoppedAt: e.stoppedAt,
+        reason: e.reason,
+        databaseKept: keepDatabase ? dbName(w) : null,
+        ...(await statusField(authorityStatus)),
+      };
     }
     throw e;
   } finally {
@@ -772,6 +854,21 @@ export async function runKitePaymentJourney(o: JourneyOptions): Promise<JourneyR
 }
 
 const dbName = (w: BrokerWorld) => new URL(w.db.url).pathname.slice(1);
+
+/** Evidence files are created 0600 (never readable by others, even before the redaction check). */
+function writePrivate(file: string, text: string) {
+  writeFileSync(file, text, { mode: 0o600 });
+  chmodSync(file, 0o600);
+}
+
+async function statusField(read: () => Promise<string | undefined>): Promise<{ authorityStatus?: string }> {
+  try {
+    const status = await read();
+    return status ? { authorityStatus: status } : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * An operator-entered DIAGNOSTIC_VISIT quote through the M07 path (the planning world's SYNTHETIC_FIXTURE provider
