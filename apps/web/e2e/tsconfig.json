@@ -7,5 +7,5 @@
     "declarationMap": false,
     "lib": ["ES2023", "DOM"]
   },
-  "include": ["./**/*.ts", "../playwright.config.ts", "../playwright.demo.config.ts"]
+  "include": ["./**/*.ts", "../playwright.config.ts", "../playwright.demo.config.ts", "../playwright.shots.config.ts"]
 }
