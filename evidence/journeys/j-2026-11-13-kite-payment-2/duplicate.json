@@ -1,0 +1,16 @@
+{
+  "schema": "journey-duplicate-record.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "origin": "KITE_PASSPORT",
+  "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+  "sameIntentReturned": true,
+  "secondEgress": false,
+  "sameKeyReplayVerified": false,
+  "basis": "PRODUCT_DUPLICATE_PROTECTION",
+  "firstState": "UNKNOWN",
+  "secondState": "UNKNOWN",
+  "secondReplayFlag": false,
+  "executeCallsAfterPayment": 1,
+  "executeCallsAfterDuplicate": 1,
+  "observedAt": "2026-11-13T07:02:26.004Z"
+}

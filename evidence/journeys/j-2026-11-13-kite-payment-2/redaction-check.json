@@ -1,0 +1,76 @@
+{
+  "schema": "journey-redaction-check.v1",
+  "checkedAt": "2026-11-13T07:02:26.906Z",
+  "rules": [
+    "SECRET_VALUE",
+    "AUTHORIZATION_HEADER",
+    "BEARER_TOKEN",
+    "CREDENTIALED_URL",
+    "ENV_DUMP",
+    "SECRET_PATTERN:aws-access-key",
+    "SECRET_PATTERN:github-token",
+    "SECRET_PATTERN:private-key",
+    "SECRET_PATTERN:slack-token",
+    "SECRET_PATTERN:stripe-live-key",
+    "SECRET_PATTERN:anthropic-key",
+    "SECRET_PATTERN:openai-key",
+    "SECRET_PATTERN:generic-assigned-secret"
+  ],
+  "secretValuesChecked": [
+    "KPASS_JWT",
+    "KPASS_AGENT_TOKEN",
+    "KPASS_ACCOUNT_EMAIL",
+    "KPASS_USER_ID",
+    "KPASS_AGENT_ID",
+    "APPROVAL_URL_0",
+    "APPROVAL_TOKEN_0",
+    "KITE_REQUEST_ID_0",
+    "KITE_REQUEST_REF"
+  ],
+  "files": [
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/duplicate.json",
+      "sha256": "907080d1776c3d1ba1a97a58389280035720519162e3a828309e2a87f520aa54",
+      "bytes": 507,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/gate-decision.json",
+      "sha256": "9fda4be80cba36c554638524dfe6b2271b0653aa692913c6a02af06ed7831575",
+      "bytes": 137,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/gate-preflight.json",
+      "sha256": "aaaf42d59e4ef4a53c7b7da88c14ae46403f12e1052c70e85ac0e5682ac0e1b6",
+      "bytes": 116,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/gate-request.json",
+      "sha256": "614c038d9bc767eb62952ef3b9fcd0ee8f0e8b5921c94104530bbda604500c91",
+      "bytes": 214,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/merchant-response.json",
+      "sha256": "98a32138a4d965ceb5bfeb6d8e721fed454212d302b06a7d31c789a46c92329c",
+      "bytes": 6453,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/payment.json",
+      "sha256": "c0f2cfdd392c5b216b0558bd05646ec0c7d6707c3ff01355c83d7bed2c3cb903",
+      "bytes": 2661,
+      "binary": false
+    },
+    {
+      "path": "evidence/journeys/j-2026-11-13-kite-payment-2/preflight-402.json",
+      "sha256": "eb99be840466137a719e1998c7545fe9a3a9945e3b42c6e905817f0869e005dc",
+      "bytes": 2339,
+      "binary": false
+    }
+  ],
+  "findings": [],
+  "result": "PASS"
+}

@@ -1,6 +1,7 @@
 {
   "schema": "release-authorizations-consumed.v1",
   "consumed": [
-    "auth-payment-20261113-cacd36"
+    "auth-payment-20261113-cacd36",
+    "auth-payment-20261113-86104d"
   ]
 }

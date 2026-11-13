@@ -1,0 +1,86 @@
+{
+  "schema": "journey-kite-payment-record.v1",
+  "journeyId": "j-2026-11-13-kite-payment-2",
+  "origin": "KITE_PASSPORT",
+  "adapterId": "kite-passport-kpass",
+  "merchant": {
+    "id": "mer_lionx402-com",
+    "host": "lionx402.com",
+    "url": "https://lionx402.com/api/x402/poi-business-search-json?q=refrigeration%20repair",
+    "method": "GET",
+    "catalogId": "5fd185ffb0d48c8a307e4fb1"
+  },
+  "purpose": "REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP",
+  "authorizationId": "auth-payment-20261113-86104d",
+  "intentId": "cin_a559edef-ce36-4b0a-9792-665a330c1c30",
+  "externalAttemptId": "att_5882d37f-fdad-499d-bd9d-0732defecc01",
+  "state": "UNKNOWN",
+  "amountMinor": "0",
+  "capMinor": "1",
+  "baseLimitMinor": "1",
+  "currency": "USD",
+  "money": {
+    "maxAmountMinor": "1",
+    "openReservedMinor": "1",
+    "capturedGrossMinor": "0",
+    "refundedMinor": "0",
+    "reversedMinor": "0",
+    "netSettledMinor": "0",
+    "currency": "USD"
+  },
+  "attempt": {
+    "transportState": "UNKNOWN",
+    "externalOutcomeState": "UNKNOWN",
+    "adapterCapability": "UNSUPPORTED",
+    "reasonCode": "KITE_UNEXPECTED_CHAIN",
+    "rawProviderStatus": "exit_0",
+    "rawResponseDigest": "sha256:d09de9fd0250bc501933a00f59c96890dc3e70fb9fcd6977e48b9ff65a30c767",
+    "idempotencyKeySha256": "89ff7f46d9fbd7f60eb5bf24d4adc7b9a36297a017d0264c0ca16d40c42360f9"
+  },
+  "settlement": {
+    "asset": "USDC",
+    "amount": "0.01",
+    "chainId": 2366,
+    "reference": null,
+    "payTo": "0x68e3E7822cf83C824cF9606EC999b5e8a93c85B5",
+    "source": "separate-session",
+    "sessionMatched": true
+  },
+  "kiteSession": {
+    "requestRefSha256": "acccc31d2f21650912acbcf90fbcd33d2b6bd5d67f485a9cd465ab44db5afe64",
+    "externalOutcomeState": "CONFIRMED"
+  },
+  "kiteSessionUsage": {
+    "status": "active",
+    "spentTotal": "0.01"
+  },
+  "receipts": [],
+  "transitions": [
+    {
+      "sequence": 1,
+      "from": null,
+      "to": "CREATED",
+      "reasonCode": "CREATED",
+      "at": "2026-11-13T07:02:21.190Z"
+    },
+    {
+      "sequence": 2,
+      "from": "CREATED",
+      "to": "RESERVED",
+      "reasonCode": "RESERVE_AND_SEND_STARTED",
+      "at": "2026-11-13T07:02:21.249Z"
+    },
+    {
+      "sequence": 3,
+      "from": "RESERVED",
+      "to": "UNKNOWN",
+      "reasonCode": "EXECUTE_UNKNOWN",
+      "at": "2026-11-13T07:02:25.547Z"
+    }
+  ],
+  "ledgerConservation": "HOLDS",
+  "reconciled": false,
+  "reconciliation": "Kite's execute answer (x402 2xx, amount, asset, chain, the authority's own session) plus the session's spent total after the duplicate; Kite has no lookup by client key.",
+  "paidAt": "2026-11-13T07:02:25.980Z",
+  "sameKeyReplayVerified": false
+}
