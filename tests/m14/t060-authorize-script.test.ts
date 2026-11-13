@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -58,18 +59,56 @@ describe('T-060 authorize.mjs key handling', () => {
     expect(() => az.ensureKey(dir)).toThrow(/0600/);
   });
 
+  // Environment-independent (PR #26 CI): an explicit throwaway repository root, never this checkout's layout or HOME.
   it('PR #21 review 8: refuses a key directory that reaches the repository through a symlink', () => {
+    const repo = tmp();
+    mkdirSync(path.join(repo, 'tmp'));
     const outside = tmp();
     const link = path.join(outside, 'repo-link');
-    symlinkSync(path.join(repoRoot, 'tmp'), link);
-    expect(() => az.ensureKey(path.join(link, 'authorizer-via-link'), { repoRoot })).toThrow(/outside the repository/);
-    expect(existsSync(path.join(repoRoot, 'tmp', 'authorizer-via-link'))).toBe(false);
+    symlinkSync(path.join(repo, 'tmp'), link);
+    expect(() => az.ensureKey(path.join(link, 'authorizer-via-link'), { repoRoot: repo })).toThrow(
+      /outside the repository/,
+    );
+    expect(existsSync(path.join(repo, 'tmp', 'authorizer-via-link'))).toBe(false);
+  });
+
+  it('PR #26 CI: refuses a symlink into the repository whose target does not exist yet, before any write', () => {
+    // The GitHub runner's checkout has no tmp/ directory, so a link to <repo>/tmp dangles there.
+    const repo = tmp();
+    const outside = tmp();
+    const dangling = path.join(outside, 'dangling-link');
+    symlinkSync(path.join(repo, 'tmp'), dangling);
+    const chained = path.join(outside, 'chained-link');
+    symlinkSync(dangling, chained);
+    const relative = path.join(outside, 'relative-link');
+    symlinkSync(path.relative(outside, path.join(repo, 'missing', 'deeper')), relative);
+    for (const via of [dangling, chained, relative])
+      expect(() => az.ensureKey(path.join(via, 'authorizer', 'nested'), { repoRoot: repo }), via).toThrow(
+        /outside the repository/,
+      );
+    // Nothing was created inside the repository or behind the links.
+    expect(readdirSync(repo)).toEqual([]);
+    expect(readdirSync(outside).sort()).toEqual(['chained-link', 'dangling-link', 'relative-link']);
   });
 
   it('refuses a key directory inside the repository', () => {
-    expect(() => az.ensureKey(path.join(repoRoot, 'tmp', 'authorizer-in-repo'), { repoRoot })).toThrow(
+    const repo = tmp();
+    expect(() => az.ensureKey(path.join(repo, 'tmp', 'authorizer-in-repo'), { repoRoot: repo })).toThrow(
       /outside the repository/,
     );
+    expect(readdirSync(repo)).toEqual([]);
+  });
+
+  it('still accepts a key directory outside the repository reached through a symlink to a missing target', () => {
+    const repo = tmp();
+    const outside = tmp();
+    const elsewhere = path.join(tmp(), 'not-yet');
+    const link = path.join(outside, 'elsewhere-link');
+    symlinkSync(elsewhere, link);
+    // The key is created at the link's real target, with the usual private modes.
+    expect(az.ensureKey(path.join(link, 'authorizer'), { repoRoot: repo }).created).toBe(true);
+    expect(statSync(path.join(elsewhere, 'authorizer', 'authorizer-ed25519.pem')).mode & 0o777).toBe(0o600);
+    expect(az.ensureKey(path.join(link, 'authorizer'), { repoRoot: repo }).created).toBe(false);
   });
 });
 
@@ -435,5 +474,74 @@ describe('T-060 authorize.mjs release-artifact command line', () => {
     expect(JSON.parse(readFileSync(req, 'utf8'))).toEqual({ tag: 'v1.0.0', sourceSha: 'b'.repeat(40) });
     expect(existsSync(dir)).toBe(false);
     expect(existsSync(out)).toBe(false);
+  });
+});
+
+// PR #26 review: every output conflict is checked before anything is signed or written, and a signed record is never
+// left behind unreported.
+describe('T-060 authorize.mjs output conflicts', () => {
+  const cli = (argv: string[], input: string) =>
+    spawnSync(process.execPath, [path.join(repoRoot, 'scripts', 'release', 'authorize.mjs'), ...argv], {
+      input,
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH ?? '' },
+    });
+  const tag = (dir: string, out: string, req: string, extra: string[] = []) => [
+    'release-tag',
+    ...extra,
+    '--key-dir',
+    dir,
+    '--out',
+    out,
+    '--tag',
+    'v1.0.0',
+    '--source-sha',
+    'c'.repeat(40),
+    '--valid-hours',
+    '2',
+    '--request-out',
+    req,
+  ];
+
+  it('preview, then sign to the same request path: signs, keeps the identical request, prints the record path', () => {
+    const root = tmp();
+    const dir = path.join(root, 'authorizer');
+    const out = path.join(root, 'authorizations');
+    const req = path.join(root, 'RELEASE_TAG.request.json');
+    expect(cli(tag(dir, out, req, ['--preview']), '').status).toBe(0);
+    const previewed = readFileSync(req, 'utf8');
+    const signed = cli(tag(dir, out, req), 'YES\n');
+    expect(signed.status, signed.stderr).toBe(0);
+    const recs = readdirSync(out);
+    expect(recs).toHaveLength(1);
+    expect(signed.stdout).toContain(path.join(out, recs[0]!));
+    expect(readFileSync(req, 'utf8')).toBe(previewed);
+    expect(JSON.parse(previewed)).toEqual(JSON.parse(readFileSync(path.join(out, recs[0]!), 'utf8')).scope);
+  });
+
+  it('a different pre-existing request file is refused before signing: no key, no record, the file untouched', () => {
+    const root = tmp();
+    const dir = path.join(root, 'authorizer');
+    const out = path.join(root, 'authorizations');
+    const req = path.join(root, 'RELEASE_TAG.request.json');
+    writeFileSync(req, '{"tag":"v0.9.0","sourceSha":"dddddddddddddddddddddddddddddddddddddddd"}\n');
+    const r = cli(tag(dir, out, req), 'YES\n');
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/request-out .* already exists/);
+    expect(r.stdout).not.toMatch(/Signed and written/);
+    expect(existsSync(out) ? readdirSync(out) : []).toEqual([]);
+    expect(existsSync(dir)).toBe(false);
+    expect(readFileSync(req, 'utf8')).toBe('{"tag":"v0.9.0","sourceSha":"dddddddddddddddddddddddddddddddddddddddd"}\n');
+  });
+
+  it('a request path that cannot be written is refused before signing (no signed record left behind)', () => {
+    const root = tmp();
+    const dir = path.join(root, 'authorizer');
+    const out = path.join(root, 'authorizations');
+    const req = path.join(root, 'no-such-dir', 'RELEASE_TAG.request.json');
+    const r = cli(tag(dir, out, req), 'YES\n');
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/request-out/);
+    expect(existsSync(out) ? readdirSync(out) : []).toEqual([]);
   });
 });

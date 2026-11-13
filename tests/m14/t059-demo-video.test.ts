@@ -3,7 +3,8 @@
 // evidence records; every console frame says SIMULATED and no evidence slide does; nothing on screen carries a wallet
 // address or an e-mail; the committed video is the file its manifest and the VIDEO_UPLOAD request describe.
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { repoRoot, run } from '../m00/helpers.js';
@@ -124,5 +125,62 @@ describe('T-059 committed demo video', () => {
 
   it('is the file the VIDEO_UPLOAD request in GATE-REQUESTS.md names', () => {
     expect(read('docs/release/GATE-REQUESTS.md')).toContain(manifest.sha256);
+  });
+});
+
+// PR #26 review: --skip-record reuses the console recording only. Every still and overlay must have been rendered from
+// exactly the HTML the current timeline and evidence produce; otherwise the build stops before encoding anything.
+describe('T-059 demo video --skip-record never re-encodes stale frames', () => {
+  const htmlSha = (h: string) => createHash('sha256').update(h, 'utf8').digest('hex');
+  const rendered = (parts: Part[]) => ({
+    schema: 'demo-video-rendered.v1',
+    stills: parts.map((p) => ({ png: path.basename((p as Part & { png: string }).png), htmlSha256: htmlSha(p.html) })),
+  });
+
+  it('staleStills is empty for frames rendered from the current HTML and names every changed or missing frame', () => {
+    expect(dv.staleStills(plan.parts, rendered(plan.parts))).toEqual([]);
+    const old = rendered(plan.parts);
+    old.stills[3]!.htmlSha256 = htmlSha('an older caption');
+    old.stills.splice(10, 1);
+    const stale = dv.staleStills(plan.parts, old);
+    expect(stale).toEqual([
+      path.basename((plan.parts[3] as Part & { png: string }).png),
+      path.basename((plan.parts[10] as Part & { png: string }).png),
+    ]);
+    expect(dv.staleStills(plan.parts, undefined)).toHaveLength(plan.parts.length);
+  });
+
+  it('the CLI refuses to compose from stale frames and writes no video, subtitles or manifest', () => {
+    const work = mkdtempSync(path.join(tmpdir(), 'ub-t059-skip-'));
+    try {
+      const srtBefore = read('docs/release/SUBTITLES.srt');
+      const manifestBefore = read('docs/release/video/video-manifest.json');
+      const workPlan = dv.buildPlan(repoRoot, work) as { parts: (Part & { png: string })[] };
+      const old = rendered(workPlan.parts);
+      old.stills[0]!.htmlSha256 = htmlSha('a caption that has since changed');
+      writeFileSync(path.join(work, 'rendered.json'), JSON.stringify(old));
+      for (const p of workPlan.parts) writeFileSync(p.png, 'not really a png');
+      writeFileSync(path.join(work, 'console.webm'), 'not really a video');
+      writeFileSync(
+        path.join(work, 'console-marks.json'),
+        JSON.stringify(
+          dv.SEGMENTS.find((x: { id: string }) => x.id === 'console').steps.map((x: { step: string; s: number }) => ({
+            step: x.step,
+            start: 1,
+            hold: x.s + 1.5,
+          })),
+        ),
+      );
+      const out = path.join(work, 'out.mp4');
+      const r = run('node', ['scripts/release/demo-video.mjs', '--work', work, '--skip-record', '--out', out]);
+      expect(r.code).not.toBe(0);
+      expect(r.stderr).toMatch(/stale/);
+      expect(r.stderr).toContain(path.basename(workPlan.parts[0]!.png));
+      expect(existsSync(out)).toBe(false);
+      expect(read('docs/release/SUBTITLES.srt')).toBe(srtBefore);
+      expect(read('docs/release/video/video-manifest.json')).toBe(manifestBefore);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 });
