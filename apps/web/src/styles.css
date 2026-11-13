@@ -1162,6 +1162,18 @@ main > h1 {
       var(--hot) 100%
     );
 }
+/* The simulated hatch keeps the direction of the scale: for a lower-bound threshold the danger side is the cold end. */
+.scale[data-danger='below'][data-state='simulated'] .scale-fill {
+  background-image:
+    repeating-linear-gradient(135deg, rgb(15 37 50 / 55%) 0 3px, transparent 3px 7px),
+    linear-gradient(
+      90deg,
+      var(--hot) 0%,
+      var(--warm) calc(var(--thr) * 100%),
+      var(--cool) calc(var(--thr) * 100%),
+      var(--ice) 100%
+    );
+}
 .scale[data-state='held'] .scale-fill {
   background: repeating-linear-gradient(135deg, #7d8f99 0 3px, #4a5d68 3px 7px);
 }
