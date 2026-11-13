@@ -1,0 +1,4 @@
+UptimeBuyer (SERV Hackathon 02, Kite track): SERV Reasoning cites the manual, code decides, a broker pays within signed caps.
+Real so far: a SERV run and a 1-cent Kite x402 payment. Sensor, recovery: not yet.
+github.com/gnanam1990/uptimebuyer
+Demo: <VIDEO_URL>

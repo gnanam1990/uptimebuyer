@@ -34,6 +34,14 @@ owner's). The only authorization records are the owner's two one-cent PAYMENT au
    and an exercised rollback) and `node scripts/release/release-gate.mjs check <GATE> --request ... --preflight ...`.
 4. On `AUTHORIZED`, the operator performs the action and adds the authorization id to `consumed.json`.
 
+## Authorizing the submission's release actions
+
+`scripts/release/authorize.mjs` also builds and signs X_POST, VIDEO_UPLOAD, RELEASE_TAG and HACKATHON_SUBMISSION
+records (`x-post`, `video-upload`, `release-tag`, `hackathon-submission`), binding the post text, the video and the
+submission content by a sha256 it computes, after the same plain-words summary and `YES` <!-- C-018 -->. The exact scopes,
+the order and the commands for this submission are in [GATE-REQUESTS.md](./GATE-REQUESTS.md); none is signed yet, so each
+action is NOT_RUN <!-- C-025 -->.
+
 ## Authorizing the one bounded Kite payment (T-058)
 
 The payment part of the real-input journey is NOT_RUN until the steps below are done. The person who authorizes runs
