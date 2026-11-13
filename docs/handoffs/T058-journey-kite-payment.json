@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "recordKind": "journey-preparation-note",
+  "project": "UptimeBuyer",
+  "ids": ["T-058", "T-060", "T-040", "FR-12", "FR-22", "INV-06", "INV-07", "INV-12"],
+  "journeyId": "j-2026-11-13-kite-payment (proposed; the live run is NOT_RUN)",
+  "branch": "feat/kite-live-payment",
+  "startingCommit": "1bc2fee",
+  "localCommits": [
+    "3308831 test(t058): Kite payment journey, kpass 6.13.2 contract and payment authorization (red)",
+    "4601458 feat(t058): KITE_PASSPORT adapter on the kpass 6.13.2 contract, hard caps and the adapter file",
+    "30e22f5 feat(t060): bind PAYMENT decisions to their request; authorizer key and signing script",
+    "e9bd876 feat(t058): Kite payment journey runner (dry run and live)",
+    "923fd87 test(t058): security review S1-S3 of the live Kite wiring (red)",
+    "b5e4771 fix(t058): security review S1-S3 of the live Kite wiring",
+    "0a2756b test(t058): security review S4 - kpass must run only against the broker's own state (red)",
+    "0033c4f fix(t058): security review S4 - run kpass only against the broker's own initialized state",
+    "2e71eee docs(t058): live Kite wiring in ADR 0003 and how the user authorizes the payment",
+    "docs(t058): handoff note for the Kite payment journey (this commit)"
+  ],
+  "redEvidence": {
+    "method": "each red commit checked out in a detached git worktree (scratchpad), dependencies installed offline from the store, vitest run there",
+    "3308831": "unit: 5 files failed, 37 tests failed / 11 passed (adapter contract, existing adapter test fixtures moved to the documented shapes, preflight and adapter file, gate binding and manifest, authorize script); integration: t058-journey-kite-payment.int.test.ts failed to import the runner module",
+    "923fd87": "3 failed / 50 passed (S1 request-id binding, S2 approval host, S3 402 resource binding)",
+    "0a2756b": "4 failed / 52 passed (S4 state-root initialization, three variants, plus the runner's state-root check)"
+  },
+  "userAuthorization": "Merchant lionx402.com, GET https://lionx402.com/api/x402/poi-business-search-json (OpenStreetMap business/POI search; q required, lat/lon optional). Catalog price USD 0.01 in USDC on Base via x402 (catalog id 5fd185ffb0d48c8a307e4fb1). Caps 0.01 per call, 0.05 total, session TTL 1 hour. One paid call, then the identical request with the same idempotency key without a second charge. This step only builds and tests; it made no session, execute, allowance or wallet command.",
+  "kpassContract": {
+    "sources": [
+      "~/.claude/skills/request-session/SKILL.md, references/commands.md, references/examples.md",
+      "~/.claude/skills/x402-execute/SKILL.md, references/commands.md, references/examples.md",
+      "~/.claude/skills/form-session-delegation/SKILL.md, references/delegation-schema.md",
+      "~/.claude/skills/kite-passport/SKILL.md",
+      "kpass 6.13.2 --help, session create --help, session execute --help, session status --help"
+    ],
+    "sessionCreate": "session create --delegation <inner JSON> --separate --no-reuse --no-browser --no-interactive --output json; delegation task.summary (<=80 chars), payment_policy {max_amount_per_tx, max_total_amount, ttl_seconds, currency}, execution_constraints.x402 scoped (recorded, not enforced by Kite), routing_enabled false; answer status human_action_required with request_id, approval_url, expires_at (exit 0).",
+    "sessionStatus": "session status --request-id <req> --no-interactive --output json; pending (exit 0) -> ACCEPTED; success + session.status active -> CONFIRMED (session.id, expires_at, delegation.payment_policy, usage.spent_total); exit 3 rejected/expired -> FAILED (no session); another request_id -> never taken; else UNKNOWN.",
+    "sessionExecute": "session execute --session-id <bound> --url <exact URL, query included> --method GET --idempotency-key <pre-egress key> --no-browser --no-interactive --output json; no --body/--headers/--use-allowance. Success: exit 0, status success, session_id = bound, no source allowance, x402.status_code 2xx, payment_requirement.asset USDC, x402.chain_id 8453 if present, payment_requirement.amount decimal USD converted exactly to minor units, reference payment.payment_response.reference. Documented pre-spend codes with their documented exits are not-sent refusals; exit 7, payment_settled_unfulfilled, policy refusals and undocumented exits are UNKNOWN.",
+    "adapterChanges": [
+      "GET parameters travel in the bound URL; the JSON body carrying purpose and the client operation id is no longer sent",
+      "payment_requirement.amount is decimal USD ('0.01'), converted exactly (was read as minor units)",
+      "the paying session must be the authority's own (session_id match, no allowance source); asset, chain and 2xx checked",
+      "the bound session is re-read before paying: active, unexpired, caps inside the hard caps; request id bound (S1)",
+      "documented pre-spend refusals only are not-sent; the undocumented exit 8 is now UNKNOWN",
+      "session create adds --no-reuse, --no-browser, --no-interactive, a reviewable summary, scoped constraints and routing_enabled false",
+      "session status maps pending to ACCEPTED and rejected/expired to FAILED",
+      "hard caps in code: 1 cent per call, 5 cents per session (KITE_HARD_CAPS)",
+      "kpass runs with cwd and HOME at the state root, a fixed environment (KPASS_NO_UPDATE_CHECK, KPASS_AUTO_UPGRADE=0, KPASS_NO_BROWSER) and only when <stateRoot>/.kite-passport is private (S4)",
+      "the approval link reaches only an operator callback, only for https on agentpassport.ai (S2); readiness and session-usage reads added",
+      "paid execution needs manualReconciliationAccepted (attended) or verified replay; capability stays non-autonomous",
+      "the adapter file (uptimebuyer-kite-broker-adapter.v1, 0600, outside the repo) is parsed strictly; merchant ids must be mer_ ids"
+    ],
+    "fixtures": "apps/kite-broker/test/fixtures/kpass-6.13.2-documented.ts (DOCUMENTED_EXAMPLE, not real responses)"
+  },
+  "preflight402": {
+    "capturedAt": "2026-11-13T01:47:14Z",
+    "request": "GET https://lionx402.com/api/x402/poi-business-search-json?q=refrigeration%20repair, no payment header, curl --connect-timeout 5 --max-time 15 --max-redirs 0",
+    "result": "HTTP 402, x402Version 2, one option: scheme exact, network eip155:8453 (Base mainnet), amount 10000 atomic = 0.01 USDC, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (native USDC on Base), payTo 0x68e3E7822cf83C824cF9606EC999b5e8a93c85B5, maxTimeoutSeconds 300; resource.url is exactly the bound URL; the payment-required header equals the body",
+    "fixture": "apps/kite-broker/test/fixtures/lionx402-preflight-402.json (REAL_UNPAID_PREFLIGHT)",
+    "deviation": "A second unpaid GET to the same URL was sent by the live CLI while it was exercised up to its first hard stop: kpass resolved the user's own login through its .kite-passport walk-up (finding S4), so readiness passed and the runner sent its own preflight before stopping at WALLET_CANNOT_COVER. Unpaid, no payment header, bounded at 15 s; nothing else was sent. Fixed in 0033c4f."
+  },
+  "sameKeyReplay": {
+    "verified": false,
+    "basis": "The docs tell agents to reuse the same key and identical request for a transport retry and say a pending outcome retried with the same key charges nothing new, but only for the account allowance and recurring payments (x402-execute SKILL.md 'Recurring and shared allowance payments'; --idempotency-key help 'reuse with identical input when retrying a recurring payment'). Nothing promises the original result for a same-key replay of a separate-session payment.",
+    "consequence": "sameKeyReplayVerified stays false; the duplicate request is the product's own protection: the identical intent request (same idempotency key) returns the existing intent and the broker sends nothing (duplicate.json records sameIntentReturned true and secondEgress false)."
+  },
+  "brokerConfig": {
+    "file": "/Users/kratos/.config/uptimebuyer/kite-broker/broker.json (0600, created in this step; paths and policy only, no credential)",
+    "stateRoot": "/Users/kratos/.config/uptimebuyer/kite-broker (0700). Its .kite-passport directory exists but holds an EMPTY kpass state (created by a read-only kpass status run during the S4 diagnosis); the user must put a login there before the live run",
+    "example": "apps/kite-broker/config/broker.kite-passport.example.json"
+  },
+  "liveSequence": [
+    {
+      "who": "user",
+      "step": "Give the broker its own kpass login. Option B keeps the approved agent agent_01a1d293-55c9-7059-95c5-a5f9324ca78a by copying the existing login files; option A logs in afresh (new broker-only agent id; tell the parent).",
+      "commandsOptionB": [
+        "install -d -m 700 /Users/kratos/.config/uptimebuyer/kite-broker/.kite-passport",
+        "install -m 600 /Users/kratos/.kite-passport/config.json /Users/kratos/.config/uptimebuyer/kite-broker/.kite-passport/config.json",
+        "install -m 600 /Users/kratos/.kite-passport/agent.json /Users/kratos/.config/uptimebuyer/kite-broker/.kite-passport/agent.json"
+      ],
+      "commandsOptionA": [
+        "cd /Users/kratos/.config/uptimebuyer/kite-broker",
+        "HOME=/Users/kratos/.config/uptimebuyer/kite-broker /Users/kratos/.local/bin/kpass login init --email YOUR_EMAIL --output json",
+        "HOME=/Users/kratos/.config/uptimebuyer/kite-broker /Users/kratos/.local/bin/kpass login verify --login-id LOGIN_ID --code CODE --output json",
+        "HOME=/Users/kratos/.config/uptimebuyer/kite-broker /Users/kratos/.local/bin/kpass agent:register --type claude --output json"
+      ]
+    },
+    {
+      "who": "parent (read-only)",
+      "step": "Check the broker's kpass state from inside the state root (the cwd matters: kpass walks up from it)",
+      "commands": [
+        "cd /Users/kratos/.config/uptimebuyer/kite-broker",
+        "HOME=/Users/kratos/.config/uptimebuyer/kite-broker /Users/kratos/.local/bin/kpass status --output json",
+        "HOME=/Users/kratos/.config/uptimebuyer/kite-broker /Users/kratos/.local/bin/kpass allowance status --output json",
+        "HOME=/Users/kratos/.config/uptimebuyer/kite-broker /Users/kratos/.local/bin/kpass wallet balance --output json"
+      ],
+      "expect": "logged_in true, agent registered, allowance state none, a Base USDC amount of at least 0.010000"
+    },
+    {
+      "who": "user",
+      "step": "Fund the Passport wallet with USDC on Base (at least 0.01; the session is capped at 0.01). The Base address is shown by: kpass wallet address --chain base --output json"
+    },
+    {
+      "who": "user",
+      "step": "Create the authorizer key and copy the printed keyId and publicKey",
+      "commands": ["cd /Users/kratos/uptimebuyer", "node scripts/release/authorize.mjs keygen"]
+    },
+    {
+      "who": "parent",
+      "step": "Register the printed key in config/release/authorizers.json and commit it (the live run refuses a dirty tracked tree). The same commit must update the T-060 repository-state test that expects no registered authorizer (tests/m14/t060-release-gates.test.ts, 'registers no authorizer ...'); the decision of how is the user's."
+    },
+    {
+      "who": "user",
+      "step": "Sign the PAYMENT authorization (read the plain-words summary, type YES); copy the printed authorizationId",
+      "commands": [
+        "cd /Users/kratos/uptimebuyer",
+        "node scripts/release/authorize.mjs payment --merchant lionx402.com --amount-minor 1 --currency USD --purpose REFRIGERATION_REPAIR_TECHNICIAN_LOOKUP --environment kite-passport-prod --valid-hours 2"
+      ]
+    },
+    {
+      "who": "parent",
+      "step": "Optional dry run (no network, RECORDED_CONTRACT, temporary directory)",
+      "commands": [
+        "cd /Users/kratos/uptimebuyer",
+        "DATABASE_URL=postgres://uptimebuyer:uptimebuyer@localhost:55432/uptimebuyer_dev node --experimental-transform-types --no-warnings --import ./packages/domain/test/support/ts-register.mjs apps/kite-broker/test/support/journey-kite-payment.ts --dry-run --journey-id dryrun-kite-payment-2"
+      ]
+    },
+    {
+      "who": "parent",
+      "step": "Live run (one unpaid preflight GET, the PAYMENT gate, kpass session create, the bounded wait, one paid call, the duplicate, reconciliation, evidence, journey gate). Ctrl-C revokes the authority.",
+      "commands": [
+        "cd /Users/kratos/uptimebuyer",
+        "DATABASE_URL=postgres://uptimebuyer:uptimebuyer@localhost:55432/uptimebuyer_dev node --experimental-transform-types --no-warnings --import ./packages/domain/test/support/ts-register.mjs apps/kite-broker/test/support/journey-kite-payment.ts --live --journey-id j-2026-11-13-kite-payment --authorization AUTHORIZATION_ID"
+      ],
+      "exitCodes": "0 COMPLETED, 2 REFUSED (nothing paid), 4 UNKNOWN (database kept; never retry), 5 FAILED"
+    },
+    {
+      "who": "user",
+      "step": "When the runner prints '==> Approve the Kite spending session with your passkey', open the agentpassport.ai link and approve (0.01 per call, 0.01 total, at most about 1 hour). The runner waits up to 600 s (--approval-timeout-s, at most 900)."
+    },
+    {
+      "who": "parent",
+      "step": "Review the JSON report and evidence/journeys/j-2026-11-13-kite-payment/; commit the evidence, docs/release/evidence/t058-journey-j-2026-11-13-kite-payment.gate*.json, the authorization record, consumed.json and decisions.jsonl, and update what asserts that no authorization exists (evidence/authorizations/README.md, the T-060 repository-state test). On UNKNOWN: do not retry; the kept database is named in the report; check the owner's Kite activity and resolve manually."
+    }
+  ],
+  "dryRun": "COMPLETED in a temporary directory: CONFIRMED, captured 1, reconciled, duplicate same intent with no second egress, egress sessionCreate 1 / execute 1; journey gate payment, fulfillment and duplicate FAIL (NON_REAL_ORIGIN:RECORDED_CONTRACT), timeout NOT_RUN; database dropped.",
+  "blockers": [
+    "The Passport wallet holds 0 USDC (the live run refuses with WALLET_CANNOT_COVER)",
+    "The broker state root has no kpass login yet (user step 1)",
+    "No authorizer key is registered and no PAYMENT authorization exists (user steps 4 and 6, parent step 5)",
+    "Registering the key and later committing the authorization record break the T-060 repository-state assertions that no authorizer and no authorization exist; those need the user's decision and a reviewed update"
+  ],
+  "notRun": [
+    "The real Kite session, the real paid call and its reconciliation (payment, fulfillment, duplicate parts): NOT_RUN until the operator's live run",
+    "The timeout part: NOT_RUN by design (Kite documents no lookup by client key, so an injected timeout cannot be reconciled safely)",
+    "Sensor, document, reasoning and recovery parts: not part of this run"
+  ],
+  "secrets": "No token, JWT or key was printed, written or committed. The broker adapter file holds paths only. The redaction check compares artifacts against the kpass JWT, agent token, account identifiers, approval links and request ids by value and records only their names."
+}
