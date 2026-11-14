@@ -1,7 +1,7 @@
-# X post (DRAFT, not posted)
+# X post (DRAFT texts; the owner has posted)
 
-> DRAFT. Not posted: the X post is NOT_RUN and needs its own explicit authorization naming the account and the exact
-> text's sha256 (`RELEASE-GATES.md`, `GATE-REQUESTS.md`). The text must not change after authorization: one changed
+> The owner posted on X on 2026-11-14 (https://x.com/0xweeky/status/2121434814087938457) directly, outside the release-gate tooling, so no X_POST record exists and
+> that gate record is NOT_RUN. The DRAFT variants below are kept as written; the posted text may differ from them. The text must not change after authorization: one changed
 > character is a different post and needs a new record. The demo video in the post is partly SIMULATED and says so.
 
 The exact texts are files (no trailing newline), so the digest is taken over the bytes that get posted:

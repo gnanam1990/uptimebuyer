@@ -1,0 +1,19 @@
+{
+  "schema": "release-authorization.v1",
+  "gate": "RELEASE_TAG",
+  "authorizationId": "auth-release-tag-20261114-fee5f4",
+  "authorizedBy": "repository-owner",
+  "authorizedAt": "2026-11-14T02:17:28.000Z",
+  "expiresAt": "2026-11-14T06:17:28.000Z",
+  "statement": "I authorize creating exactly one release and tag v1.0.0 at commit 619cb5f97b97a021abc8d1dde484e0cea8bba504, valid from 2026-11-14T02:17:28.000Z until 2026-11-14T06:17:28.000Z, usable only once.",
+  "scope": {
+    "tag": "v1.0.0",
+    "sourceSha": "619cb5f97b97a021abc8d1dde484e0cea8bba504"
+  },
+  "subject": {},
+  "signature": {
+    "algorithm": "ED25519",
+    "keyId": "owner-195587c58bb1180e",
+    "value": "PFnxosWHkLqqN5c4Xfq1dVie-qgr_ylJqRWRNs_K5puXh2CwB6i8eGmKg1R7CybK18K4k_ga1l4rcNyHR4aADA"
+  }
+}

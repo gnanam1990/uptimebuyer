@@ -1,9 +1,9 @@
-# Hackathon form text (DRAFT, not submitted)
+# Hackathon form text (DRAFT; the owner has submitted)
 
 > DRAFT for https://openserv.typeform.com/submissions02 (SERV Hackathon 02; deadline 15 November 2026, 23:59 UTC).
-> Not submitted: HACKATHON_SUBMISSION is NOT_RUN and needs its own explicit authorization over the exact final text
-> (`GATE-REQUESTS.md`). Fill the placeholders in a copy, sign that copy, then paste the content of each text block into
-> its field (one paragraph per line). The demo's console part is SIMULATED and labelled so; its evidence parts show
+> The owner submitted the form on 2026-11-14 directly, outside the release-gate tooling, so no HACKATHON_SUBMISSION record
+> exists and that gate record is NOT_RUN; the submitted answers may differ from these drafts. Demo link:
+> https://github.com/gnanam1990/uptimebuyer/releases/tag/v1.0.0. X post: https://x.com/0xweeky/status/2121434814087938457. The demo's console part is SIMULATED and labelled so; its evidence parts show
 > committed records of real runs.
 
 ## Project name

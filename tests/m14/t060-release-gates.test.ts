@@ -184,18 +184,20 @@ describe('T-060 release gates are separate and explicit', () => {
   });
 });
 
-describe('T-060 repository state: no external action is authorized', () => {
-  it('registers only the owner key; both PAYMENT records are already used, so every gate is REFUSED', () => {
+describe('T-060 repository state: no unused authorization remains', () => {
+  it('registers only the owner key; every signed record is already used, so every gate is REFUSED', () => {
     const r = run('node', ['scripts/release/release-gate.mjs', 'status', '--json']);
     expect(r.code).toBe(0);
     const status = JSON.parse(r.stdout);
     expect(status.gates.map((g: { gate: string }) => g.gate).sort()).toEqual([...rg.GATES].sort());
     for (const g of status.gates) {
       expect(g.decision, g.gate).toBe('REFUSED');
-      // The only records in the repository are the owner's two PAYMENT authorizations, one per live T-058 attempt
-      // (auth-payment-20261113-cacd36, auth-payment-20261113-86104d). Each attempt consumed its record, so neither can
-      // open the gate again; every other gate has no record at all.
-      expect(g.reasons, g.gate).toContain(g.gate === 'PAYMENT' ? 'AUTHORIZATION_ALREADY_USED' : 'NO_AUTHORIZATION');
+      // The records in the repository are the owner's two PAYMENT authorizations, one per live T-058 attempt
+      // (auth-payment-20261113-cacd36, auth-payment-20261113-86104d), and the v1.0.0 RELEASE_TAG and VIDEO_UPLOAD
+      // authorizations. Each was consumed by its one action, so none can open its gate again; every other gate has no
+      // record at all.
+      const used = ['PAYMENT', 'RELEASE_TAG', 'VIDEO_UPLOAD'].includes(g.gate);
+      expect(g.reasons, g.gate).toContain(used ? 'AUTHORIZATION_ALREADY_USED' : 'NO_AUTHORIZATION');
     }
     // A registered key alone opens nothing: each gate still needs its own signed, unused record.
     expect(status.authorizers).toEqual(['owner-195587c58bb1180e']);
@@ -203,9 +205,19 @@ describe('T-060 repository state: no external action is authorized', () => {
     const records = readdirSync(dir)
       .filter((f) => /^[A-Z_]+\..+\.json$/.test(f))
       .sort();
-    expect(records).toEqual(['PAYMENT.auth-payment-20261113-86104d.json', 'PAYMENT.auth-payment-20261113-cacd36.json']);
+    expect(records).toEqual([
+      'PAYMENT.auth-payment-20261113-86104d.json',
+      'PAYMENT.auth-payment-20261113-cacd36.json',
+      'RELEASE_TAG.auth-release-tag-20261114-fee5f4.json',
+      'VIDEO_UPLOAD.auth-video-upload-20261114-9ef8df.json',
+    ]);
     const consumed = JSON.parse(readFileSync(path.join(dir, 'consumed.json'), 'utf8')).consumed;
-    expect([...consumed].sort()).toEqual(['auth-payment-20261113-86104d', 'auth-payment-20261113-cacd36']);
+    expect([...consumed].sort()).toEqual([
+      'auth-payment-20261113-86104d',
+      'auth-payment-20261113-cacd36',
+      'auth-release-tag-20261114-fee5f4',
+      'auth-video-upload-20261114-9ef8df',
+    ]);
   });
 
   it('a check against the repository refuses and exits non-zero', () => {

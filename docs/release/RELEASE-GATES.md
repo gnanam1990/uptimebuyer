@@ -9,17 +9,19 @@ the action themselves. The tooling performs no external action.
 ## Status at handoff
 
 `node scripts/release/release-gate.mjs status`. One authorizer key is registered (`owner-195587c58bb1180e`, the repository
-owner's). The only authorization records are the owner's two one-cent PAYMENT authorizations,
+owner's). The authorization records are the owner's two one-cent PAYMENT authorizations,
 `auth-payment-20261113-cacd36` (consumed by the first live T-058 attempt, which made no payment) and
 `auth-payment-20261113-86104d` (consumed by the second attempt, whose payment is recorded in
-`evidence/journeys/j-2026-11-13-kite-payment-2/`). Both are used, so every gate is refused <!-- C-013 -->:
+`evidence/journeys/j-2026-11-13-kite-payment-2/`), and the v1.0.0 release records `auth-release-tag-20261114-fee5f4`
+(tag `v1.0.0` at `619cb5f`) and `auth-video-upload-20261114-9ef8df` (the demo video attached to that release). All
+four are used, so every gate is refused <!-- C-013 -->:
 
 | Gate                 | Decision | Reason                     | Action it would allow                                        |
 | -------------------- | -------- | -------------------------- | ------------------------------------------------------------ |
 | REPO_PUBLICATION     | REFUSED  | NO_AUTHORIZATION           | Push the repository and/or change its visibility             |
 | X_POST               | REFUSED  | NO_AUTHORIZATION           | Publish the X post from the approved draft                   |
-| VIDEO_UPLOAD         | REFUSED  | NO_AUTHORIZATION           | Upload the demo video                                        |
-| RELEASE_TAG          | REFUSED  | NO_AUTHORIZATION           | Create a release or tag                                      |
+| VIDEO_UPLOAD         | REFUSED  | AUTHORIZATION_ALREADY_USED | Upload the demo video                                        |
+| RELEASE_TAG          | REFUSED  | AUTHORIZATION_ALREADY_USED | Create a release or tag                                      |
 | PAYMENT              | REFUSED  | AUTHORIZATION_ALREADY_USED | Execute one real bounded Kite-paid action through the broker |
 | HACKATHON_SUBMISSION | REFUSED  | NO_AUTHORIZATION           | Submit the hackathon form                                    |
 | DEPLOY               | REFUSED  | NO_AUTHORIZATION           | Deploy the images to a hosted environment                    |
@@ -39,8 +41,9 @@ owner's). The only authorization records are the owner's two one-cent PAYMENT au
 `scripts/release/authorize.mjs` also builds and signs X_POST, VIDEO_UPLOAD, RELEASE_TAG and HACKATHON_SUBMISSION
 records (`x-post`, `video-upload`, `release-tag`, `hackathon-submission`), binding the post text, the video and the
 submission content by a sha256 it computes, after the same plain-words summary and `YES` <!-- C-018 -->. The exact scopes,
-the order and the commands for this submission are in [GATE-REQUESTS.md](./GATE-REQUESTS.md); none is signed yet, so each
-action is NOT_RUN <!-- C-025 -->.
+the order and the commands for this submission are in [GATE-REQUESTS.md](./GATE-REQUESTS.md). RELEASE_TAG and
+VIDEO_UPLOAD were signed and used for v1.0.0; the owner posted on X and submitted the form outside this tooling, so the
+X_POST and HACKATHON_SUBMISSION records are NOT_RUN <!-- C-025 -->.
 
 ## Authorizing the one bounded Kite payment (T-058)
 

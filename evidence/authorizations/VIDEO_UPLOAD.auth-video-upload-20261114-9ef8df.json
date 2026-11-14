@@ -1,0 +1,22 @@
+{
+  "schema": "release-authorization.v1",
+  "gate": "VIDEO_UPLOAD",
+  "authorizationId": "auth-video-upload-20261114-9ef8df",
+  "authorizedBy": "repository-owner",
+  "authorizedAt": "2026-11-14T02:18:20.000Z",
+  "expiresAt": "2026-11-14T06:18:20.000Z",
+  "statement": "I authorize exactly one upload of the video file with sha256 ec87d6aba4b84d35d29d32231b220caa51d81ec2bca961698b6d8b58690c2bca (11995688 bytes) to https://github.com/gnanam1990/uptimebuyer/releases/tag/v1.0.0, valid from 2026-11-14T02:18:20.000Z until 2026-11-14T06:18:20.000Z, usable only once.",
+  "scope": {
+    "destination": "https://github.com/gnanam1990/uptimebuyer/releases/tag/v1.0.0",
+    "fileSha256": "ec87d6aba4b84d35d29d32231b220caa51d81ec2bca961698b6d8b58690c2bca"
+  },
+  "subject": {
+    "file": "uptimebuyer-demo.mp4",
+    "bytes": 11995688
+  },
+  "signature": {
+    "algorithm": "ED25519",
+    "keyId": "owner-195587c58bb1180e",
+    "value": "9y_BgzxPZjz5B3qdNfyhvaWxI67fmhXkAcbmVpoStRgLjTE7Wzj1n_imu44SblSkK1aQRHTXB03P4SCnzh59BA"
+  }
+}
