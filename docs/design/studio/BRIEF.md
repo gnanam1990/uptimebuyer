@@ -68,8 +68,9 @@ backlit instruments that only glow when the reading behind them is live.
 
 Status tones keep the first redesign's text/fill/border triples (all text pairs 7:1 or better); green still comes only
 from the axis mapping (FRESH, CONFIRMED, PASSED, RECOVERED). Focus: 3px `#0A5BD6` on light (5.1:1 on Canvas) and
-`#FFC94D` on the cabinet and faceplate (11.6:1). The environment label stays a solid amber band (`#F6D365`, text
-`#3E2A00`, 9.4:1) at the top of the working column on every page.
+`#FFC94D` on the cabinet and faceplate (11.6:1). The environment label is a quiet line in the cabinet rail, above
+tenant and scope, on every page (text `#A3B7C2` with a `#FFC94D` warning mark; under the sheet on sign-in): the
+owner rejected the full-width amber band as louder than the incident. Simulated readings keep their SIMULATED_INPUT tag.
 
 ### Type
 

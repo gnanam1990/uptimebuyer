@@ -32,7 +32,6 @@ export function SignIn({ config }: { config: PublicConfig | null }) {
         <span className="signin-scale" aria-hidden="true" />
       </div>
       <div className="signin-body">
-        {config?.environmentLabel ? <EnvironmentLabel label={config.environmentLabel} /> : null}
         {error ? (
           <div className="error-summary" role="alert">
             <h2>Sign-in did not complete</h2>
@@ -75,6 +74,7 @@ export function SignIn({ config }: { config: PublicConfig | null }) {
             </button>
           </form>
         </div>
+        {config?.environmentLabel ? <EnvironmentLabel label={config.environmentLabel} /> : null}
         {!config ? <p role="status">Loading sign-in configuration…</p> : null}
       </div>
     </main>
