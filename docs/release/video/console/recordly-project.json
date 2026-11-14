@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "videoPath": "console-master.mp4 (scripts/release/console-capture.mjs frames at 60 fps; not committed)",
+  "editor": {
+    "wallpaper": "/wallpapers/midnight-8.jpg",
+    "shadowIntensity": 0.67,
+    "backgroundBlur": 0,
+    "zoomMotionBlur": 0.35,
+    "zoomTemporalMotionBlur": 0.35,
+    "zoomMotionBlurSampleCount": 13,
+    "zoomMotionBlurShutterFraction": 0.94,
+    "connectZooms": true,
+    "zoomInDurationMs": 200,
+    "zoomInOverlapMs": 200,
+    "zoomOutDurationMs": 200,
+    "connectedZoomGapMs": 1500,
+    "connectedZoomDurationMs": 1000,
+    "zoomInEasing": "recordly",
+    "zoomOutEasing": "recordly",
+    "connectedZoomEasing": "glide",
+    "showCursor": true,
+    "loopCursor": false,
+    "cursorStyle": "macos",
+    "cursorSize": 2.5,
+    "cursorSmoothing": 0.67,
+    "cursorSpringStiffnessMultiplier": 1.35,
+    "cursorSpringDampingMultiplier": 0.79,
+    "cursorSpringMassMultiplier": 1.29,
+    "cameraSpringStiffnessMultiplier": 1,
+    "cameraSpringDampingMultiplier": 1.13,
+    "cameraSpringMassMultiplier": 1.12,
+    "zoomSmoothness": 0.5,
+    "zoomClassicMode": false,
+    "cursorMotionBlur": 0.4,
+    "cursorClickBounce": 3.5,
+    "cursorClickBounceDuration": 350,
+    "cursorSway": 0.4,
+    "borderRadius": 12.5,
+    "padding": {
+      "top": 4,
+      "bottom": 4,
+      "left": 4,
+      "right": 4,
+      "linked": true
+    },
+    "frame": null,
+    "cropRegion": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    },
+    "webcam": {
+      "enabled": false,
+      "sourcePath": null,
+      "mirror": true,
+      "cropRegion": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1
+      },
+      "positionPreset": "bottom-right",
+      "positionX": 1,
+      "positionY": 1,
+      "corner": "bottom-right",
+      "size": 40,
+      "reactToZoom": true,
+      "cornerRadius": 90,
+      "shadow": 0.67,
+      "timeOffsetMs": 0,
+      "margin": 24
+    },
+    "zoomRegions": [
+      {
+        "id": "zoom-1",
+        "startMs": 1988,
+        "endMs": 4388,
+        "depth": 1,
+        "focus": {
+          "cx": 0.598,
+          "cy": 0.4628
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-2",
+        "startMs": 11417,
+        "endMs": 16216,
+        "depth": 2,
+        "focus": {
+          "cx": 0.4281,
+          "cy": 0.3253
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-3",
+        "startMs": 20430,
+        "endMs": 26229,
+        "depth": 2,
+        "focus": {
+          "cx": 0.7673,
+          "cy": 0.5
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-4",
+        "startMs": 29529,
+        "endMs": 35329,
+        "depth": 2,
+        "focus": {
+          "cx": 0.5,
+          "cy": 0.5
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-5",
+        "startMs": 38239,
+        "endMs": 42940,
+        "depth": 1,
+        "focus": {
+          "cx": 0.598,
+          "cy": 0.8421
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-6",
+        "startMs": 46742,
+        "endMs": 51443,
+        "depth": 3,
+        "focus": {
+          "cx": 0.3753,
+          "cy": 0.7503
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-7",
+        "startMs": 55309,
+        "endMs": 61010,
+        "depth": 1,
+        "focus": {
+          "cx": 0.598,
+          "cy": 0.9733
+        },
+        "mode": "manual"
+      },
+      {
+        "id": "zoom-8",
+        "startMs": 65420,
+        "endMs": 69820,
+        "depth": 1,
+        "focus": {
+          "cx": 0.598,
+          "cy": 0.3326
+        },
+        "mode": "manual"
+      }
+    ],
+    "trimRegions": [],
+    "clipRegions": [
+      {
+        "id": "clip-1",
+        "startMs": 0,
+        "endMs": 79366,
+        "speed": 1
+      }
+    ],
+    "speedRegions": [],
+    "annotationRegions": [],
+    "audioRegions": [],
+    "autoCaptions": [],
+    "autoCaptionSettings": {
+      "enabled": false,
+      "language": "auto",
+      "fontFamily": "\"SF Pro Text\", \"SF Pro Display\", Helvetica, sans-serif",
+      "fontSize": 30,
+      "bottomOffset": 3,
+      "maxWidth": 62,
+      "maxRows": 1,
+      "animationStyle": "fade",
+      "boxRadius": 17.5,
+      "textColor": "#FFFFFF",
+      "inactiveTextColor": "#A3A3A3",
+      "backgroundOpacity": 0.9
+    },
+    "aspectRatio": "16:9",
+    "exportEncodingMode": "quality",
+    "exportBackendPreference": "auto",
+    "exportPipelineModel": "modern",
+    "exportQuality": "source",
+    "mp4FrameRate": 60,
+    "exportFormat": "mp4",
+    "gifFrameRate": 15,
+    "gifLoop": true,
+    "gifSizePreset": "medium",
+    "sourceAudioTrackSettingsByClip": {},
+    "defaultSourceAudioTrackSettings": {}
+  }
+}

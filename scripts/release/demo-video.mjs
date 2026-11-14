@@ -8,9 +8,13 @@
 //      contract-fake reasoning and CMMS, test identity provider); the stack drops its database on exit;
 //   4. ffmpeg composes the parts at 1920x1080, 30 fps, with the captions burned in (rendered as part of each frame:
 //      this ffmpeg build has no libass/freetype), and writes docs/release/video/video-manifest.json.
-// No network call beyond 127.0.0.1, no upload. Every console frame carries a persistent SIMULATED banner and every
-// evidence slide a REAL label naming its record.
-//   node scripts/release/demo-video.mjs [--out <mp4>] [--work <dir>] [--skip-record]   (needs DATABASE_URL)
+// No network call beyond 127.0.0.1, no upload. Every console caption starts with SIMULATED and every evidence slide
+// carries a REAL label naming its record.
+//   node scripts/release/demo-video.mjs [--out <mp4>] [--work <dir>] [--skip-record] [--console <dir>]
+//     (needs DATABASE_URL)
+//     --console <dir> composes the console segment from an edited clip instead of a fresh Playwright recording:
+//     <dir>/console.mp4 (scripts/release/console-capture.mjs, then zooms and cursor in the Recordly editor) and
+//     <dir>/console-marks.json (written by the capture); the slides are still rendered from the timeline.
 //     --skip-record reuses the work directory's console recording only; it stops if any still or overlay there was
 //     rendered from other HTML than the current timeline and evidence produce (rendered.json digests).
 //   node scripts/release/demo-video.mjs --srt      write docs/release/SUBTITLES.srt from the timeline
@@ -29,8 +33,8 @@ export const SERV_JOURNEY_FIRST = 'j-2026-11-12-serv-document';
 export const KITE_JOURNEY = 'j-2026-11-13-kite-payment-2';
 export const KITE_JOURNEY_FIRST = 'j-2026-11-13-kite-payment';
 export const FRAME = { width: 1920, height: 1080, fps: 30 };
-/** Where the console recording sits inside the frame (16:9, below the SIMULATED banner, above the caption band). */
-export const CONSOLE_RECT = { x: 176, y: 70, width: 1568, height: 882 };
+/** Where the console recording sits inside the frame (16:9, above the caption band). */
+export const CONSOLE_RECT = { x: 176, y: 40, width: 1568, height: 882 };
 /** Page zoom of the recorded console (a 1568-pixel viewport at 1.2 lays out like the console's usual 1280 pixels). */
 export const CONSOLE_ZOOM = 1.2;
 
@@ -671,15 +675,13 @@ export function stillHtml(slideId, caption, ev) {
   return page('', `<div class="frame">${c.inner}</div>${capHtml(caption)}`);
 }
 
-/** The console overlay: opaque frame with a transparent hole for the recording, the SIMULATED banner and the caption. */
+/** The console overlay: opaque frame with a transparent hole for the recording, and the SIMULATED caption. */
 export function consoleFrameHtml(caption) {
   const r = CONSOLE_RECT;
   return page(
     'overlay',
     `<div style="position:absolute;left:${r.x}px;top:${r.y}px;width:${r.width}px;height:${r.height}px;box-shadow:0 0 0 3000px #0b1020;border-radius:2px"></div>
-     <div style="position:absolute;left:${r.x - 3}px;top:${r.y - 3}px;width:${r.width + 6}px;height:${r.height + 6}px;border:3px solid #f59e0b;border-radius:4px"></div>
-     <div style="position:absolute;left:0;right:0;top:0;height:${r.y - 10}px;background:#f59e0b;color:#111;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:800;letter-spacing:0.3px">
-       SIMULATED &middot; local demo stack &middot; SIMULATOR sensors (SIMULATED_INPUT) &middot; recorded-contract broker &middot; contract-fake reasoning and CMMS &middot; synthetic data</div>
+     <div style="position:absolute;left:${r.x - 2}px;top:${r.y - 2}px;width:${r.width + 4}px;height:${r.height + 4}px;border:2px solid #2a3d4c;border-radius:4px"></div>
      ${capHtml(caption)}`,
   );
 }
@@ -839,12 +841,14 @@ export function staleStills(parts, rendered) {
   return parts.filter((p) => done.get(path.basename(p.png)) !== htmlDigest(p.html)).map((p) => path.basename(p.png));
 }
 
-function build({ out, work, skipRecord }) {
+function build({ out, work, skipRecord, consoleDir }) {
   mkdirSync(work, { recursive: true });
   const plan = buildPlan(repo, work);
   for (const p of plan.parts) writeFileSync(p.htmlFile, p.html);
-  const consoleVideo = path.join(work, 'console.webm');
-  const marksFile = path.join(work, 'console-marks.json');
+  const consoleVideo = consoleDir ? path.join(consoleDir, 'console.mp4') : path.join(work, 'console.webm');
+  const marksFile = path.join(consoleDir ?? work, 'console-marks.json');
+  if (consoleDir && !(existsSync(consoleVideo) && existsSync(marksFile)))
+    throw new Error(`--console ${consoleDir} needs console.mp4 and console-marks.json`);
   const steps = plan.parts.filter((p) => p.kind === 'console').map((p) => ({ step: p.step, hold: p.seconds + 1.5 }));
   writeFileSync(
     path.join(work, 'plan.json'),
@@ -862,9 +866,10 @@ function build({ out, work, skipRecord }) {
       throw new Error('DATABASE_URL must be set (the console part records the local stack)');
     if (!existsSync(path.join(repo, 'apps', 'web', 'dist', 'index.html')))
       throw new Error('apps/web/dist is missing: run pnpm build first');
+    const only = consoleDir ? ['--grep', 'render the still frames'] : [];
     const r = spawnSync(
       'pnpm',
-      ['--filter', '@uptimebuyer/web', 'exec', 'playwright', 'test', '-c', 'playwright.video.config.ts'],
+      ['--filter', '@uptimebuyer/web', 'exec', 'playwright', 'test', '-c', 'playwright.video.config.ts', ...only],
       { cwd: repo, stdio: 'inherit', env: { ...process.env, UB_VIDEO_WORK: work } },
     );
     if (r.status !== 0) throw new Error(`Playwright recording failed (${r.status})`);
@@ -927,6 +932,13 @@ function build({ out, work, skipRecord }) {
     builder: 'scripts/release/demo-video.mjs',
     subtitles: 'docs/release/SUBTITLES.srt (captions are burned in)',
     segments,
+    consoleClip: consoleDir
+      ? {
+          sha256: createHash('sha256').update(readFileSync(consoleVideo)).digest('hex'),
+          capture: 'scripts/release/console-capture.mjs (DevTools screencast of the local SIMULATED stack)',
+          edit: 'Recordly editor: zooms and cursor from the capture telemetry; no frame added or reordered',
+        }
+      : { capture: 'Playwright video of the local SIMULATED stack (apps/web/e2e/release-video.video.ts)' },
     simulatedInputs:
       'console segment: local e2e stack (seeded throwaway database, SIMULATOR sensors SIMULATED_INPUT, RECORDED_CONTRACT broker, CONTRACT_FAKE reasoning and CMMS, local test identity provider)',
     realEvidence: [
@@ -954,7 +966,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     } else {
       const out = path.resolve(val('--out') ?? path.join(repo, 'docs', 'release', 'video', 'uptimebuyer-demo.mp4'));
       const work = path.resolve(val('--work') ?? mkdtempSync(path.join(tmpdir(), 'ub-demo-video-')));
-      const m = build({ out, work, skipRecord: args.includes('--skip-record') });
+      const consoleDir = val('--console') ? path.resolve(val('--console')) : undefined;
+      const m = build({ out, work, skipRecord: args.includes('--skip-record'), consoleDir });
       writeFileSync(srtFile, toSrt());
       const manifestFile = path.join(repo, 'docs', 'release', 'video', 'video-manifest.json');
       mkdirSync(path.dirname(manifestFile), { recursive: true });

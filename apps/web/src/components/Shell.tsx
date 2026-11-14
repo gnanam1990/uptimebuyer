@@ -1,7 +1,7 @@
 // Application shell (UI-SPEC §6): skip link, banner with product name, tenant/site scope, pending notification count,
 // the user menu and the primary navigation (the dark "cabinet": a full-height rail on wide screens, a top bar with
 // wrapping navigation on narrow ones); a persistent environment label (seeded, replay or simulated data is always
-// labelled) heading the working column; the main landmark that receives focus on navigation.
+// labelled) in the cabinet beside tenant and scope; the main landmark that receives focus on navigation.
 import { useEffect, type ReactNode } from 'react';
 import { api, useResource } from '../api';
 import { signOut } from '../auth';
@@ -67,6 +67,7 @@ export function Shell({ children, title }: { children: ReactNode; title: string 
           </ul>
         </nav>
         <div className="banner-foot">
+          <EnvironmentLabel label={config.environmentLabel} />
           <dl className="scope">
             <div>
               <dt>Tenant</dt>
@@ -89,7 +90,6 @@ export function Shell({ children, title }: { children: ReactNode; title: string 
         </div>
       </header>
       <div className="workspace">
-        <EnvironmentLabel label={config.environmentLabel} />
         <main id="main" tabIndex={-1}>
           {children}
         </main>
@@ -98,13 +98,14 @@ export function Shell({ children, title }: { children: ReactNode; title: string 
   );
 }
 
-/** The persistent environment label: seeded, replay or simulated data is always named, on every page. */
+/** The persistent environment label: seeded, replay or simulated data is always named, on every page. A quiet line
+ *  (amber mark and the configured label), not a band across the working column. */
 export function EnvironmentLabel({ label }: { label: string | null | undefined }) {
   return label ? (
     <p className="env env-labelled" role="note" aria-label="Environment">
       <WarningIcon />
       <span>
-        <strong>{label}</strong> <span>Seeded or simulated data, not live operations.</span>
+        <strong>{label}</strong> <span className="sr-only">Seeded or simulated data, not live operations.</span>
       </span>
     </p>
   ) : (
