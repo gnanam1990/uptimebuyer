@@ -136,12 +136,14 @@ async function signIn(login) {
   await page.getByRole('button', { name: 'Sign out' }).waitFor();
   await ready();
 }
-const norm = (b, pad = 24 * SCALE) => ({
-  x: Math.max(0, (b.x - pad) / VIEW.width),
-  y: Math.max(0, (b.y - pad) / VIEW.height),
-  w: Math.min(1, (b.width + 2 * pad) / VIEW.width),
-  h: Math.min(1, (b.height + 2 * pad) / VIEW.height),
-});
+/** A padded box, normalised to the viewport and kept inside it (x + w and y + h never exceed 1). */
+const norm = (b, pad = 24 * SCALE) => {
+  const w = Math.min(1, (b.width + 2 * pad) / VIEW.width);
+  const h = Math.min(1, (b.height + 2 * pad) / VIEW.height);
+  const x = Math.min(Math.max(0, (b.x - pad) / VIEW.width), 1 - w);
+  const y = Math.min(Math.max(0, (b.y - pad) / VIEW.height), 1 - h);
+  return { x, y, w, h };
+};
 
 const marks = [];
 const focus = [];
@@ -153,7 +155,9 @@ async function step(name, body) {
   const f = await body(s);
   if (f) focus.push({ step: name, ...f });
   const left = start + s + LEAD - clock();
-  if (left > 0) await idle(left * 1000);
+  // The composer cuts exactly the planned window: a step whose actions run past it would lose its ending.
+  if (left < 0) throw new Error(`console step ${name} ran ${(-left).toFixed(2)} s past its planned hold`);
+  await idle(left * 1000);
 }
 const section = (label) =>
   page.getByRole('navigation', { name: 'Incident sections' }).getByRole('link', { name: label, exact: true });
