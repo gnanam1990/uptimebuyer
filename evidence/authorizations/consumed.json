@@ -2,6 +2,8 @@
   "schema": "release-authorizations-consumed.v1",
   "consumed": [
     "auth-payment-20261113-cacd36",
-    "auth-payment-20261113-86104d"
+    "auth-payment-20261113-86104d",
+    "auth-release-tag-20261114-fee5f4",
+    "auth-video-upload-20261114-9ef8df"
   ]
 }

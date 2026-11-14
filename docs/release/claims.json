@@ -115,7 +115,7 @@
     },
     {
       "id": "C-013",
-      "text": "Each external action has its own release gate and none is authorized; every gate is REFUSED (local tests and repository state).",
+      "text": "Each external action has its own release gate and no unused authorization remains: the records signed so far (two PAYMENT, one RELEASE_TAG and one VIDEO_UPLOAD) are each used, so every gate is REFUSED (local tests and repository state).",
       "status": "EVIDENCED",
       "layer": "LOCAL_TEST",
       "coverageIds": ["T-060"],
@@ -147,7 +147,7 @@
     },
     {
       "id": "C-017",
-      "text": "The demo video is built reproducibly by scripts/release/demo-video.mjs: a SIMULATED console walk-through recorded with Playwright against the local e2e stack (SIMULATOR sensors, recorded-contract broker, contract-fake reasoning and CMMS) and REAL evidence slides rendered only from the committed journey records; its captions are SUBTITLES.srt (local tests check the timeline, the labels and the file digest).",
+      "text": "The demo video is built reproducibly by scripts/release/demo-video.mjs: a SIMULATED console walk-through captured by scripts/release/console-capture.mjs against the local e2e stack (SIMULATOR sensors, recorded-contract broker, contract-fake reasoning and CMMS) and edited in Recordly (zooms and cursor only), and REAL evidence slides rendered only from the committed journey records; its captions are SUBTITLES.srt (local tests check the timeline, the labels and the file digest).",
       "status": "EVIDENCED",
       "layer": "LOCAL_TEST",
       "coverageIds": ["T-059"],
@@ -155,7 +155,9 @@
         "scripts/release/demo-video.mjs",
         "apps/web/e2e/release-video.video.ts",
         "docs/release/video/video-manifest.json",
-        "tests/m14/t059-demo-video.test.ts"
+        "tests/m14/t059-demo-video.test.ts",
+        "scripts/release/console-capture.mjs",
+        "docs/release/video/console/recordly-project.json"
       ]
     },
     {
@@ -223,11 +225,15 @@
     },
     {
       "id": "C-025",
-      "text": "Uploaded video, X post and hackathon submission: NOT_RUN (each needs its own explicit authorization; GATE-REQUESTS.md lists the exact scopes). The repository itself is public (the owner changed its visibility outside the release-gate tooling, so REPO_PUBLICATION holds no record of it).",
+      "text": "X post and hackathon submission: NOT_RUN (each needs its own explicit authorization; GATE-REQUESTS.md lists the exact scopes). Recorded so far: the release v1.0.0 was created at 619cb5f under the owner's single-use RELEASE_TAG authorization auth-release-tag-20261114-fee5f4, and the demo video (sha256 ec87d6aba4b84d35d29d32231b220caa51d81ec2bca961698b6d8b58690c2bca) was attached to it under the VIDEO_UPLOAD authorization auth-video-upload-20261114-9ef8df, each after its gate read AUTHORIZED; the uploaded asset's digest was checked on download. The repository itself is public (the owner changed its visibility outside the release-gate tooling, so REPO_PUBLICATION holds no record of it).",
       "status": "NOT_RUN",
       "layer": "REAL_WORLD",
       "coverageIds": ["T-059", "T-060"],
-      "evidence": []
+      "evidence": [
+        "evidence/authorizations/RELEASE_TAG.auth-release-tag-20261114-fee5f4.json",
+        "evidence/authorizations/VIDEO_UPLOAD.auth-video-upload-20261114-9ef8df.json",
+        "evidence/authorizations/decisions.jsonl"
+      ]
     },
     {
       "id": "C-026",

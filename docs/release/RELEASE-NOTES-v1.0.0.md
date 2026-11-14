@@ -1,8 +1,9 @@
-# UptimeBuyer v1.0.0: release notes (DRAFT, not tagged)
+# UptimeBuyer v1.0.0: release notes
 
-> DRAFT. Not tagged or released: RELEASE_TAG is NOT_RUN and needs its own explicit authorization naming the tag and the
-> exact commit (`GATE-REQUESTS.md`). Attaching the demo video to the release is a separate gate (VIDEO_UPLOAD). The
-> video's console part is SIMULATED and labelled so.
+> Released on 2026-11-14 as tag `v1.0.0` at `619cb5f`, under the owner's single-use RELEASE_TAG authorization
+> `auth-release-tag-20261114-fee5f4`. The demo video `uptimebuyer-demo.mp4` (sha256
+> `ec87d6aba4b84d35d29d32231b220caa51d81ec2bca961698b6d8b58690c2bca`) is attached under the VIDEO_UPLOAD authorization
+> `auth-video-upload-20261114-9ef8df`. The video's console part is SIMULATED and labelled so.
 
 The SERV Hackathon 02 submission build (Track 02: Kite). Everything here was built from the build pack imported on
 2026-11-04 <!-- C-015 -->.

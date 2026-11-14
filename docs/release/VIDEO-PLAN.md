@@ -1,7 +1,8 @@
-# Demo video plan (DRAFT, recorded locally, not uploaded)
+# Demo video plan (DRAFT until the submission; the video is uploaded)
 
-> DRAFT. The video is recorded and committed but not uploaded: the upload is NOT_RUN and needs its own explicit
-> authorization naming the destination and the file's sha256 (`RELEASE-GATES.md`, `GATE-REQUESTS.md`). Its console
+> DRAFT until the hackathon submission, which is NOT_RUN <!-- C-025 -->. The video is attached to the release `v1.0.0`
+> (`https://github.com/gnanam1990/uptimebuyer/releases/tag/v1.0.0`) under the owner's VIDEO_UPLOAD authorization
+> `auth-video-upload-20261114-9ef8df`, which named that destination and the file's sha256. Its console
 > walk-through is SIMULATED; its evidence segments show committed records of real runs; the complete real-input journey
 > (DEMO-VALIDATION.md) is NOT_RUN <!-- C-020 C-021 C-022 C-023 -->.
 

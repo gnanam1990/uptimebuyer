@@ -1,8 +1,10 @@
-# Gate requests for the submission (DRAFT, nothing signed)
+# Gate requests for the submission
 
-> DRAFT. Nothing here is signed or performed: X_POST, VIDEO_UPLOAD, RELEASE_TAG and HACKATHON_SUBMISSION hold no
-> authorization record, so each is REFUSED (NO_AUTHORIZATION) <!-- C-013 --> and each action is NOT_RUN <!-- C-025 -->
-> until its own explicit authorization. The owner signs on their own machine; the tooling only records decisions. The demo
+> RELEASE_TAG and VIDEO_UPLOAD are done: the owner signed `auth-release-tag-20261114-fee5f4` and
+> `auth-video-upload-20261114-9ef8df`, both gates read AUTHORIZED, the release `v1.0.0` was created at `619cb5f` and the
+> video attached to it; both records are now used <!-- C-013 -->. X_POST and HACKATHON_SUBMISSION hold no authorization
+> record, so each is REFUSED (NO_AUTHORIZATION) and each action is NOT_RUN <!-- C-025 --> until its own explicit
+> authorization. The owner signs on their own machine; the tooling only records decisions. The demo
 > video's console part is SIMULATED and labelled so.
 
 Each record is built by `scripts/release/authorize.mjs` from explicit arguments: it computes every file digest itself,
