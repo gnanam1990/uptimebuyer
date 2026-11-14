@@ -16,7 +16,7 @@ other output conflict is refused before anything is signed <!-- C-018 -->.
 | Gate                 | Scope fields                          | Values for this submission                                                                                                          | Validity (max) |
 | -------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------- |
 | RELEASE_TAG          | tag, sourceSha                        | `v1.0.0`; the commit of `main` after this branch is merged (`SOURCE` below)                                                         | 24 h           |
-| VIDEO_UPLOAD         | destination, fileSha256               | `https://github.com/gnanam1990/uptimebuyer/releases/tag/v1.0.0`; `14893456f05ef94f55ba06b6cc263794d72a9993e9f3e9fdc3733e589938b928` | 24 h           |
+| VIDEO_UPLOAD         | destination, fileSha256               | `https://github.com/gnanam1990/uptimebuyer/releases/tag/v1.0.0`; `ec87d6aba4b84d35d29d32231b220caa51d81ec2bca961698b6d8b58690c2bca` | 24 h           |
 | X_POST               | account, contentSha256                | the owner's X handle; `c4a45a11c56e524a0d42dbaecb7b7e9b7439c67ff15f5f5046e15a4516feef3e` (`x-post/release-url.txt`)                 | 24 h           |
 | HACKATHON_SUBMISSION | destination, contentSha256, sourceSha | `https://openserv.typeform.com/submissions02`; the digest of the filled copy of `SUBMISSION.md`; `SOURCE`                           | 24 h           |
 

@@ -1,0 +1,42 @@
+[
+  {
+    "step": "command-center",
+    "start": 0.288,
+    "hold": 9.5
+  },
+  {
+    "step": "incident",
+    "start": 9.317,
+    "hold": 8.5
+  },
+  {
+    "step": "evidence",
+    "start": 17.33,
+    "hold": 9.5
+  },
+  {
+    "step": "plan",
+    "start": 26.429,
+    "hold": 9.5
+  },
+  {
+    "step": "order",
+    "start": 35.94,
+    "hold": 8.5
+  },
+  {
+    "step": "unknown",
+    "start": 44.443,
+    "hold": 8.5
+  },
+  {
+    "step": "verification",
+    "start": 53.01,
+    "hold": 9.5
+  },
+  {
+    "step": "ledger",
+    "start": 63.32,
+    "hold": 7.5
+  }
+]

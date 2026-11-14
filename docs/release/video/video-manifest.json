@@ -1,15 +1,15 @@
 {
   "schema": "demo-video-manifest.v1",
   "file": "docs/release/video/uptimebuyer-demo.mp4",
-  "sha256": "14893456f05ef94f55ba06b6cc263794d72a9993e9f3e9fdc3733e589938b928",
-  "bytes": 7365594,
+  "sha256": "ec87d6aba4b84d35d29d32231b220caa51d81ec2bca961698b6d8b58690c2bca",
+  "bytes": 11995688,
   "durationSeconds": 176,
   "width": 1920,
   "height": 1080,
   "codec": "h264",
   "frameRate": "30/1",
-  "builtFromSha": "e0108a1f39440e944e3b77608203aefe11433de7",
-  "builtAt": "2026-11-13T16:33:25.706Z",
+  "builtFromSha": "4dcb6b8e03bd220408f9a29cd3269a312a7dc5bd",
+  "builtAt": "2026-11-14T01:44:45.864Z",
   "builder": "scripts/release/demo-video.mjs",
   "subtitles": "docs/release/SUBTITLES.srt (captions are burned in)",
   "segments": [
@@ -56,6 +56,11 @@
       "end": 176
     }
   ],
+  "consoleClip": {
+    "sha256": "22d7b03f7601b4005c598df5328614fa4f4f8e94aa5616c99986ed7a92808acf",
+    "capture": "scripts/release/console-capture.mjs (DevTools screencast of the local SIMULATED stack)",
+    "edit": "Recordly editor: zooms and cursor from the capture telemetry; no frame added or reordered"
+  },
   "simulatedInputs": "console segment: local e2e stack (seeded throwaway database, SIMULATOR sensors SIMULATED_INPUT, RECORDED_CONTRACT broker, CONTRACT_FAKE reasoning and CMMS, local test identity provider)",
   "realEvidence": [
     "evidence/journeys/j-2026-11-12-serv-document-2/",
