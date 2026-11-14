@@ -54,8 +54,9 @@ describe('T-059 demo video timeline', () => {
     for (const p of consoleParts) {
       expect(p.label).toBe('SIMULATED');
       expect(p.caption).toMatch(/^SIMULATED: /);
-      expect(p.html).toContain('SIMULATED &middot; local demo stack');
-      expect(p.html).toContain('SIMULATED_INPUT');
+      // The burned-in caption of every console frame opens with the SIMULATED tag (the owner removed the separate
+      // banner; the console's own environment label naming SIMULATED_INPUT is checked at capture time).
+      expect(p.html).toContain('<span class="tag sim">SIMULATED:</span>');
       expect(p.html).not.toContain('REAL EVIDENCE');
     }
     const real = plan.parts.filter((p) => p.segment.startsWith('real-'));

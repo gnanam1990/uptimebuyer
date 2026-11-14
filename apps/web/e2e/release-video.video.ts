@@ -4,7 +4,7 @@
 //      step for its planned duration and writing when each hold started, so the composer cuts exact windows.
 // Every console input is synthetic: SIMULATOR sensors (SIMULATED_INPUT), a RECORDED_CONTRACT broker, CONTRACT_FAKE CMMS
 // and reasoning, synthetic citations and a test identity provider. The environment label naming the simulation is
-// asserted on every recorded page, and the composer adds a persistent SIMULATED banner around the recording.
+// asserted on every recorded page, and every console caption the composer burns in starts with SIMULATED.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
