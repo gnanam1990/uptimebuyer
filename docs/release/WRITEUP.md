@@ -70,7 +70,7 @@ browser tests <!-- C-016 -->.
 - The timeout case after a real payment: NOT_RUN (Kite has no lookup by client key) <!-- C-022 -->.
 - A hosted deployment: NOT_RUN <!-- C-024 -->.
 - One complete real-input journey with every part in a single run (T-058): NOT_RUN <!-- C-021 C-022 -->.
-- Uploaded video, X post and submission: NOT_RUN until each is authorized <!-- C-025 -->.
+- Release v1.0.0 with the video: done under signed gate records; X post (https://x.com/0xweeky/status/2121434814087938457) and form submission: done by the owner outside the tooling, so their gate records are NOT_RUN <!-- C-025 -->.
 - Production load, SLOs, edge/WAF and enforced network policy: NOT_RUN <!-- C-026 -->.
 
 ## Demo

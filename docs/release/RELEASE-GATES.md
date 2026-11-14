@@ -41,8 +41,9 @@ four are used, so every gate is refused <!-- C-013 -->:
 `scripts/release/authorize.mjs` also builds and signs X_POST, VIDEO_UPLOAD, RELEASE_TAG and HACKATHON_SUBMISSION
 records (`x-post`, `video-upload`, `release-tag`, `hackathon-submission`), binding the post text, the video and the
 submission content by a sha256 it computes, after the same plain-words summary and `YES` <!-- C-018 -->. The exact scopes,
-the order and the commands for this submission are in [GATE-REQUESTS.md](./GATE-REQUESTS.md); none is signed yet, so each
-action is NOT_RUN <!-- C-025 -->.
+the order and the commands for this submission are in [GATE-REQUESTS.md](./GATE-REQUESTS.md). RELEASE_TAG and
+VIDEO_UPLOAD were signed and used for v1.0.0; the owner posted on X and submitted the form outside this tooling, so the
+X_POST and HACKATHON_SUBMISSION records are NOT_RUN <!-- C-025 -->.
 
 ## Authorizing the one bounded Kite payment (T-058)
 

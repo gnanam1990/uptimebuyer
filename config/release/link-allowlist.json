@@ -16,6 +16,11 @@
       "host": "openserv.typeform.com",
       "pathPrefix": "/submissions02",
       "status": "VERIFIED_OFFLINE"
+    },
+    {
+      "host": "x.com",
+      "pathPrefix": "/0xweeky/status/2121434814087938457",
+      "status": "VERIFIED_OFFLINE"
     }
   ]
 }

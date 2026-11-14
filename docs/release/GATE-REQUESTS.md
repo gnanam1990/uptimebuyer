@@ -2,9 +2,9 @@
 
 > RELEASE_TAG and VIDEO_UPLOAD are done: the owner signed `auth-release-tag-20261114-fee5f4` and
 > `auth-video-upload-20261114-9ef8df`, both gates read AUTHORIZED, the release `v1.0.0` was created at `619cb5f` and the
-> video attached to it; both records are now used <!-- C-013 -->. X_POST and HACKATHON_SUBMISSION hold no authorization
-> record, so each is REFUSED (NO_AUTHORIZATION) and each action is NOT_RUN <!-- C-025 --> until its own explicit
-> authorization. The owner signs on their own machine; the tooling only records decisions. The demo
+> video attached to it; both records are now used <!-- C-013 -->. The X post (https://x.com/0xweeky/status/2121434814087938457) and the hackathon
+> form were published and submitted by the owner on 2026-11-14 directly, outside this tooling: X_POST and
+> HACKATHON_SUBMISSION hold no authorization record, so their gate records are NOT_RUN <!-- C-025 -->. The owner signs on their own machine; the tooling only records decisions. The demo
 > video's console part is SIMULATED and labelled so.
 
 Each record is built by `scripts/release/authorize.mjs` from explicit arguments: it computes every file digest itself,
